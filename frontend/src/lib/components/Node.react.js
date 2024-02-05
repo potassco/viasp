@@ -270,7 +270,7 @@ export function Node(props) {
     }
     const [expandNode, setExpandNode] = React.useState(false);
     // state updater to force other components to update
-    // const [, , startAnimationUpdater, stopAnimationUpdater] = useAnimationUpdater();
+    const [, , startAnimationUpdater, stopAnimationUpdater] = useAnimationUpdater();
     const { setShownDetail } = useShownDetail();
     
     const dispatchShownNodesRef = React.useRef(dispatchShownNodes);
@@ -317,8 +317,8 @@ export function Node(props) {
                         id={divID}
                         duration={500}
                         height={height}
-                        // onHeightAnimationStart={startAnimationUpdater}
-                        // onHeightAnimationEnd={stopAnimationUpdater}
+                        onHeightAnimationStart={startAnimationUpdater}
+                        onHeightAnimationEnd={stopAnimationUpdater}
                         >
                         <NodeContent
                             node={node}
