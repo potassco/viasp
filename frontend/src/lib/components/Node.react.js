@@ -265,9 +265,6 @@ export function Node(props) {
     const { dispatch: dispatchShownNodes } = useShownNodes();
     const classNames = useHighlightedNodeToCreateClassName(node);
     const [height, setHeight] = React.useState(minimumNodeHeight);
-    const handleSetHeight = (newHeight) => {    
-        setHeight(newHeight);
-    }
     const [expandNode, setExpandNode] = React.useState(false);
     // state updater to force other components to update
     const [, , startAnimationUpdater, stopAnimationUpdater] = useAnimationUpdater();
@@ -322,7 +319,7 @@ export function Node(props) {
                         >
                         <NodeContent
                             node={node}
-                            setHeight={handleSetHeight}
+                            setHeight={setHeight}
                             parentID={divID}
                             setIsOverflowV={setIsOverflowV}
                             expandNode={expandNode}
