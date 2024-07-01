@@ -6,10 +6,11 @@ import PropTypes from "prop-types";
 import {useHighlightedNode} from "../contexts/HighlightedNode";
 import {useSettings} from "../contexts/Settings";
 import {addSignature, clear, useFilters} from "../contexts/Filters";
-import {NODE, SIGNATURE, TRANSFORMATION} from "../types/propTypes";
+import {NODE, SIGNATURE, SYMBOLIDENTIFIER, TRANSFORMATION} from "../types/propTypes";
 import {showOnlyTransformation, useTransformations} from "../contexts/transformations";
 import {useColorPalette} from "../contexts/ColorPalette";
 import { useShownDetail } from "../contexts/ShownDetail";
+import { useHighlightedSymbol } from '../contexts/HighlightedSymbol';
 
 function ActiveFilters() {
     const [{activeFilters},] = useFilters();
@@ -46,7 +47,6 @@ function ActiveFilter(props) {
     if (filter._type === "Signature") {
         classes.push("search_signature")
     }
-
     function onClose() {
         dispatch(clear(filter))
     }
@@ -58,7 +58,7 @@ function ActiveFilter(props) {
 }
 
 ActiveFilter.propTypes = {
-    filter: PropTypes.oneOfType([TRANSFORMATION, NODE, SIGNATURE])
+    filter: PropTypes.oneOfType([TRANSFORMATION, NODE, SIGNATURE, SYMBOLIDENTIFIER])
 }
 
 
@@ -74,6 +74,9 @@ export function Search() {
     const {backendURL} = useSettings();
     const colorPalette = useColorPalette();
     const { setShownDetail } = useShownDetail();
+    const {toggleReasonOf} = useHighlightedSymbol();
+    const toggleReasonOfRef = React.useRef(toggleReasonOf);
+    const {state: {shownRecursion}} =  useTransformations();
 
     let suggestionsListComponent;
     React.useEffect(() => {
@@ -82,12 +85,29 @@ export function Search() {
         if (highlighted && highlighted._type === "Node") {
             setHighlightedNodeRef.current(highlighted.uuid);
         }
+        if (highlighted && highlighted._type === 'Atom') {
+            // toggleReasonOfRef.current(highlighted.uuid);
+        }
     }, [activeSuggestion, filteredSuggestions])
 
     function onChange(e) {
         const userInput = e.currentTarget.value;
-        fetch(`${backendURL("query")}?q=${userInput}`)
-            .then(r => r.json())
+        fetch(`${backendURL("query")}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: userInput, 
+                shownRecursion: shownRecursion
+            })})
+            .then(r => {
+                if (!r.ok) {
+                    throw new Error(`${r.status} ${r.statusText}`);
+                }
+                console.log(r);
+                return r.json();
+            })
             .then(data => {
                 setActiveSuggestion(0)
                 setFilteredSuggestions(data)
@@ -112,6 +132,9 @@ export function Search() {
         if (selection._type === "Transformation") {
             dispatchT(showOnlyTransformation(selection));
         }
+        // if (selection._type === "Atom") {
+        //     toggleReasonOf(selection.uuid);
+        // }
     }
 
     function reset() {
