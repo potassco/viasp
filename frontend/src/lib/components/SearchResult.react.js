@@ -1,7 +1,7 @@
 import React from "react";
 import {make_atoms_string, make_rules_string} from "../utils/index";
 import PropTypes from "prop-types";
-import {NODE, SIGNATURE, TRANSFORMATION} from "../types/propTypes";
+import {NODE, SIGNATURE, SYMBOLIDENTIFIER, TRANSFORMATION} from "../types/propTypes";
 import {useSettings} from "../contexts/Settings";
 import styled from "styled-components";
 import {useColorPalette} from "../contexts/ColorPalette";
@@ -39,6 +39,11 @@ function SuggestionContent(props) {
         color = colorPalette.primary;
         display = make_rules_string(value.rules)
     }
+    if (value._type === "SymbolIdentifier") {
+        suggestionSymbol = " . "
+        color = colorPalette.primary;
+        display = make_atoms_string(value.symbol)
+    }
     return <StyledSuggestion color={color} content={suggestionSymbol}>{display}</StyledSuggestion>
 }
 
@@ -50,7 +55,8 @@ SuggestionContent.propTypes = {
     value: PropTypes.oneOfType([
         SIGNATURE,
         TRANSFORMATION,
-        NODE
+        NODE,
+        SYMBOLIDENTIFIER
     ]),
 }
 
@@ -74,7 +80,8 @@ Suggestion.propTypes = {
     value: PropTypes.oneOfType([
         SIGNATURE,
         TRANSFORMATION,
-        NODE
+        NODE,
+        SYMBOLIDENTIFIER
     ]),
     /**
      *  Whether the result is highlighted or not.
