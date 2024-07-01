@@ -91,6 +91,7 @@ function GraphContainer(props) {
             {clingraphUsed ? <Boxrow transform={transform}/> : null}
             {highlightedSymbol.length === 0 ? null : <Arrows />}
             {transformations.length === 0 ? null : <Edges />}
+        <Search />
         </div>
     );
 }

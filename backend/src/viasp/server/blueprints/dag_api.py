@@ -4,8 +4,6 @@ from collections import defaultdict
 from typing import Union, Collection, Dict, List, Iterable, Optional
 import uuid
 
-import time
-
 import igraph
 import networkx as nx
 import numpy as np
@@ -16,7 +14,7 @@ from sqlalchemy.exc import MultipleResultsFound
 from ...asp.reify import ProgramAnalyzer, reify_list
 from ...asp.justify import build_graph
 from ...shared.defaults import STATIC_PATH
-from ...shared.model import Transformation, Node, Signature
+from ...shared.model import SymbolIdentifier, Transformation, Node, Signature
 from ...shared.util import get_start_node_from_graph, is_recursive, hash_from_sorted_transformations
 from ...shared.io import StableModel
 from ...shared.simple_logging import error
@@ -495,23 +493,58 @@ def get_all_signatures(graph: nx.Graph):
     return signatures
 
 
-@bp.route("/query", methods=["GET"])
+def get_all_atoms(graph: nx.Graph, shown_recursive_ids=[]):
+    atoms = set()
+    for n in graph.nodes():
+        for a in n.diff:
+            if n.recursive and n.uuid in shown_recursive_ids:
+                for r in n.recursive:
+                    for a in r.diff:
+                        atoms.add(a)
+            else:
+                atoms.add(a)
+    return atoms
+
+
+@bp.route("/query", methods=["POST"])
 def search():
+    encoding_id = get_or_create_encoding_id()
     if "q" in request.args.keys():
         query = request.args["q"]
-        graph = _get_graph(get_or_create_encoding_id())
+        graph = _get_graph(encoding_id)
+    if request.method == "POST":
+        if request.json is None:
+            abort(Response("No json data provided.", 400))
+        shown_recursive_ids = request.json[
+            "shownRecursion"] if "shownRecursion" in request.json else []
+        query = request.json["query"] if "query" in request.json else ""
+        query = query.replace(" ", "")
+        graph = _get_graph(encoding_id)
         result = []
-        signatures = get_all_signatures(graph)
-        result.extend(signatures)
-        for node in graph.nodes():
-            if any(query in str(atm.symbol)
-                   for atm in node.atoms) and node not in result:
-                result.append(node)
-        for _, _, edge in graph.edges(data=True):
-            transformation = edge["transformation"]
-            if any(query in rule for rule in
-                   transformation.rules.str_) and transformation not in result:
-                result.append(transformation)
+
+        # signatures = get_all_signatures(graph)
+        # for signature in signatures:
+        #     if query in signature.name \
+        #         and signature not in result:
+        #         result.append(signature)
+
+        # for node in graph.nodes():
+        #     if any(query in str(atm.symbol)
+        #            for atm in node.atoms) and node not in result:
+        #         result.append(node)
+
+        # for _, _, edge in graph.edges(data=True):
+        #     transformation = edge["transformation"]
+        #     if any(query in rule for rule in
+        #            transformation.rules.str_) and transformation not in result:
+        #         result.append(transformation)
+
+        atoms = get_all_atoms(graph, shown_recursive_ids)
+        for atom in atoms:
+            if query in str(atom.symbol) and atom not in result:
+                result.append(atom)
+
+
         return jsonify(result[:10])
     return jsonify([])
 
