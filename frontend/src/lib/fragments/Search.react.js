@@ -6,17 +6,27 @@ import PropTypes from "prop-types";
 import {useHighlightedNode} from "../contexts/HighlightedNode";
 import {useSettings} from "../contexts/Settings";
 import {addSignature, clear, useFilters} from "../contexts/Filters";
-import {NODE, SIGNATURE, SYMBOLIDENTIFIER, TRANSFORMATION} from "../types/propTypes";
-import {showOnlyTransformation, useTransformations} from "../contexts/transformations";
+import {NODE, SIGNATURE, SYMBOL, TRANSFORMATION} from "../types/propTypes";
+import {showOnlyTransformation, useTransformations, addAtom, removeAtom} from "../contexts/transformations";
 import {useColorPalette} from "../contexts/ColorPalette";
 import { useShownDetail } from "../contexts/ShownDetail";
-import { useHighlightedSymbol } from '../contexts/HighlightedSymbol';
+import { make_atoms_string } from '../utils';
 
 function ActiveFilters() {
     const [{activeFilters},] = useFilters();
-    return <ul className="active_filters_list">{activeFilters.map(function (filter, index) {
-        return <ActiveFilter key={index} filter={filter}/>
-    })}</ul>
+    const {state: {highlightedAtoms: activeHighlights}} = useTransformations();
+    return (
+        <ul className="active_filters_list">
+            {activeFilters.length === 0 ? null :
+                activeFilters.map((filter, index) => {
+                return <ActiveFilter key={index} filter={filter} />;
+            })}
+            {activeHighlights.length === 0 ? null :
+                activeHighlights.map((atom, index) => {
+                    return <ActiveHighlight key={index} atom={atom} />;
+                })}
+        </ul>
+    );
 
 }
 
@@ -58,7 +68,24 @@ function ActiveFilter(props) {
 }
 
 ActiveFilter.propTypes = {
-    filter: PropTypes.oneOfType([TRANSFORMATION, NODE, SIGNATURE, SYMBOLIDENTIFIER])
+    filter: PropTypes.oneOfType([TRANSFORMATION, NODE, SIGNATURE])
+}
+
+function ActiveHighlight(props) {
+    const {atom} = props;
+    const {dispatch} = useTransformations();
+    const colorPalette = useColorPalette();
+    function onClose() {
+        dispatch(removeAtom(atom))
+    }
+    return <li style={{backgroundColor: colorPalette.primary, color: colorPalette.light}} className="filter search_row"
+               key={atom}>{make_atoms_string(atom)}<CloseButton
+        onClose={onClose}/>
+    </li>
+}
+
+ActiveHighlight.propTypes = {
+    atom: SYMBOL
 }
 
 
@@ -74,8 +101,6 @@ export function Search() {
     const {backendURL} = useSettings();
     const colorPalette = useColorPalette();
     const { setShownDetail } = useShownDetail();
-    const {toggleReasonOf} = useHighlightedSymbol();
-    const toggleReasonOfRef = React.useRef(toggleReasonOf);
     const {state: {shownRecursion}} =  useTransformations();
 
     let suggestionsListComponent;
@@ -85,34 +110,17 @@ export function Search() {
         if (highlighted && highlighted._type === "Node") {
             setHighlightedNodeRef.current(highlighted.uuid);
         }
-        if (highlighted && highlighted._type === 'Atom') {
-            // toggleReasonOfRef.current(highlighted.uuid);
-        }
     }, [activeSuggestion, filteredSuggestions])
 
     function onChange(e) {
         const userInput = e.currentTarget.value;
-        fetch(`${backendURL("query")}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                query: userInput, 
-                shownRecursion: shownRecursion
-            })})
-            .then(r => {
-                if (!r.ok) {
-                    throw new Error(`${r.status} ${r.statusText}`);
-                }
-                console.log(r);
-                return r.json();
-            })
-            .then(data => {
-                setActiveSuggestion(0)
-                setFilteredSuggestions(data)
-                setShowSuggestions(true)
-                setUserInput(userInput)
+        setUserInput(userInput);
+        fetch(`${backendURL("query")}?q=${userInput}`)
+        .then(r => r.json())
+        .then(data => {
+            setActiveSuggestion(0)
+            setFilteredSuggestions(data)
+            setShowSuggestions(true)
             })
     }
 
@@ -132,9 +140,9 @@ export function Search() {
         if (selection._type === "Transformation") {
             dispatchT(showOnlyTransformation(selection));
         }
-        // if (selection._type === "Atom") {
-        //     toggleReasonOf(selection.uuid);
-        // }
+        if (selection._type === "Function") {
+            dispatchT(addAtom(selection));
+        }
     }
 
     function reset() {
@@ -180,15 +188,15 @@ export function Search() {
     }
     return (
         <div className="search">
-            {suggestionsListComponent}
-            <ActiveFilters/>
             <input
                 style={{width: '220px'}}
                 type="text"
                 onChange={onChange}
                 onKeyDown={onKeyDown}
                 value={userInput}
-            />
+                />
+            <ActiveFilters/>
+            {suggestionsListComponent}
         </div>
     );
 }

@@ -1,4 +1,6 @@
-from viasp.shared.model import Node, Signature, Transformation
+import pytest
+
+from viasp.shared.model import Node, Signature, Transformation, Symbol
 
 def test_query_endpoints_methods(client_with_a_graph):
     client, _, _, _ = client_with_a_graph
@@ -12,6 +14,20 @@ def test_query_endpoints_methods(client_with_a_graph):
     assert res.status_code == 405
 
 
+def test_query_atoms(client_with_a_graph):
+    client, _, _, program = client_with_a_graph
+    q = "a"
+    res = client.get(f"query?q={q}")
+    assert res.status_code == 200
+    if "{b(X)}" in program:
+        # program_simple and program_multiple_sorts
+        assert len(res.json) == 2
+        assert all(q in str(atom) for atom in res.json if isinstance(atom, Symbol))
+    else:
+        # program_recursive
+        assert len(res.json) == 0
+
+@pytest.mark.skip("Undid implementation")
 def test_query_for_symbol(client_with_a_graph):
     client, _, _, program = client_with_a_graph
     q = "a(1)"
@@ -25,6 +41,7 @@ def test_query_for_symbol(client_with_a_graph):
         assert all(all(str(atom.symbol) != q for atom in result.atoms) for result in res.json if isinstance(result, Node))
 
 
+@pytest.mark.skip("Undid implementation")
 def test_query_for_signature(client_with_a_graph):
     client, _, _, program = client_with_a_graph
     q = "a/1"
@@ -38,7 +55,7 @@ def test_query_for_signature(client_with_a_graph):
         assert all(result.args != 1 and result.name != "a" for result in res.json if isinstance(result, Signature))
 
 
-
+@pytest.mark.skip("Undid implementation")
 def test_query_for_rule(client_with_a_graph):
     client, _, _, program = client_with_a_graph
     searched_rule = "{b(X)} :- a(X)."
@@ -56,6 +73,7 @@ def test_query_for_rule(client_with_a_graph):
                 isinstance(result, Transformation))
 
 
+@pytest.mark.skip("Undid implementation")
 def test_query_multiple_sorts(client_with_a_graph):
     from random import sample
     client, analyzer, _, _ = client_with_a_graph

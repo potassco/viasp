@@ -1,8 +1,10 @@
 import React, {useState} from "react";
+import PropTypes from "prop-types";
 import {useColorPalette} from "../contexts/ColorPalette";
 import {useHighlightedSymbol} from "../contexts/HighlightedSymbol";
 import './settings.css'
 import { darken } from 'polished';
+import { Search } from "./Search.react";
 
 
 function makeClassNameFromMarkedSymbol(highlightedSymbol) {
@@ -36,7 +38,8 @@ function ClearMarked() {
     const handleMouseDown = () => setIsClicked(true);
     const handleMouseUp = () => setIsClicked(false);
 
-    return <span onClick={() => setHighlightedSymbol([])}
+    return <div className="clear_marked">
+     <span onClick={() => setHighlightedSymbol([])}
                 className={className}
                 style={style}
                 onMouseEnter={handleMouseEnter}
@@ -44,11 +47,46 @@ function ClearMarked() {
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}>
             clear</span>
+    </div>
 }
 
-export default function Settings() {
+function Header(props) {
+    const {text} = props;
+    return (
+        <tr>
+            <td className="settings_header" align="center" colSpan="3">
+                {text}
+            </td>
+        </tr>
+    );
+}
+Header.propTypes = {
+    /**
+     * The text to be displayed in the header
+     */
+    text: PropTypes.string,
+};
+function SettingsTable() {
 
-    return <div className="settings noselect" >
-                <ClearMarked/>
+    return (<div>
+            <ClearMarked />
+            <Search />
+    </div>);
+}
+export default function Settings() {
+    return (
+        <div className="settings noselect">
+            <div className="drawer"
+            >
+                <div
+                    className="drawer_content"
+                    style={{
+                        maxWidth: '500px',
+                    }}
+                >
+                    <SettingsTable />
+                </div>
             </div>
+        </div>
+    );
 }
