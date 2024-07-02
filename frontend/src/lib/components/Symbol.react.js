@@ -4,11 +4,13 @@ import './symbol.css';
 import PropTypes from "prop-types";
 import { SYMBOLIDENTIFIER } from "../types/propTypes";
 import { useHighlightedSymbol } from "../contexts/HighlightedSymbol";
+import { useTransformations } from "../contexts/transformations";
 
 
 export function Symbol(props) {
     const { symbolIdentifier, isSubnode, handleClick } = props;
     const [isHovered, setIsHovered] = useState(false);
+    const {state: {highlightedAtoms: activeHighlights}} = useTransformations();
 
     let atomString = make_atoms_string(symbolIdentifier.symbol)
     const suffix = `_${isSubnode ? "sub" : "main"}`
@@ -22,6 +24,10 @@ export function Symbol(props) {
             [item.tgt, item.src].includes(symbolIdentifier.uuid) ? index : []
         )
         .filter((value, index, self) => self.indexOf(value) === index);
+    
+    if (make_atoms_string(activeHighlights).includes(make_atoms_string(symbolIdentifier))) {
+        classNames += ' highlight_symbol';
+    }
 
     if (combinedIndices.length > 0) {
         classNames += ' mark_symbol';

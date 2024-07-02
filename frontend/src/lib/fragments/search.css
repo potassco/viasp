@@ -1,10 +1,12 @@
 /* ===== SEARCH BOX ===== */
 .search {
-    position: fixed;
     bottom: 0;
     left: 0;
     z-index: 18;
     min-width: 200px;
+    display: flow-root;
+    justify-content: end;
+    padding-top: 1pt;
 }
 
 .search_row {
@@ -19,19 +21,19 @@
 }
 
 .search_result_list {
-    position: static;
+    position: flex;
     list-style: none;
+    margin-top: 0;
     margin-left: 0;
     padding-left: 1.2em;
     margin-bottom: 1px;
-    border-radius: 0 5px 0 5px;
+    border-radius: 0 0px 5px 5px;
     filter: drop-shadow(0 0 1px #333);
     max-width: 500px;
     overflow: hidden;
     min-width: 200px;
     width: fit-content;
     width: -moz-fit-content;
-
 }
 
 .filter {

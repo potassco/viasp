@@ -493,20 +493,15 @@ def get_all_signatures(graph: nx.Graph):
     return signatures
 
 
-def get_all_atoms(graph: nx.Graph, shown_recursive_ids=[]):
+def get_all_atoms(graph: nx.Graph):
     atoms = set()
     for n in graph.nodes():
         for a in n.diff:
-            if n.recursive and n.uuid in shown_recursive_ids:
-                for r in n.recursive:
-                    for a in r.diff:
-                        atoms.add(a)
-            else:
-                atoms.add(a)
+            atoms.add(a.symbol)
     return atoms
 
 
-@bp.route("/query", methods=["POST"])
+@bp.route("/query", methods=["GET"])
 def search():
     encoding_id = get_or_create_encoding_id()
     if "q" in request.args.keys():
@@ -518,6 +513,8 @@ def search():
         shown_recursive_ids = request.json[
             "shownRecursion"] if "shownRecursion" in request.json else []
         query = request.json["query"] if "query" in request.json else ""
+    if "q" in request.args.keys():
+        query = request.args["q"]
         query = query.replace(" ", "")
         graph = _get_graph(encoding_id)
         result = []
@@ -539,12 +536,12 @@ def search():
         #            transformation.rules.str_) and transformation not in result:
         #         result.append(transformation)
 
-        atoms = get_all_atoms(graph, shown_recursive_ids)
+        atoms = get_all_atoms(graph)
         for atom in atoms:
-            if query in str(atom.symbol) and atom not in result:
+            if query in str(atom) and atom not in result:
                 result.append(atom)
-
-
+        
+        result.sort(key=lambda x: str(x))
         return jsonify(result[:10])
     return jsonify([])
 

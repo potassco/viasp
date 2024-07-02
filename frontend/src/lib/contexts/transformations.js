@@ -96,6 +96,7 @@ const initialState = {
     transformationNodesMap: null,
     clingraphGraphics: [],
     shownRecursion: [],
+    highlightedAtoms: [],
 };
 
 /**
@@ -160,6 +161,13 @@ const TOGGLE_SHOWN_RECURSION = 'APP/TRANSFORMATIONS/RECURSION/TOGGLE';
 const CLEAR_SHOWN_RECURSION = 'APP/TRANSFORMATIONS/RECURSION/CLEAR';
 const toggleShownRecursion = (n) => ({type: TOGGLE_SHOWN_RECURSION, n});
 const clearShownRecursion = () => ({type: CLEAR_SHOWN_RECURSION});
+/**
+ * Manage Highlighted Atoms from Filter
+ */
+const ADD_ATOM = 'APP/TRANSFORMATIONS/ATOM/ADD';
+const REMOVE_ATOM = 'APP/TRANSFORMATIONS/ATOM/REMOVE';
+const addAtom = (a) => ({type: ADD_ATOM, a});
+const removeAtom = (a) => ({type: REMOVE_ATOM, a});
 /**
  * Manage Node Expansion (vertical overflow)
  * */
@@ -591,6 +599,20 @@ const transformationReducer = (state = initialState, action) => {
             shownRecursion: [],
         };
     }
+    if (action.type === ADD_ATOM) {
+        return {
+            ...state,
+            highlightedAtoms: state.highlightedAtoms.concat(action.a),
+        };
+    }
+    if (action.type === REMOVE_ATOM) {
+        return {
+            ...state,
+            highlightedAtoms: state.highlightedAtoms.filter(
+                (atom) => atom !== action.a
+            ),
+        };
+    }
     return {...state};
 };
 
@@ -745,4 +767,6 @@ export {
     setNodeShowMini,
     setClingraphShowMini,
     checkTransformationExpandableCollapsible,
+    addAtom,
+    removeAtom,
 };

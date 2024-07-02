@@ -5,7 +5,6 @@ import {RowTemplate} from '../components/Row.react';
 import {Boxrow} from '../components/BoxRow.react';
 import '../components/main.css';
 import {Detail} from '../components/Detail.react';
-import {Search} from '../components/Search.react';
 import {Facts} from '../components/Facts.react';
 import {Edges} from '../components/Edges.react';
 import {Arrows} from '../components/Arrows.react';
@@ -91,7 +90,6 @@ function GraphContainer(props) {
             {clingraphUsed ? <Boxrow transform={transform}/> : null}
             {highlightedSymbol.length === 0 ? null : <Arrows />}
             {transformations.length === 0 ? null : <Edges />}
-        <Search />
         </div>
     );
 }
