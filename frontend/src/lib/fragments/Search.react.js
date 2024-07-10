@@ -78,10 +78,21 @@ function ActiveHighlight(props) {
     function onClose() {
         dispatch(removeAtom(atom))
     }
-    return <li style={{backgroundColor: colorPalette.primary, color: colorPalette.light}} className="filter search_row"
-               key={atom}>{make_atoms_string(atom)}<CloseButton
-        onClose={onClose}/>
-    </li>
+    return (
+        <li
+            style={{
+                backgroundColor: colorPalette.primary,
+                color: colorPalette.light,
+            }}
+            className="filter search_row"
+            key={atom}
+        >
+            <div className="filter_highlight_content">
+                <span className="atom_string">{make_atoms_string(atom)}</span>
+                <CloseButton onClose={onClose} />
+            </div>
+        </li>
+    );
 }
 
 ActiveHighlight.propTypes = {
@@ -189,7 +200,7 @@ export function Search() {
     return (
         <div className="search">
             <input
-                style={{width: '220px'}}
+                className="search_input"
                 type="text"
                 onChange={onChange}
                 onKeyDown={onKeyDown}

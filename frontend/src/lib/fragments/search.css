@@ -3,17 +3,19 @@
     bottom: 0;
     left: 0;
     z-index: 18;
-    min-width: 200px;
     display: flow-root;
     justify-content: end;
     padding-top: 1pt;
+}
+
+.search_input {
+    width: 100%;
 }
 
 .search_row {
     list-style-type: none;
     font-family: monospace;
     cursor: pointer;
-    width: 200px;
 }
 
 .search_row.active {
@@ -29,9 +31,7 @@
     margin-bottom: 1px;
     border-radius: 0 0px 5px 5px;
     filter: drop-shadow(0 0 1px #333);
-    max-width: 500px;
     overflow: hidden;
-    min-width: 200px;
     width: fit-content;
     width: -moz-fit-content;
 }
@@ -41,9 +41,7 @@
     font-family: monospace;
     border-radius: 500px;
     left: 0;
-    padding-left: 20px;
-    opacity: 0.8;
-    width: 200px;
+    padding-left: 10%;
 }
 
 .active_filters_list {
@@ -64,4 +62,16 @@
 
 form {
     padding-top: 0;
+}
+
+.filter_highlight_content {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+.atom_string {
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
