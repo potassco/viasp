@@ -2,6 +2,8 @@ from itertools import pairwise
 import os
 from collections import defaultdict
 from typing import Union, Collection, Dict, List, Iterable
+import uuid
+import time
 
 import igraph
 import networkx as nx
@@ -16,7 +18,7 @@ from ...shared.model import Transformation, Node, Signature
 from ...shared.util import get_start_node_from_graph, is_recursive, hash_from_sorted_transformations
 from ...asp.utils import register_adjacent_sorts
 from ...shared.io import StableModel
-from ..database import load_recursive_transformations_hashes, save_graph, get_graph, clear_graph, set_current_graph, get_current_graph_hash, get_current_sort, load_program, load_transformer, load_models, load_clingraph_names, save_sort, load_dependency_graph
+from ..database import load_recursive_transformations_hashes, save_graph, get_graph, clear_graph, set_current_graph, get_current_graph_hash, get_current_sort, load_program, load_transformer, load_models, load_clingraph_names, save_sort, load_dependency_graph, load_nodes, save_nodes
 
 
 bp = Blueprint("dag_api",
@@ -60,15 +62,20 @@ def get_sort(nx_graph: nx.DiGraph):
 
 def handle_request_for_children(
         transformation_hash: str,
-        ids_only: bool) -> Collection[Union[Node, int]]:
-    graph: nx.DiGraph = _get_graph()
-    children = list()
-    for u, v, d in graph.edges(data=True):
-        edge: Transformation = d['transformation']
-        if str(edge.hash) == transformation_hash:
-            children.append(v)
-    pos: Dict[Node, List[float]] = get_sort(graph)
-    ordered_children = sorted(children, key=lambda node: pos[node][0])
+        ids_only: bool) -> Collection[Union[Node, uuid.UUID]]:
+    # graph: nx.DiGraph = _get_graph()
+    # children = list()
+    # for u, v, edge in graph.edges(data=True):
+    #     if str(edge['transformation'].hash) == transformation_hash:
+    #         children.append(v)
+    # pos: Dict[Node, List[float]] = get_sort(graph)
+    # ordered_children = sorted(children, key=lambda node: pos[node][0])
+    # ordered_children = children
+    # if ids_only:
+    #     ordered_children = [node.uuid for node in ordered_children]
+    # return ordered_children
+    ordered_children: Collection[Node
+                                 | uuid.UUID] = load_nodes(transformation_hash)
     if ids_only:
         ordered_children = [node.uuid for node in ordered_children]
     return ordered_children
@@ -169,7 +176,7 @@ def get_possible_transformation_orders():
             "old_index": -1,
             "new_index": -1,
         }
-        
+
         sorted_program_rules = [t.rules for t in get_current_sort()]
         moved_item = sorted_program_rules.pop(moved_transformation["old_index"])
         sorted_program_rules.insert(moved_transformation["new_index"], moved_item)
@@ -430,5 +437,11 @@ def generate_graph() -> nx.DiGraph:
                         recursion_rules)
         save_graph(g, hash_from_sorted_transformations(sorted_program),
                    sorted_program)
+        transformation_node_tuples = [(d["transformation"].hash, v) for (_, v, d) in g.edges(data=True)]
+        pos: Dict[Node, List[float]] = get_sort(g)
+        ordered_children = sorted(transformation_node_tuples,
+                                  key=lambda transf_node: pos[transf_node[1]][0])
+        save_nodes(ordered_children,
+                   hash_from_sorted_transformations(sorted_program))
 
     return g

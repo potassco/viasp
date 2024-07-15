@@ -1,16 +1,16 @@
+from functools import lru_cache
 from os.path import join, dirname, abspath
 import sqlite3
 from typing import Set, List, Union, Tuple, Optional, Sequence
 from uuid import UUID
 from flask import current_app, g
 import networkx as nx
-import pickle
 
 from clingo.ast import Transformer
 
 from ..shared.defaults import PROGRAM_STORAGE_PATH, GRAPH_PATH
 from ..shared.event import Event, subscribe
-from ..shared.model import ClingoMethodCall, StableModel, Transformation, TransformerTransport, TransformationError
+from ..shared.model import ClingoMethodCall, StableModel, Transformation, TransformerTransport, TransformationError, Node
 
 
 
@@ -74,91 +74,119 @@ def get_or_create_encoding_id() -> str:
     return "0"
 
 class GraphAccessor:
+    # _instance = None
 
-    def __init__(self):
-        self.dbpath = join(dirname(abspath(__file__)), GRAPH_PATH)
-        self.conn = sqlite3.connect(self.dbpath)
-        self.cursor = self.conn.cursor()
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS encodings (
-                id TEXT PRIMARY KEY,
-                program TEXT
-            )
-        """)
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS models (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                encoding_id TEXT,
-                model TEXT,
-                FOREIGN KEY (encoding_id) REFERENCES encodings(id)
-            )
-        """)
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS graphs (
-                hash TEXT PRIMARY KEY,
-                data TEXT,
-                sort TEXT NOT NULL,
-                encoding_id TEXT,
-                FOREIGN KEY (encoding_id) REFERENCES encodings(id)
-            )
-        """)
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS current_graph (
-                hash TEXT PRIMARY KEY,
-                encoding_id TEXT,
-                FOREIGN KEY(hash) REFERENCES graphs(hash)
-                FOREIGN KEY(encoding_id) REFERENCES encodings(id)
-            )
-        """)
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS graph_relations (
-                graph_hash_1 TEXT,
-                graph_hash_2 TEXT,
-                encoding_id TEXT,
-                PRIMARY KEY (graph_hash_1, graph_hash_2),
-                FOREIGN KEY(graph_hash_1) REFERENCES graphs(hash),
-                FOREIGN KEY(graph_hash_2) REFERENCES graphs(hash)
-            )
-        """)
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS dependency_graph (
-                    encoding_id TEXT PRIMARY KEY,
+    # def __new__(cls, *args, **kwargs):
+    #     if cls._instance is None:
+    #         cls._instance = super(GraphAccessor, cls).__new__(cls)
+    #     return cls._instance
+
+    def __init__(self, dbpath=GRAPH_PATH):
+        if not hasattr(self, 'initialized'):  # Ensure __init__ is called only once
+            self.conn = sqlite3.connect(dbpath)
+            self.cursor = self.conn.cursor()
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS encodings (
+                    id TEXT PRIMARY KEY,
+                    program TEXT
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS models (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    encoding_id TEXT,
+                    model TEXT,
+                    FOREIGN KEY (encoding_id) REFERENCES encodings(id)
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS graphs (
+                    hash TEXT PRIMARY KEY,
                     data TEXT,
+                    sort TEXT NOT NULL,
+                    encoding_id TEXT,
+                    FOREIGN KEY (encoding_id) REFERENCES encodings(id)
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS current_graph (
+                    hash TEXT PRIMARY KEY,
+                    encoding_id TEXT,
+                    FOREIGN KEY(hash) REFERENCES graphs(hash)
                     FOREIGN KEY(encoding_id) REFERENCES encodings(id)
-            )
-        """)
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS recursion (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                encoding_id TEXT,
-                recursive_hash TEXT,
-                FOREIGN KEY(encoding_id) REFERENCES encodings(id)
-            )
-        """)
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS clingraph (
-                filename TEXT PRIMARY KEY,
-                encoding_id TEXT,
-                FOREIGN KEY(encoding_id) REFERENCES encodings(id)
-            )
-        """)
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS transformer (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                transformer BLOB,
-                encoding_id TEXT,
-                FOREIGN KEY(encoding_id) REFERENCES encodings(id)
-            )
-        """)
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS warnings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                encoding_id TEXT,
-                warning TEXT,
-                FOREIGN KEY(encoding_id) REFERENCES encodings(id)
-            )
-        """)
-        self.conn.commit()
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS graph_nodes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    encoding_id TEXT,
+                    hash TEXT,
+                    transformation_id TEXT,
+                    node TEXT,
+                    FOREIGN KEY(encoding_id) REFERENCES encodings(id),
+                    FOREIGN KEY(hash) REFERENCES graphs(hash)
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS graph_edges (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    encoding_id TEXT,
+                    hash TEXT,
+                    src TEXT,
+                    tgt TEXT,
+                    FOREIGN KEY(encoding_id) REFERENCES encodings(id),
+                    FOREIGN KEY(hash) REFERENCES graphs(hash)
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS graph_relations (
+                    graph_hash_1 TEXT,
+                    graph_hash_2 TEXT,
+                    encoding_id TEXT,
+                    PRIMARY KEY (graph_hash_1, graph_hash_2),
+                    FOREIGN KEY(graph_hash_1) REFERENCES graphs(hash),
+                    FOREIGN KEY(graph_hash_2) REFERENCES graphs(hash)
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS dependency_graph (
+                        encoding_id TEXT PRIMARY KEY,
+                        data TEXT,
+                        FOREIGN KEY(encoding_id) REFERENCES encodings(id)
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS recursion (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    encoding_id TEXT,
+                    recursive_hash TEXT,
+                    FOREIGN KEY(encoding_id) REFERENCES encodings(id)
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS clingraph (
+                    filename TEXT PRIMARY KEY,
+                    encoding_id TEXT,
+                    FOREIGN KEY(encoding_id) REFERENCES encodings(id)
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS transformer (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    transformer BLOB,
+                    encoding_id TEXT,
+                    FOREIGN KEY(encoding_id) REFERENCES encodings(id)
+                )
+            """)
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS warnings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    encoding_id TEXT,
+                    warning TEXT,
+                    FOREIGN KEY(encoding_id) REFERENCES encodings(id)
+                )
+            """)
+            self.conn.commit()
 
     # # # # # # #
     # ENCODING  #
@@ -237,6 +265,33 @@ class GraphAccessor:
         """, (current_app.json.dumps(nx.node_link_data(graph)), hash,
               current_app.json.dumps(sort), encoding_id))
         self.conn.commit()
+        self.load_current_graph.cache_clear()
+        self.load_graph.cache_clear()
+
+    def save_nodes(self, transformation_node_tuples: List[Tuple[str,
+                                                                Node]],
+                   hash: str, encoding_id: str):
+        self.cursor.executemany(
+            """
+            INSERT OR REPLACE INTO graph_nodes (encoding_id, hash, transformation_id, node) VALUES (?, ?, ?, ?)
+            """, [(
+                encoding_id,
+                hash,
+                transformation_hash,
+                current_app.json.dumps(node)
+            ) for transformation_hash, node in transformation_node_tuples])
+        self.conn.commit()
+        self.load_nodes.cache_clear()
+
+    @lru_cache(maxsize=128)
+    def load_nodes(self, hash: str, transformation_id: str, encoding_id: str):
+        print(f"Cache info: {self.load_nodes.cache_info()}", flush=True)
+        self.cursor.execute(
+            """
+            SELECT node FROM graph_nodes WHERE encoding_id = ? AND hash = ? AND transformation_id = ?
+        """, (encoding_id, hash, transformation_id))
+        result = self.cursor.fetchall()
+        return [current_app.json.loads(r[0]) for r in result]
 
     def set_current_graph(self, hash: str, encoding_id: str):
         self.cursor.execute(
@@ -270,6 +325,7 @@ class GraphAccessor:
             return result[0]
         raise ValueError("No graph found")
 
+    @lru_cache(maxsize=8)
     def load_graph(self, hash: str, encoding_id: str) -> nx.DiGraph:
         graph_json_str = self.load_graph_json(hash, encoding_id)
         return nx.node_link_graph(current_app.json.loads(graph_json_str))
@@ -278,6 +334,7 @@ class GraphAccessor:
         hash = self.get_current_graph_hash(encoding_id)
         return self.load_graph_json(hash, encoding_id)
 
+    @lru_cache(maxsize=8)
     def load_current_graph(self, encoding_id: str) -> nx.DiGraph:
         graph_json_str = self.load_current_graph_json(encoding_id)
         return nx.node_link_graph(current_app.json.loads(graph_json_str))
@@ -313,7 +370,7 @@ class GraphAccessor:
         if result and result[0]:
             loaded = current_app.json.loads(result[0])
             loaded.sort(key=lambda x: x.id)
-            return loaded 
+            return loaded
         raise ValueError("No sort found")
 
     def load_all_sorts(self, encoding_id: str) -> List[str]:
@@ -510,9 +567,10 @@ class GraphAccessor:
         self.conn.commit()
 
 
-def get_database():
+def get_database(database_path=GRAPH_PATH):
     if 'graph_accessor' not in g:
-        g.graph_accessor = GraphAccessor()
+        dbpath = join(dirname(abspath(__file__)), database_path)
+        g.graph_accessor = GraphAccessor(dbpath)
     return g.graph_accessor
 
 
@@ -586,11 +644,18 @@ def save_graph(data: nx.DiGraph, hash: str, sort: List[Transformation]):
     get_database().save_graph(data, hash, sort, encoding_id)
 
 
+def save_nodes(transformation_node_tuples: List[Tuple[str, Node]], hash: str):
+    encoding_id = get_or_create_encoding_id()
+    get_database().save_nodes(transformation_node_tuples, hash, encoding_id)
+
 def get_graph() -> nx.DiGraph:
     encoding_id = get_or_create_encoding_id()
     graph = get_database().load_current_graph(encoding_id)
     return graph
 
+def load_nodes(transformation_id: str) -> List[Node]:
+    encoding_id = get_or_create_encoding_id()
+    return get_database().load_nodes(get_current_graph_hash(), transformation_id, encoding_id)
 
 def get_graph_json() -> str:
     encoding_id = get_or_create_encoding_id()
