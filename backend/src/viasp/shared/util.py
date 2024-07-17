@@ -89,12 +89,13 @@ def hash_transformation_rules(rules: Tuple[Any, ...]) -> str:
 
 
 def get_rules_from_input_program(rules: Tuple) -> Sequence[str]:
-    from ..server.database import get_database, get_or_create_encoding_id
+    from ..server.extensions import graph_accessor
+    from ..server.database import get_or_create_encoding_id, load_program
 
     rules_from_input_program: Sequence[str] = []
     encoding_id = get_or_create_encoding_id()
-    db = get_database()
-    program = db.load_program(encoding_id).split("\n")
+    with graph_accessor.get_cursor() as cursor:
+        program = load_program(cursor, encoding_id).split("\n")
     for rule in rules:
         if isinstance(rule, str):
             rules_from_input_program.append(rule)

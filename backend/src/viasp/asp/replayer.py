@@ -2,7 +2,8 @@ from typing import Sequence, Optional, Callable
 
 from clingo import Control
 
-from ..server.database import get_database
+from ..server.extensions import graph_accessor
+from ..server.database import add_to_program, clear_program 
 from ..shared.event import Event, publish
 from ..shared.model import ClingoMethodCall
 from ..shared.simple_logging import warn
@@ -54,18 +55,18 @@ class ClingoReconstructor:
 
     @handles("add")
     def add(self, ctl: Control, call: ClingoMethodCall) -> Control:
-        db = get_database()
-        encoding_id = get_or_create_encoding_id()
-        db.add_to_program(call.kwargs["program"], encoding_id)
+        with graph_accessor.get_cursor() as cursor:
+            encoding_id = get_or_create_encoding_id()
+            add_to_program(cursor, encoding_id, call.kwargs["program"])
         func = getattr(ctl, call.name)
         func(**call.kwargs)
         return ctl
 
     @handles("__init__")
     def create_(self, _, call: ClingoMethodCall):
-        db = get_database()
-        encoding_id = get_or_create_encoding_id()
-        db.clear_program(encoding_id)
+        with graph_accessor.get_cursor() as cursor:
+            encoding_id = get_or_create_encoding_id()
+            clear_program(cursor, encoding_id)
         return Control(**call.kwargs)
 
     @handles("load")
@@ -74,9 +75,9 @@ class ClingoReconstructor:
         prg = ""
         with open(path, encoding="utf-8") as f:
             prg = "".join(f.readlines())
-        db = get_database()
-        encoding_id = get_or_create_encoding_id()
-        db.add_to_program(prg, encoding_id)
+        with graph_accessor.get_cursor() as cursor:
+            encoding_id = get_or_create_encoding_id()
+            add_to_program(cursor, encoding_id, prg)
         ctl.load(path)
         return ctl
 

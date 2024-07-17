@@ -1,5 +1,6 @@
 from flask import Flask
 from werkzeug.utils import find_modules, import_string
+from .extensions import graph_accessor
 
 from flask_cors import CORS
 from viasp.shared.io import DataclassJSONProvider

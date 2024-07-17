@@ -8,10 +8,9 @@ from clingo import Control
 from clingraph.orm import Factbase
 from clingraph.graphviz import compute_graphs, render
 
-from .dag_api import generate_graph, set_current_graph, wrap_marked_models, \
-        load_program, load_transformer, load_models, \
-        load_clingraph_names
-from ..database import CallCenter, get_database, insert_graph_relation, save_dependency_graph, save_recursive_transformations_hashes, set_models, clear_models, save_many_sorts, save_sort, save_clingraph, clear_clingraph, save_transformer, save_warnings, clear_warnings, load_warnings, save_warnings, clear_all_sorts
+from .dag_api import generate_graph, wrap_marked_models
+from ..database import CallCenter, get_or_create_encoding_id, save_dependency_graph, save_recursive_transformations_hashes, set_models, clear_models, save_many_sorts, save_sort, save_clingraph, clear_clingraph, save_transformer, save_warnings, clear_warnings, load_warnings, save_warnings, clear_all_sorts, load_program, load_models, set_current_graph, load_transformer, load_all_clingraphs
+from ..extensions import graph_accessor
 from ...asp.reify import ProgramAnalyzer
 from ...asp.relax import ProgramRelaxer, relax_constraints
 from ...shared.model import ClingoMethodCall, StableModel, Transformation, TransformerTransport
@@ -46,7 +45,8 @@ def get_calls():
 
 @bp.route("/control/program", methods=["GET"])
 def get_program():
-    return load_program()
+    with graph_accessor.get_cursor() as cursor:
+        return load_program(cursor, get_or_create_encoding_id())
 
 
 @bp.route("/control/add_call", methods=["POST"])
@@ -95,16 +95,19 @@ def set_stable_models():
         if not isinstance(parsed_models, list):
             return "Expected a model or a list of models", 400
         parsed_models = [m for i,m in enumerate(parsed_models) if m not in parsed_models[:i]]
-        set_models(parsed_models)
+        with graph_accessor.get_cursor() as cursor:
+            set_models(cursor, get_or_create_encoding_id(), parsed_models)
     elif request.method == "GET":
-        return jsonify(load_models())
+        with graph_accessor.get_cursor() as cursor:
+            return jsonify(load_models(cursor, get_or_create_encoding_id()))
     return "ok"
 
 
 @bp.route("/control/models/clear", methods=["POST"])
 def models_clear():
     if request.method == "POST":
-        clear_models()
+        with graph_accessor.get_cursor() as cursor:
+            clear_models(cursor, get_or_create_encoding_id())
         global ctl
         ctl = None
     return "ok"
@@ -119,7 +122,8 @@ def set_transformer():
                 return "Expected a transformer object", 400
         except BaseException:
             return "Invalid transformer object", 400
-        save_transformer(transformer)
+        with graph_accessor.get_cursor() as cursor:
+            save_transformer(cursor, get_or_create_encoding_id(), transformer)
     return "ok", 200
 
 
@@ -129,31 +133,38 @@ def set_warnings():
     if request.method == "POST":
         if not isinstance(request.json, list):
             return "Expected a list of warnings", 400
-        save_warnings(request.json)
+        with graph_accessor.get_cursor() as cursor:
+            save_warnings(cursor, get_or_create_encoding_id(), request.json)
     elif request.method == "DELETE":
-        clear_warnings()
+        with graph_accessor.get_cursor() as cursor:
+            clear_warnings(cursor, get_or_create_encoding_id())
     elif request.method == "GET":
-        return jsonify(load_warnings())
+        with graph_accessor.get_cursor() as cursor:
+            return jsonify(load_warnings(cursor, get_or_create_encoding_id()))
     return "ok"
 
 
-def set_primary_sort(analyzer: ProgramAnalyzer):
+def set_primary_sort(analyzer: ProgramAnalyzer, encoding_id: str):
     primary_sort = analyzer.get_sorted_program()
     primary_hash = hash_from_sorted_transformations(primary_sort)
-    register_adjacent_sorts(primary_sort, primary_hash)
+    register_adjacent_sorts(primary_sort, primary_hash, get_or_create_encoding_id())
     try:
-        _ = set_current_graph(primary_hash)
+        with graph_accessor.get_cursor() as cursor:
+            _ = set_current_graph(cursor, encoding_id, primary_hash)
     except KeyError:
-        save_sort(primary_hash, primary_sort)
-        generate_graph()
+        with graph_accessor.get_cursor() as cursor:
+            save_sort(cursor, encoding_id,
+                      primary_hash, primary_sort)
+        generate_graph(encoding_id)
     except ValueError:
-        generate_graph()
+        generate_graph(encoding_id)
 
 
-def save_analyzer_values(analyzer: ProgramAnalyzer):
-    save_recursive_transformations_hashes(analyzer.check_positive_recursion())
-    save_dependency_graph(analyzer.dependency_graph) if analyzer.dependency_graph else None
-    ## TODO: save attributes
+def save_analyzer_values(analyzer: ProgramAnalyzer, encoding_id: str):
+    with graph_accessor.get_cursor() as cursor:
+        save_recursive_transformations_hashes(cursor, encoding_id, analyzer.check_positive_recursion())
+        save_dependency_graph(cursor, encoding_id, analyzer.dependency_graph) if analyzer.dependency_graph else None
+        ## TODO: save attributes
 
 
 
@@ -161,16 +172,24 @@ def save_analyzer_values(analyzer: ProgramAnalyzer):
 def show_selected_models():
     try:
         analyzer = ProgramAnalyzer()
-        analyzer.add_program(load_program(), load_transformer())
-        save_warnings(analyzer.get_filtered())
+        with graph_accessor.get_cursor() as cursor:
+            program = load_program(cursor, get_or_create_encoding_id())
+            transformer = load_transformer(cursor, get_or_create_encoding_id())
 
-        marked_models = load_models()
+        analyzer.add_program(program, transformer)
+
+        with graph_accessor.get_cursor() as cursor:
+            save_warnings(cursor, get_or_create_encoding_id(), analyzer.get_filtered())
+
+        with graph_accessor.get_cursor() as cursor:
+            marked_models = load_models(cursor, get_or_create_encoding_id())
         marked_models = wrap_marked_models(marked_models,
                                         analyzer.get_conflict_free_showTerm())
         if analyzer.will_work():
-            save_recursive_transformations_hashes(analyzer.check_positive_recursion())
-            set_primary_sort(analyzer)
-            save_analyzer_values(analyzer)
+            with graph_accessor.get_cursor() as cursor:
+                save_recursive_transformations_hashes(cursor, get_or_create_encoding_id(), analyzer.check_positive_recursion())
+                save_analyzer_values(analyzer, get_or_create_encoding_id())
+            set_primary_sort(analyzer, get_or_create_encoding_id())
     except Exception as e:
         return str(e), 500
     return "ok", 200
@@ -183,16 +202,19 @@ def transform_relax():
     try:
         args = request.json["args"] if "args" in request.json else []
         kwargs = request.json["kwargs"] if "kwargs" in request.json else {}
+        with graph_accessor.get_cursor() as cursor:
+            program = load_program(cursor, get_or_create_encoding_id())
         relaxer = ProgramRelaxer(*args, **kwargs)
-        relaxed = relax_constraints(relaxer, load_program())
+        relaxed = relax_constraints(relaxer, program)
         return jsonify(relaxed)
     except Exception as e:
         print(f"Error transforming constraints: {e}", flush=True)
         return str(e), 500
 
 
-def generate_clingraph(viz_encoding: str, engine: str, graphviz_type: str):
-    marked_models = load_models()
+def generate_clingraph(viz_encoding: str, engine: str, graphviz_type: str, encoding_id: str):
+    with graph_accessor.get_cursor() as cursor:
+        marked_models = load_models(cursor, encoding_id)
     marked_models = wrap_marked_models(marked_models, clingraph=True)
     # for every model that was maked
     for model in marked_models:
@@ -213,7 +235,8 @@ def generate_clingraph(viz_encoding: str, engine: str, graphviz_type: str):
                            directory=CLINGRAPH_PATH,
                            name_format=filename,
                            engine=engine)
-                    save_clingraph(filename)
+                    with graph_accessor.get_cursor() as cursor:
+                        save_clingraph(cursor, encoding_id, filename)
 
 
 @bp.route("/control/clingraph", methods=["POST", "GET", "DELETE"])
@@ -227,14 +250,17 @@ def clingraph_generate():
         graphviz_type = request.json[
             "graphviz-type"] if "graphviz-type" in request.json else "digraph"
         try:
-            generate_clingraph(viz_encoding, engine, graphviz_type)
+            generate_clingraph(viz_encoding, engine, graphviz_type, get_or_create_encoding_id())
         except Exception as e:
             print(f"Error generating clingraph: {e}", flush=True)
             return str(e), 500
     if request.method == "GET":
-        if len(load_clingraph_names()) > 0:
+        with graph_accessor.get_cursor() as cursor:
+            clingraph_names = load_all_clingraphs(cursor, get_or_create_encoding_id())
+        if len(clingraph_names) > 0:
             return jsonify({"using_clingraph": True}), 200
         return jsonify({"using_clingraph": False}), 200
     if request.method == "DELETE":
-        clear_clingraph()
+        with graph_accessor.get_cursor() as cursor:
+            clear_clingraph(cursor, get_or_create_encoding_id())
     return "ok", 200

@@ -8,7 +8,7 @@ import time
 import igraph
 import networkx as nx
 import numpy as np
-from flask import Blueprint, current_app, request, jsonify, abort, Response, send_file, session
+from flask import Blueprint, current_app, g, request, jsonify, abort, Response, send_file, session
 from clingo.ast import AST
 
 from ...asp.reify import ProgramAnalyzer, reify_list
@@ -18,8 +18,8 @@ from ...shared.model import Transformation, Node, Signature
 from ...shared.util import get_start_node_from_graph, is_recursive, hash_from_sorted_transformations
 from ...asp.utils import register_adjacent_sorts
 from ...shared.io import StableModel
-from ..database import load_recursive_transformations_hashes, save_graph, get_graph, clear_graph, set_current_graph, get_current_graph_hash, get_current_sort, load_program, load_transformer, load_models, load_clingraph_names, save_sort, load_dependency_graph, load_nodes, save_nodes
-
+from ..database import get_or_create_encoding_id, load_recursive_transformations_hashes, save_graph, get_current_graph_hash, get_current_sort, load_program, load_transformer, load_models, load_all_clingraphs, save_sort, load_dependency_graph, load_nodes, save_nodes, load_current_graph, clear, set_current_graph
+from ..extensions import graph_accessor
 
 bp = Blueprint("dag_api",
                __name__,
@@ -31,11 +31,12 @@ def nx_to_igraph(nx_graph: nx.DiGraph):
     return igraph.Graph.Adjacency((np.array(nx.to_numpy_array(nx_graph))
                                    > 0).tolist())
 
-def _get_graph():
+def _get_graph(encoding_id: str):
     try:
-        graph = get_graph()
+        with graph_accessor.get_cursor() as cursor:
+            graph = load_current_graph(cursor, encoding_id)
     except ValueError:
-        graph = generate_graph()
+        graph = generate_graph(get_or_create_encoding_id())
     return graph
 
 
@@ -62,20 +63,11 @@ def get_sort(nx_graph: nx.DiGraph):
 
 def handle_request_for_children(
         transformation_hash: str,
-        ids_only: bool) -> Collection[Union[Node, uuid.UUID]]:
-    # graph: nx.DiGraph = _get_graph()
-    # children = list()
-    # for u, v, edge in graph.edges(data=True):
-    #     if str(edge['transformation'].hash) == transformation_hash:
-    #         children.append(v)
-    # pos: Dict[Node, List[float]] = get_sort(graph)
-    # ordered_children = sorted(children, key=lambda node: pos[node][0])
-    # ordered_children = children
-    # if ids_only:
-    #     ordered_children = [node.uuid for node in ordered_children]
-    # return ordered_children
-    ordered_children: Collection[Node
-                                 | uuid.UUID] = load_nodes(transformation_hash)
+        ids_only: bool,
+        encoding_id: str) -> Collection[Union[Node, uuid.UUID]]:
+    with graph_accessor.get_cursor() as cursor:
+        ordered_children: Collection[Node | uuid.UUID] = \
+            load_nodes(cursor, encoding_id, transformation_hash)
     if ids_only:
         ordered_children = [node.uuid for node in ordered_children]
     return ordered_children
@@ -83,7 +75,8 @@ def handle_request_for_children(
 
 @bp.route("/graph/clear", methods=["DELETE"])
 def clear_all():
-    clear_graph()
+    with graph_accessor.get_cursor() as cursor:
+        clear(cursor, get_or_create_encoding_id())
     return "ok", 200
 
 
@@ -92,14 +85,15 @@ def get_children(transformation_hash):
     if request.method == "GET":
         ids_only = request.args.get("ids_only", default=False, type=bool)
         to_be_returned = handle_request_for_children(transformation_hash,
-                                                     ids_only)
+                                                     ids_only, get_or_create_encoding_id())
         return jsonify(to_be_returned)
     raise NotImplementedError
 
 
-def get_src_tgt_mapping_from_graph(shown_recursive_ids=[],
+def get_src_tgt_mapping_from_graph(encoding_id: str,
+                                   shown_recursive_ids=[],
                                    shown_clingraph=False):
-    graph = _get_graph()
+    graph = _get_graph(encoding_id)
 
     to_be_added = []
 
@@ -144,7 +138,8 @@ def get_src_tgt_mapping_from_graph(shown_recursive_ids=[],
             })
 
     if shown_clingraph:
-        clingraph = load_clingraph_names()
+        with graph_accessor.get_cursor() as cursor:
+            clingraph = load_all_clingraphs(cursor, encoding_id)
         for src, tgt in list(zip(last_nodes_in_graph(graph), clingraph)):
             to_be_added.append({
                 "src": src,
@@ -177,26 +172,37 @@ def get_possible_transformation_orders():
             "new_index": -1,
         }
 
-        sorted_program_rules = [t.rules for t in get_current_sort()]
+        with graph_accessor.get_cursor() as cursor:
+            sorted_program_rules = [t.rules for t in get_current_sort(cursor, get_or_create_encoding_id())]
         moved_item = sorted_program_rules.pop(moved_transformation["old_index"])
         sorted_program_rules.insert(moved_transformation["new_index"], moved_item)
-        sorted_program_transformations = ProgramAnalyzer(dependency_graph=load_dependency_graph()).make_transformations_from_sorted_program(sorted_program_rules)
+        with graph_accessor.get_cursor() as cursor:
+            dependency_graph = load_dependency_graph(cursor, get_or_create_encoding_id())
+        sorted_program_transformations = ProgramAnalyzer(
+            dependency_graph=dependency_graph
+        ).make_transformations_from_sorted_program(sorted_program_rules)
         hash = hash_from_sorted_transformations(sorted_program_transformations)
-        save_sort(hash, sorted_program_transformations)
-        register_adjacent_sorts(sorted_program_transformations, hash)
+        with graph_accessor.get_cursor() as cursor:
+            save_sort(cursor, get_or_create_encoding_id(), hash, sorted_program_transformations)
+        register_adjacent_sorts(sorted_program_transformations, hash, get_or_create_encoding_id())
         try:
-            set_current_graph(hash)
+            with graph_accessor.get_cursor() as cursor:
+                set_current_graph(cursor, get_or_create_encoding_id(), hash)
         except ValueError:
-            generate_graph()
+            generate_graph(get_or_create_encoding_id())
         return jsonify({"hash":hash})
     elif request.method == "GET":
-        return jsonify(get_current_graph_hash())
+        with graph_accessor.get_cursor() as cursor:
+            result = get_current_sort(cursor, get_or_create_encoding_id())
+        return jsonify(result)
     raise NotImplementedError
 
 
 @bp.route("/graph/transformations", methods=["GET"])
 def get_all_transformations():
-    return jsonify(get_current_sort())
+    with graph_accessor.get_cursor() as cursor:
+        result = get_current_sort(cursor, get_or_create_encoding_id())
+    return jsonify(result)
 
 
 @bp.route("/graph/edges", methods=["GET", "POST"])
@@ -210,9 +216,9 @@ def get_edges():
         shown_clingraph = request.json[
             "usingClingraph"] if "usingClingraph" in request.json else False
         to_be_returned = get_src_tgt_mapping_from_graph(
-            shown_recursive_ids, shown_clingraph)
+            get_or_create_encoding_id(), shown_recursive_ids, shown_clingraph)
     elif request.method == "GET":
-        to_be_returned = get_src_tgt_mapping_from_graph()
+        to_be_returned = get_src_tgt_mapping_from_graph(get_or_create_encoding_id())
 
     jsonified = jsonify(to_be_returned)
     return jsonified
@@ -220,7 +226,7 @@ def get_edges():
 
 @bp.route("/graph/transformation/<uuid>", methods=["GET"])
 def get_rule(uuid):
-    graph = _get_graph()
+    graph = _get_graph(get_or_create_encoding_id())
     for _, _, edge in graph.edges(data=True):
         transformation: Transformation = edge["transformation"]
         if str(transformation.id) == str(uuid):
@@ -230,7 +236,7 @@ def get_rule(uuid):
 
 @bp.route("/graph/model/<uuid>", methods=["GET"])
 def get_node(uuid):
-    graph = _get_graph()
+    graph = _get_graph(get_or_create_encoding_id())
     for node in graph.nodes():
         if node.uuid == uuid:
             return jsonify(node)
@@ -239,7 +245,7 @@ def get_node(uuid):
 
 @bp.route("/graph/facts", methods=["GET"])
 def get_facts():
-    graph = _get_graph()
+    graph = _get_graph(get_or_create_encoding_id())
     facts = [get_start_node_from_graph(graph)]
     r = jsonify(facts)
     return r
@@ -255,15 +261,18 @@ def entire_graph():
         hash = request.json['hash']
         sort = request.json['sort']
         sort = current_app.json.loads(sort) if type(sort) == str else sort
-        save_graph(data, hash, sort)
-        register_adjacent_sorts(sort, hash)
-        _ = set_current_graph(hash)
+        with graph_accessor.get_cursor() as cursor:
+            save_graph(cursor, get_or_create_encoding_id(), data, hash, sort)
+        register_adjacent_sorts(sort, hash, get_or_create_encoding_id())
+        with graph_accessor.get_cursor() as cursor:
+            set_current_graph(cursor, get_or_create_encoding_id(), hash)
         return jsonify({'message': 'ok'}), 200
     elif request.method == "GET":
-        result = _get_graph()
+        result = _get_graph(get_or_create_encoding_id())
         return jsonify(result)
     elif request.method == "DELETE":
-        clear_graph()
+        with graph_accessor.get_cursor() as cursor:
+            clear(cursor, get_or_create_encoding_id())
         return jsonify({'message': 'ok'}), 200
     raise NotImplementedError
 
@@ -279,7 +288,7 @@ def get_atoms_in_path_by_signature(uuid: str):
 
 
 def find_node_by_uuid(uuid: str) -> Node:
-    graph = _get_graph()
+    graph = _get_graph(get_or_create_encoding_id())
     matching_nodes = [x for x, _ in graph.nodes(data=True) if x.uuid == uuid]
 
     if len(matching_nodes) != 1:
@@ -296,7 +305,7 @@ def find_node_by_uuid(uuid: str) -> Node:
 
 
 def get_kind(uuid: str) -> str:
-    graph = _get_graph()
+    graph = _get_graph(get_or_create_encoding_id())
     node = find_node_by_uuid(uuid)
     recursive = is_recursive(node, graph)
     if recursive:
@@ -339,7 +348,7 @@ def get_all_signatures(graph: nx.Graph):
 def search():
     if "q" in request.args.keys():
         query = request.args["q"]
-        graph = _get_graph()
+        graph = _get_graph(get_or_create_encoding_id())
         result = []
         signatures = get_all_signatures(graph)
         result.extend(signatures)
@@ -373,7 +382,8 @@ def last_nodes_in_graph(graph):
 @bp.route("/clingraph/children", methods=["POST", "GET"])
 def get_clingraph_children():
     if request.method == "GET":
-        using_clingraph = load_clingraph_names()
+        with graph_accessor.get_cursor() as cursor:
+            using_clingraph = load_all_clingraphs(cursor, get_or_create_encoding_id())
         to_be_returned = [{
             "_type": "ClingraphNode",
             "uuid": c
@@ -415,16 +425,21 @@ def wrap_marked_models(
     return result
 
 
-def generate_graph() -> nx.DiGraph:
+def generate_graph(encoding_id: str) -> nx.DiGraph:
     analyzer = ProgramAnalyzer()
-    analyzer.add_program(load_program(), load_transformer())
+    with graph_accessor.get_cursor() as cursor:
+        program = load_program(cursor, encoding_id)
+        transformer = load_transformer(cursor, encoding_id)
+    analyzer.add_program(program, transformer)
 
-    marked_models = load_models()
+    with graph_accessor.get_cursor() as cursor:
+        marked_models = load_models(cursor, encoding_id)
     marked_models = wrap_marked_models(marked_models,
                                        analyzer.get_conflict_free_showTerm())
     if analyzer.will_work():
-        recursion_rules = load_recursive_transformations_hashes()
-        sorted_program = get_current_sort()
+        with graph_accessor.get_cursor() as cursor:
+            recursion_rules = load_recursive_transformations_hashes(cursor, encoding_id)
+            sorted_program = get_current_sort(cursor, encoding_id)
         reified: Collection[AST] = reify_list(
             sorted_program,
             h=analyzer.get_conflict_free_h(),
@@ -435,13 +450,14 @@ def generate_graph() -> nx.DiGraph:
             clear_temp_names=analyzer.clear_temp_names)
         g = build_graph(marked_models, reified, sorted_program, analyzer,
                         recursion_rules)
-        save_graph(g, hash_from_sorted_transformations(sorted_program),
+        with graph_accessor.get_cursor() as cursor:
+            save_graph(cursor, encoding_id, g, hash_from_sorted_transformations(sorted_program),
                    sorted_program)
-        transformation_node_tuples = [(d["transformation"].hash, v) for (_, v, d) in g.edges(data=True)]
-        pos: Dict[Node, List[float]] = get_sort(g)
-        ordered_children = sorted(transformation_node_tuples,
-                                  key=lambda transf_node: pos[transf_node[1]][0])
-        save_nodes(ordered_children,
-                   hash_from_sorted_transformations(sorted_program))
+            transformation_node_tuples = [(d["transformation"].hash, v) for (_, v, d) in g.edges(data=True)]
+            pos: Dict[Node, List[float]] = get_sort(g)
+            ordered_children = sorted(transformation_node_tuples,
+                                    key=lambda transf_node: pos[transf_node[1]][0])
+            save_nodes(cursor, encoding_id, ordered_children,
+                    hash_from_sorted_transformations(sorted_program))
 
     return g
