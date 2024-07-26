@@ -1,10 +1,10 @@
 from flask import Flask
 from werkzeug.utils import find_modules, import_string
-from .extensions import graph_accessor
-
 from flask_cors import CORS
-from viasp.shared.io import DataclassJSONProvider
 
+
+from ..shared.io import DataclassJSONProvider
+from .database import init_db, db_session
 
 def register_blueprints(app):
     """collects all blueprints and adds them to the app object"""
@@ -20,7 +20,12 @@ def create_app():
     app.json = DataclassJSONProvider(app)
     app.config['CORS_HEADERS'] = 'Content-Type'
 
+    init_db()
     register_blueprints(app)
     CORS(app, resources={r"/*": {"origins": "*"}}, max_age=3600)
+
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db_session.remove()
 
     return app

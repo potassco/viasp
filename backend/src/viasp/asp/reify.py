@@ -489,11 +489,7 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
                          lambda statement: self.visit(statement) and None)
 
     def sort_program(self, program) -> List[Transformation]:
-        from viasp.server.database import GraphAccessor, get_or_create_encoding_id, save_program
-        from viasp.server.extensions import graph_accessor
-        with graph_accessor.get_cursor() as cursor:
-            save_program(cursor, program, get_or_create_encoding_id())
-        # GraphAccessor().save_program(program, get_or_create_encoding_id())
+        # save_program(cursor, program, get_or_create_encoding_id())
         parse_string(program, lambda rule: self.visit(rule) and None)
         sorted_program = self.primary_sort_program_by_dependencies()
         return [
@@ -503,11 +499,6 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
 
     def get_sort_program_and_graph(
             self, program: str) -> Tuple[List[RuleContainer], nx.DiGraph]:
-        from viasp.server.database import GraphAccessor, get_or_create_encoding_id, save_program
-        from viasp.server.extensions import graph_accessor
-        with graph_accessor.get_cursor() as cursor:
-            save_program(cursor, program, get_or_create_encoding_id())
-        # GraphAccessor().save_program(program, get_or_create_encoding_id())
         parse_string(program, lambda rule: self.visit(rule) and None)
         sorted_programs = self.primary_sort_program_by_dependencies()
         return sorted_programs, self.make_dependency_graph(

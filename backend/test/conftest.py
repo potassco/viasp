@@ -5,7 +5,7 @@ from uuid import uuid4
 import networkx as nx
 import pytest
 from clingo import Control
-from flask import Flask
+from flask import Flask, current_app
 from flask.testing import FlaskClient
 
 from helper import get_clingo_stable_models
@@ -17,7 +17,8 @@ from viasp.server.blueprints.dag_api import bp as dag_bp
 from viasp.shared.io import DataclassJSONProvider
 from viasp.shared.util import hash_from_sorted_transformations
 from viasp.shared.model import ClingoMethodCall, Node, SymbolIdentifier, Transformation
-from viasp.server.database import GraphAccessor, get_or_create_encoding_id
+from viasp.server.database import db_session as Session, get_or_create_encoding_id, Base, engine
+from viasp.server.models import CurrentGraphs, Encodings, Recursions, DependencyGraphs, Models
 from viasp.shared.defaults import CLINGRAPH_PATH, GRAPH_PATH, PROGRAM_STORAGE_PATH, STDIN_TMP_STORAGE_PATH
 
 def create_app_with_registered_blueprints(*bps) -> Flask:
@@ -28,6 +29,15 @@ def create_app_with_registered_blueprints(*bps) -> Flask:
     app.json = DataclassJSONProvider(app)
     return app
 
+
+@pytest.fixture(scope="function")
+def db_session():
+    Base.metadata.create_all(engine)
+    session = Session
+    yield session
+    session.rollback()
+    session.close()
+    Base.metadata.drop_all(engine)
 
 @pytest.fixture
 def single_node_graph(a_1):
@@ -50,26 +60,32 @@ def app_context():
         yield app
 
 @pytest.fixture
-def load_analyzer(app_context) -> Callable[[str], ProgramAnalyzer]:
+def load_analyzer(app_context, db_session) -> Callable[[str], ProgramAnalyzer]:
     def c(program: str) -> ProgramAnalyzer:
         encoding_id = "0"
-        db = GraphAccessor()
-        db.clear()
-        db.add_to_program(program, encoding_id)
+        db_program = db_session.query(Encodings).filter_by(id=encoding_id).delete()
+        db_program = Encodings(id=encoding_id, program=program)
+        db_session.add(db_program)
+        db_session.commit()
         analyzer = ProgramAnalyzer()
-        analyzer.add_program(db.load_program(encoding_id))
+        analyzer.add_program(
+            db_session.query(Encodings).filter_by(id=encoding_id).first().program)
         return analyzer
     return c
 
 @pytest.fixture
-def get_sort_program(load_analyzer) -> Callable[[str], Tuple[List[Transformation], ProgramAnalyzer]]:
+def get_sort_program(load_analyzer, db_session) -> Callable[[str], Tuple[List[Transformation], ProgramAnalyzer]]:
     def c(program: str):
+        encoding_id = "0"
         analyzer = load_analyzer(program)
+        db_session.query(Encodings).delete()
+        db_session.add(Encodings(id=encoding_id, program=program))
+        db_session.commit()
         return analyzer.get_sorted_program(), analyzer
     return c
 
 @pytest.fixture
-def get_sort_program_and_get_graph(get_sort_program, app_context) -> Callable[[str], Tuple[Tuple[nx.DiGraph, str, List[Transformation]], ProgramAnalyzer]]:
+def get_sort_program_and_get_graph(get_sort_program, app_context, db_session) -> Callable[[str], Tuple[Tuple[nx.DiGraph, str, List[Transformation]], ProgramAnalyzer]]:
     def c(program: str):
         """
         Returning a Tuple containing 
@@ -79,11 +95,29 @@ def get_sort_program_and_get_graph(get_sort_program, app_context) -> Callable[[s
             * the analyzer
         """
         sorted_program, analyzer = get_sort_program(program)
-        db=GraphAccessor()
-        save_analyzer_values(analyzer)
+        encoding_id = get_or_create_encoding_id()
+        # db_session.add(CurrentGraphs(hash=hash_from_sorted_transformations(sorted_program), encoding_id=encoding_id))
+        db_recursions = [
+            Recursions(encoding_id=encoding_id,
+                       recursive_transformation_hash=t)
+            for t in analyzer.check_positive_recursion()
+        ]
+        db_dependency_graph = DependencyGraphs(
+            encoding_id=encoding_id,
+            data=current_app.json.dumps(
+                nx.node_link_data(analyzer.dependency_graph)
+            )) if analyzer.dependency_graph else None
+
+        db_session.add_all(db_recursions)
+        if db_dependency_graph:
+            db_session.add(db_dependency_graph)
+        db_session.commit()
 
         saved_models = get_clingo_stable_models(program)
-        db.set_models(saved_models, get_or_create_encoding_id())
+        # db_session.query(Models).filter_by(encoding_id=encoding_id).delete()
+        db_models = [Models(encoding_id=encoding_id, model=current_app.json.dumps(m)) for m in saved_models]
+        db_session.add_all(db_models)
+        db_session.commit()
         wrapped_stable_models = [list(save_model(saved_model)) for saved_model in saved_models]
         reified = reify_list(sorted_program)
         recursion_rules = analyzer.check_positive_recursion()
@@ -121,6 +155,7 @@ def client_with_a_graph(
     request, get_sort_program_and_get_graph
 ) -> Generator[Tuple[FlaskClient, ProgramAnalyzer, Mapping, str], Any, Any]:
     app = create_app_with_registered_blueprints(app_bp, api_bp, dag_bp)
+    # _ = app.delete("graph")
 
     program = request.getfixturevalue(request.param)
     (serializable_graph, hash, sorted_program), analyzer = get_sort_program_and_get_graph(
@@ -134,8 +169,27 @@ def client_with_a_graph(
                     })
         yield client, analyzer, serializable_graph, program
         _ = client.delete("/control/clingraph")
-        _ = client.post("/control/models/clear")
-        _ = client.delete("/graph/clear")
+        _ = client.delete("/control/models")
+        _ = client.delete("/graph")
+
+
+@pytest.fixture(
+    params=["program_simple", "program_multiple_sorts", "program_recursive"])
+def client_with_a_graph2(request, db_session) -> Generator[FlaskClient, Any, Any]:
+    app = create_app_with_registered_blueprints(app_bp, api_bp, dag_bp)
+
+    program = request.getfixturevalue(request.param)
+    with app.test_client() as client:
+        client.post("control/program", json=program)
+        saved_models = get_clingo_stable_models(program)
+        client.post("control/models", json=saved_models)
+        client.post("control/show")
+        yield client
+        _ = client.delete("control/program")
+        _ = client.delete("control/clingraph")
+        _ = client.delete("control/models")
+        _ = client.delete("graph")
+
 
 @pytest.fixture
 def client_with_a_clingraph(

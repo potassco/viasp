@@ -4,7 +4,8 @@ from clingo.ast import AST
 from viasp.asp.ast_types import (SUPPORTED_TYPES, UNSUPPORTED_TYPES)
 from viasp.asp.reify import ProgramAnalyzer, collect_literals, make_signature
 from viasp.shared.util import hash_transformation_rules
-from viasp.server.database import GraphAccessor, get_or_create_encoding_id
+from viasp.server.database import db_session, get_or_create_encoding_id
+from viasp.server.models import Encodings
 
 
 def test_simple_fact_analyzed_correctly(app_context):
@@ -32,49 +33,60 @@ def test_disjunction_causes_error_and_doesnt_get_passed(app_context):
     assert not transformer.will_work()
 
 
-def test_simple_rule_analyzed_correctly(app_context):
+def test_simple_rule_analyzed_correctly(app_context, db_session):
     program = "a :- b."
+    db_session.add(Encodings(id = get_or_create_encoding_id(), program = program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
     assert transformer.get_filtered() == []
     assert transformer.will_work()
 
 
-def test_rule_without_negation_analyzed_correctly(app_context):
+def test_rule_without_negation_analyzed_correctly(app_context, db_session):
     program = "a :- b, c."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
     assert transformer.get_filtered() == []
     assert transformer.will_work()
 
 
-def test_rule_with_negation_analyzed_correctly(app_context):
+def test_rule_with_negation_analyzed_correctly(app_context, db_session):
     program = "a :- not b, c."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
     assert transformer.get_filtered() == []
     assert transformer.will_work()
 
 
-def test_multiple_nested_variable_analyzed_correctly(app_context):
+def test_multiple_nested_variable_analyzed_correctly(app_context, db_session):
     program = "x(1). y(1). l(x(X),y(Y)) :- x(X), y(Y)."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
     assert transformer.get_filtered() == []
     assert transformer.will_work()
 
 
-def test_show_statement_without_terms_analyzed_correctly(app_context):
+def test_show_statement_without_terms_analyzed_correctly(app_context, db_session):
     program = "#show a/1."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
     assert transformer.get_filtered() == []
     assert transformer.will_work()
 
 
-def test_show_statement_with_terms_analyzed_correctly(app_context):
+def test_show_statement_with_terms_analyzed_correctly(app_context, db_session):
     program = "a. #show b : a."
-    GraphAccessor().save_program(program, get_or_create_encoding_id())
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
 
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
@@ -84,9 +96,11 @@ def test_show_statement_with_terms_analyzed_correctly(app_context):
     assert next(iter(result[0].rules.str_)) == "#show b : a."
 
 
-def test_defined_statement_analyzed_correctly(app_context):
+def test_defined_statement_analyzed_correctly(app_context, db_session):
     program = "#defined a/1."
     expected = "#defined a/1."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
     filtered = transformer.get_filtered()
@@ -96,8 +110,10 @@ def test_defined_statement_analyzed_correctly(app_context):
     # assertProgramEqual(rules, parse_program_to_ast(expected))
 
 
-def test_definition_statement_analyzed_correctly(app_context):
+def test_definition_statement_analyzed_correctly(app_context, db_session):
     program = "#const max=1."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
     filtered = transformer.get_filtered()
@@ -107,7 +123,7 @@ def test_definition_statement_analyzed_correctly(app_context):
     # assertProgramEqual(rules, parse_program_to_ast(expected))'
 
 
-def test_script_statement_analyzed_correctly(app_context):
+def test_script_statement_analyzed_correctly(app_context, db_session):
     program = """
 #script(python)
 from clingo.symbol import Number
@@ -116,7 +132,9 @@ def test2():
 #end.
 1{a;b;p(@test2())}.
 """
-    GraphAccessor().save_program(program, get_or_create_encoding_id())
+
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
     filtered = transformer.get_filtered()
@@ -215,8 +233,10 @@ def test_theory_definition_statement_analyzed_correctly(app_context):
     assert will_work == True, "Program with TheoryDefinitionTerm should work."
 
 
-def test_dependency_graph_creation(app_context):
+def test_dependency_graph_creation(app_context, db_session):
     program = "a. b :- a. c :- a."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
 
     analyzer = ProgramAnalyzer()
     result = analyzer.sort_program(program)
@@ -225,8 +245,10 @@ def test_dependency_graph_creation(app_context):
                ) == 2, "Facts should not be in the dependency graph."
 
 
-def test_negative_recursion_gets_grouped(get_sort_program):
+def test_negative_recursion_gets_grouped(get_sort_program, db_session):
     program = "a. b :- not c, a. c :- not b, a."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
 
     result, _ = get_sort_program(program)
     assert len(
@@ -235,24 +257,30 @@ def test_negative_recursion_gets_grouped(get_sort_program):
 
 
 def multiple_non_recursive_rules_with_same_head_should_not_be_grouped(
-        sort_program):
+        sort_program, db_session):
     program = "f(B) :- x(B). f(B) :- f(A), rel(A,B)."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     result = sort_program(program)
     assert len(
         result
     ) == 2, "Multiple rules with same head that are not recursive should not be grouped."
 
 
-def test_sorting_facts_independent(get_sort_program):
+def test_sorting_facts_independent(get_sort_program, db_session):
     program = "c :- b. b :- a. a. "
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     result, _ = get_sort_program(program)
     assert len(result) == 2, "Facts should not be sorted."
     assert str(next(iter(result[0].rules.str_))) == "b :- a."
     assert str(next(iter(result[1].rules.str_))) == "c :- b."
 
 
-def test_sorting_behemoth(get_sort_program):
+def test_sorting_behemoth(get_sort_program, db_session):
     program = "c(1). e(1). f(X,Y) :- b(X,Y). 1 #sum { X,Y : a(X,Y) : b(Y), c(X) ; X,Z : b(X,Z) : e(Z) } :- c(X). e(X) :- c(X)."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     result, _ = get_sort_program(program)
     assert len(result) == 3
     assert str(next(iter(result[0].rules.str_))) == "e(X) :- c(X)."
@@ -262,8 +290,10 @@ def test_sorting_behemoth(get_sort_program):
     assert str(next(iter(result[2].rules.str_))) == "f(X,Y) :- b(X,Y)."
 
 
-def test_data_type_is_correct(get_sort_program):
+def test_data_type_is_correct(get_sort_program, db_session):
     program = "d :- c. b :- a. a. c :- b."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     result, _ = get_sort_program(program)
     assert len(result) > 0 and len(result[0].rules.ast) > 0 and len(
         result[0].rules.str_
@@ -275,30 +305,38 @@ def test_data_type_is_correct(get_sort_program):
     assert data_type_str_ == str, f"{a_rule}.str should be a str, not {data_type_str_}"
 
 
-def test_aggregate_in_body_of_constraint(get_sort_program):
+def test_aggregate_in_body_of_constraint(get_sort_program, db_session):
     program = ":- 3 { assignedB(P,R) : paper(P) }, reviewer(R)."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     result, _ = get_sort_program(program)
     assert len(result) == 1
 
 
-def test_minimized_causes_no_warning(app_context):
+def test_minimized_causes_no_warning(app_context, db_session):
     program = "#minimize { 1,P,R : assignedB(P,R), paper(P), reviewer(R) }."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
 
     transformer = ProgramAnalyzer()
     transformer.sort_program(program)
     assert len(transformer.get_filtered()) == 0
 
 
-def test_minimized_is_collected_as_rule(app_context):
+def test_minimized_is_collected_as_rule(app_context, db_session):
     program = "#minimize { 1,P,R : assignedB(P,R), paper(P), reviewer(R) }."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
     assert len(result)
     assert len(transformer.rules) == 1
 
 
-def test_weak_minimized_is_collected_as_rule(app_context):
+def test_weak_minimized_is_collected_as_rule(app_context, db_session):
     program = ":~ last(N). [N@0,1]"
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
     assert len(result)
@@ -306,7 +344,7 @@ def test_weak_minimized_is_collected_as_rule(app_context):
 
 
 @pytest.mark.skip(reason="Not implemented yet")
-def test_constraints_gets_put_last(app_context):
+def test_constraints_gets_put_last(app_context, db_session):
     program = """
     { assigned(P,R) : reviewer(R) } 3 :-  paper(P).
      :- assigned(P,R), coi(R,P).
@@ -315,6 +353,8 @@ def test_constraints_gets_put_last(app_context):
      :- 3 { assignedB(P,R) : paper(P) }, reviewer(R).
     #minimize { 1,P,R : assignedB(P,R), paper(P), reviewer(R) }.
     """
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
     assert len(result) == 3
@@ -323,11 +363,14 @@ def test_constraints_gets_put_last(app_context):
     assert len(result[2].rules.str_) == 3
 
 
-def test_body_conditional_literal_sorted_correctly(app_context):
+def test_body_conditional_literal_sorted_correctly(app_context, db_session):
     rules = ["hc(U,V) :- edge(U,V).", "allnodes :- hc(_,X): node(X), X=1..2."]
     program = """
     node(1..2). edge(1,2). edge(2,1).
     """ + "\n".join(rules)
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
+
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
     assert len(result) == 2
@@ -344,11 +387,14 @@ def test_body_conditional_literal_sorted_correctly(app_context):
         'X = (1..2)', 0)]) == 0, "Body arithmetic is filtered from conditions."
 
 
-def test_body_conditional_literal_sorted_in_show_term(app_context):
+def test_body_conditional_literal_sorted_in_show_term(app_context, db_session):
     rules = ["hc(U,V) :- edge(U,V).", "#show allnodes : node(X): hc(_,X)."]
     program = """
     node(1..2). edge(1,2). edge(2,1).
     """ + "\n".join(rules)
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
+
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
     assert len(result) == len(rules)
@@ -363,11 +409,14 @@ def test_body_conditional_literal_sorted_in_show_term(app_context):
         'hc', 2)]) == 1, "hc/2 should be a condition of the rule"
 
 
-def test_body_aggregate_sorted_correctly(app_context):
+def test_body_aggregate_sorted_correctly(app_context, db_session):
     rules = ["hc(U,V) :- edge(U,V).", "pathExists :- 1 < #count { 1,X,Y: hc(X,Y) }."]
     program = """
     node(1..2). edge(1,2). edge(2,1).
     """ + "\n".join(rules)
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
+
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
     assert len(result) == len(rules)
@@ -380,11 +429,14 @@ def test_body_aggregate_sorted_correctly(app_context):
         'hc', 2)]) == 1, "hc/2 should be a condition of the rule"
 
 
-def test_body_aggregate_sorted_in_show_term(app_context):
+def test_body_aggregate_sorted_in_show_term(app_context, db_session):
     rules = ["hc(U,V) :- edge(U,V).", "#show pathExists : 1 < #count { 1,X,Y: hc(X,Y) }."]
     program = """
     node(1..2). edge(1,2). edge(2,1).
     """ + "\n".join(rules)
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
+
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
     assert len(result) == len(rules)
@@ -397,8 +449,11 @@ def test_body_aggregate_sorted_in_show_term(app_context):
         'hc', 2)]) == 1, "hc/2 should be a condition of the rule"
 
 
-def test_positive_recursion_gets_recognized(app_context):
+def test_positive_recursion_gets_recognized(app_context, db_session):
     program = "a :- b. b :- a.d :- c. c :- d."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
+
     transformer = ProgramAnalyzer()
     _ = transformer.sort_program(program)
     recursive_rules = transformer.check_positive_recursion()
@@ -409,8 +464,11 @@ def test_positive_recursion_gets_recognized(app_context):
     assert len(recursive_rules) == 2, "Two transformations are recursive."
 
 
-def test_loop_recursion_gets_recognized(app_context):
+def test_loop_recursion_gets_recognized(app_context, db_session):
     program = "a :- a."
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
+
     transformer = ProgramAnalyzer()
     _ = transformer.add_program(program)
     recursive_rules = transformer.check_positive_recursion()

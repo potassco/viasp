@@ -60,19 +60,11 @@ class ClingoClient(ViaspClient):
             error(f"Setting models failed [{r.status_code}] ({r.reason})")
 
     def show(self):
-        self._reconstruct()
         r = requests.post(f"{self.backend_url}/control/show")
         if r.ok:
             log(f"Drawing in progress.")
         else:
             error(f"Drawing failed [{r.status_code}] ({r.text})")
-
-    def _reconstruct(self):
-        r = requests.get(f"{self.backend_url}/control/reconstruct")
-        if r.ok:
-            log(f"Reconstructing in progress.")
-        else:
-            error(f"Reconstructing failed [{r.status_code}] ({r.text})")
 
     def relax_constraints(self, *args, **kwargs):
         log("No answer sets found. Switching to transformed visualization.")
@@ -124,7 +116,7 @@ class ClingoClient(ViaspClient):
             transformer, imports, path)
         serialized = json.dumps(serializable_transformer,
                                 cls=DataclassJSONEncoder)
-        r = requests.post(f"{self.backend_url}/control/add_transformer",
+        r = requests.post(f"{self.backend_url}/control/transformer",
                           data=serialized,
                           headers={'Content-Type': 'application/json'})
         if r.ok:

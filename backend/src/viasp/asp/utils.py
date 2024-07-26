@@ -2,13 +2,11 @@
 import networkx as nx
 from clingo import Symbol, ast
 from clingo.ast import ASTType, AST
-from typing import Generator, List, Sequence, Tuple, Dict, Set, FrozenSet, Optional
+from typing import List, Sequence, Tuple, Dict, Set, FrozenSet, Optional
 
 from ..shared.simple_logging import warn
-from ..server.extensions import graph_accessor
 from ..shared.model import Node, SymbolIdentifier, Transformation, RuleContainer
-from ..shared.util import pairwise, get_root_node_from_graph, hash_from_sorted_transformations
-from ..server.database import insert_graph_adjacency
+from ..shared.util import pairwise, get_root_node_from_graph
 
 def is_constraint(rule: AST) -> bool:
     return rule.ast_type == ASTType.Rule and "atom" in rule.head.child_keys and rule.head.atom.ast_type == ASTType.BooleanConstant  # type: ignore
@@ -243,21 +241,6 @@ def find_index_mapping_for_adjacent_topological_sorts(
         upper_bound = min([sorted_program.index(u) for u in g.successors(rule_container)]+[len(sorted_program)])
         new_indices[i] = {"lower_bound": lower_bound+1, "upper_bound": upper_bound-1}
     return new_indices
-
-
-def register_adjacent_sorts(primary_sort: List[Transformation], primary_hash: str, encoding_id: str) -> None:
-    with graph_accessor.get_cursor() as cursor:
-        for transformation in primary_sort:
-            for new_index in range(transformation.adjacent_sort_indices["lower_bound"], transformation.adjacent_sort_indices["upper_bound"]+1):
-                if new_index == transformation.id:
-                    continue
-                new_sort_rules = [t.rules for t in primary_sort]
-                new_sort_rules.remove(transformation.rules)
-                new_sort_rules.insert(new_index, transformation.rules)
-                new_sort_transformations = [Transformation(id=i, rules=rules) for i, rules in enumerate(new_sort_rules)]
-                new_hash = hash_from_sorted_transformations(new_sort_transformations)
-                insert_graph_adjacency(cursor, encoding_id, primary_hash,
-                                       new_hash, new_sort_transformations)
 
 
 def recalculate_transformation_ids(sort: List[Transformation]):

@@ -3,8 +3,7 @@ from typing import Any, TypeVar, Iterable, Tuple, List, Sequence, Dict
 from collections import defaultdict
 from types import MappingProxyType
 from hashlib import sha1
-from flask import current_app, session
-from uuid import uuid4
+from flask import current_app
 import json
 import jsonschema
 from jsonschema import validate
@@ -89,13 +88,11 @@ def hash_transformation_rules(rules: Tuple[Any, ...]) -> str:
 
 
 def get_rules_from_input_program(rules: Tuple) -> Sequence[str]:
-    from ..server.extensions import graph_accessor
-    from ..server.database import get_or_create_encoding_id, load_program
+    from ..server.database import db_session
+    from ..server.models import Encodings
 
     rules_from_input_program: Sequence[str] = []
-    encoding_id = get_or_create_encoding_id()
-    with graph_accessor.get_cursor() as cursor:
-        program = load_program(cursor, encoding_id).split("\n")
+    program = db_session.query(Encodings).filter(Encodings.id == "0").first().program.split("\n")
     for rule in rules:
         if isinstance(rule, str):
             rules_from_input_program.append(rule)
