@@ -157,7 +157,7 @@ export function Box(props) {
                         <div className={'loading'} style={imageSize}></div>
                     ) : (
                         <img
-                            src={`${backendURL('graph/clingraph')}/${
+                            src={`${backendURL('clingraph')}/${
                                 node.uuid
                             }`}
                             // width={`30px`}
