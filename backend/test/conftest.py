@@ -150,32 +150,9 @@ def client_with_a_single_node_graph(get_sort_program_and_get_graph, a_1) -> Gene
         yield client, analyzer, graph_info, program
 
 
-@pytest.fixture(params=["program_simple", "program_multiple_sorts", "program_recursive"])
-def client_with_a_graph(
-    request, get_sort_program_and_get_graph
-) -> Generator[Tuple[FlaskClient, ProgramAnalyzer, Mapping, str], Any, Any]:
-    app = create_app_with_registered_blueprints(app_bp, api_bp, dag_bp)
-    # _ = app.delete("graph")
-
-    program = request.getfixturevalue(request.param)
-    (serializable_graph, hash, sorted_program), analyzer = get_sort_program_and_get_graph(
-        program)
-    with app.test_client() as client:
-        client.post("graph",
-                json={
-                        "data": serializable_graph,
-                        "hash": hash,
-                        "sort": sorted_program
-                    })
-        yield client, analyzer, serializable_graph, program
-        _ = client.delete("/control/clingraph")
-        _ = client.delete("/control/models")
-        _ = client.delete("/graph")
-
-
 @pytest.fixture(
     params=["program_simple", "program_multiple_sorts", "program_recursive"])
-def client_with_a_graph2(request, db_session) -> Generator[FlaskClient, Any, Any]:
+def client_with_a_graph(request, db_session) -> Generator[FlaskClient, Any, Any]:
     app = create_app_with_registered_blueprints(app_bp, api_bp, dag_bp)
 
     program = request.getfixturevalue(request.param)
@@ -194,19 +171,20 @@ def client_with_a_graph2(request, db_session) -> Generator[FlaskClient, Any, Any
 @pytest.fixture
 def client_with_a_clingraph(
     client_with_a_graph
-) -> Generator[Tuple[FlaskClient, ProgramAnalyzer, Mapping, str], Any, Any]:
-    client, analyzer, serializable_graph, program = client_with_a_graph
+) -> Generator[FlaskClient, Any, Any]:
+    client = client_with_a_graph
 
+    program = client.get("/control/program").json
     serialized = get_clingo_stable_models(program)
     _ = client.post("/control/models",
                     json=serialized,
                     headers={'Content-Type': 'application/json'})
 
-    yield client, analyzer, serializable_graph, program
+    yield client
 
 
 @pytest.fixture
-def client() -> Generator[FlaskClient, Any, Any]:
+def client(db_session) -> Generator[FlaskClient, Any, Any]:
     app = create_app_with_registered_blueprints(app_bp, api_bp, dag_bp)
 
     with app.test_client() as client:

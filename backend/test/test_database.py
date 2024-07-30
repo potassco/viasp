@@ -1,12 +1,14 @@
-from viasp.server.database import CallCenter, db_session
 import pytest
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 import networkx as nx
 from flask import current_app
+from sqlalchemy.exc import MultipleResultsFound, IntegrityError
 
+from conftest import db_session
 from helper import get_clingo_stable_models
-from viasp.shared.util import hash_from_sorted_transformations, hash_transformation_rules
-from viasp.shared.model import Transformation, TransformerTransport, TransformationError, FailedReason, RuleContainer
+from viasp.shared.util import hash_from_sorted_transformations, hash_transformation_rules, get_start_node_from_graph
+from viasp.server.blueprints.dag_api import get_node_positions
+from viasp.shared.model import Transformation, TransformerTransport, TransformationError, FailedReason, RuleContainer, Node
 from viasp.exampleTransformer import Transformer as ExampleTransfomer
 from viasp.server.models import Encodings, Graphs, Recursions, DependencyGraphs, Models, Clingraphs, Warnings, Transformers, CurrentGraphs, GraphEdges, GraphNodes
 
@@ -19,66 +21,102 @@ def graph_info(request, get_sort_program_and_get_graph,
     program = request.getfixturevalue(request.param)
     return get_sort_program_and_get_graph(program)[0]
 
-def test_add_a_call_to_database(clingo_call_run_sample):
-    db = CallCenter()
-    assert len(db.calls) == 0, "Database should be empty initially."
-    assert len(db.get_all()) == 0, "Database should be empty initially."
-    assert len(db.get_pending()) == 0, "Database should be empty initially."
-    db.extend(clingo_call_run_sample)
-    assert len(db.calls) == 4, "Database should contain 4 after adding 4."
-    assert len(db.get_all()) == 4, "Database should contain 4 after adding 4."
-    assert len(db.get_pending()) == 4, "Database should contain 4 pending after adding 4 and not consuming them."
-    db.mark_call_as_used(clingo_call_run_sample[0])
-    assert len(db.calls) == 4, "Database should contain 4 after adding 4."
-    assert len(db.get_all()) == 4, "Database should contain 4 after adding 4."
-    assert len(db.get_pending()) == 3, "Database should contain 3 pending after adding 4 and consuming one."
-
 
 def test_program_database(db_session):
     encoding_id = "test"
     program1 = "a. b:-a."
     program2 = "c."
-    # assert len(db.load_program(encoding_id)) == 0, "Database should be empty initially."
     assert len(db_session.query(Encodings).all()) == 0, "Database should be empty initially."
-    # db.save_program(program1, encoding_id)
     db_session.add(Encodings(id=encoding_id, program=program1))
     db_session.commit()
-    assert db_session.query(Encodings).all()[0].program == program1
-    # assert db.load_program(encoding_id) == program1
-    db_program = db_session.query(Encodings).filter_by(id=encoding_id).first()
-    db_program.program += program2
+
+    res = db_session.query(Encodings).all()
+    assert len(res) == 1
+    assert res[0].program == program1
+
+    res = db_session.query(Encodings).filter_by(id=encoding_id).first()
+    res.program += program2
     db_session.commit()
-    # db.add_to_program(program2, encoding_id)
-    assert db_session.query(Encodings).all()[0].program == program1 + program2
-    # assert db.load_program(encoding_id) == program1 + program2
+
+    res = db_session.query(Encodings).all()
+    assert len(res) == 1
+    assert res[0].program == program1 + program2
+
     db_session.query(Encodings).filter_by(id=encoding_id).delete()
     db_session.commit()
-    # db.clear_program(encoding_id)
     assert len(db_session.query(Encodings).all()) == 0, "Database should be empty after clearing."
-    # assert len(db.load_program(encoding_id)) == 0, "Database should be empty after clearing."
 
-def test_models_database(client_with_a_graph, db_session):
-    _, _, _, program = client_with_a_graph
-    serialized = get_clingo_stable_models(program)
-    assert [current_app.json.loads(m.model) for m in db_session.query(Models).all()] == serialized
-    db_session.query(Models).delete()
+
+def test_encoding_id_is_unique(db_session):
+    encoding_id = "test"
+    program1 = "a. b:-a."
+    program2 = "c."
+
+    db_session.add(Encodings(id=encoding_id, program=program1))
+    db_session.add(Encodings(id=encoding_id, program=program2))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    db_session.add(Encodings(id=encoding_id+"1", program=program1))
+    db_session.add(Encodings(id=encoding_id+"2", program=program1))
     db_session.commit()
-    assert len(db_session.query(Models).all()) == 0, "Database should be empty after clearing."
+    res = db_session.query(Encodings).all()
+    assert len(res) == 2
+
+
+def test_models_database(app_context, db_session):
+    encoding_id = "test"
+    program1 = "a. b:-a."
+
+    models = get_clingo_stable_models(program1)
+    db_session.add_all([Models(encoding_id=encoding_id, model=current_app.json.dumps(m)) for m in models])
+    db_session.commit()
+
+    res = db_session.query(Models).all()
+    assert len(res) == len(models)
+    serialized = [current_app.json.loads(m.model) for m in res]
+    assert all([m in models for m in serialized])
+
+    assert len(set([m.id for m in res])) == len(res), "id must be unique"
+
+
+def test_models_unique_constraint_database(app_context, db_session):
+    encoding_id = "test"
+    program = "a. b:-a."
+
+    models = get_clingo_stable_models(program)
+    db_session.add_all([
+        Models(encoding_id=encoding_id, model=current_app.json.dumps(m))
+        for m in models
+    ])
+    db_session.add(Models(encoding_id=encoding_id, model=current_app.json.dumps(models[0])))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    db_session.add(
+        Models(encoding_id=encoding_id+"1",
+               model=current_app.json.dumps(models[0])))
+    db_session.add(
+        Models(encoding_id=encoding_id + "2",
+               model=current_app.json.dumps(models[0])))
+    db_session.commit()
+    res = db_session.query(Models).all()
+    assert len(res) == 2
 
 
 def test_graph_json_database(graph_info, db_session):
     encoding_id = "test"
+    graph, hash, sort = graph_info
 
-    db_graph = db_session.query(Graphs).filter_by(hash=graph_info[1], encoding_id=encoding_id).first()
+    db_graph = db_session.query(Graphs).filter_by(hash=hash, encoding_id=encoding_id).first()
     assert db_graph is None, "Database should be empty initially."
-    # with pytest.raises(KeyError):
-    #     db.load_graph_json(graph_info[1], encoding_id)
 
     db_session.add(Encodings(id=encoding_id, program=""))
-    db_session.add(Graphs(hash=graph_info[1], sort=current_app.json.dumps(graph_info[2]), encoding_id=encoding_id, data=current_app.json.dumps(nx.node_link_data(graph_info[0]))))
+    db_session.add(Graphs(hash=hash, sort=current_app.json.dumps(sort), encoding_id=encoding_id, data=current_app.json.dumps(nx.node_link_data(graph))))
     db_session.commit()
-    r = db_session.query(Graphs).filter_by(hash=graph_info[1], encoding_id=encoding_id).first()
-    # r = db.load_graph_json(graph_info[1], encoding_id)
+    r = db_session.query(Graphs).filter_by(hash=hash, encoding_id=encoding_id).first()
     assert type(r.data) == str
     assert len(r.data) > 0
     db_session.query(Graphs).delete()
@@ -87,212 +125,314 @@ def test_graph_json_database(graph_info, db_session):
     db_session.query(Models).delete()
 
 
-# def test_graph_database(graph_info):
-#     db = GraphAccessor()
-#     encoding_id = "test"
+def test_graphs_data_is_nullable(graph_info, db_session):
+    encoding_id = "test"
+    _, hash, sort = graph_info
 
-#     with pytest.raises(KeyError):
-#         db.load_graph(graph_info[1], encoding_id)
-#     db.save_graph(graph_info[0], graph_info[1], graph_info[2], encoding_id)
-#     r = db.load_graph(graph_info[1], encoding_id)
-#     assert type(r) == nx.DiGraph
-#     assert len(r) > 0
+    db_session.add(Graphs(hash=hash, sort=current_app.json.dumps(sort), encoding_id=encoding_id, data=None))
+    db_session.commit()
 
 
-# def test_current_graph_json_database(graph_info):
-#     db = GraphAccessor()
-#     encoding_id = "test"
+def test_graphs_encodingid_hash_unique_constraint(graph_info, db_session):
+    encoding_id = "test"
+    _, hash, sort = graph_info
 
-#     with pytest.raises(KeyError):
-#         db.load_current_graph_json(encoding_id)
-#     db.save_graph(graph_info[0], graph_info[1], graph_info[2], encoding_id)
-#     db.set_current_graph(graph_info[1], encoding_id)
-#     assert len(db.load_current_graph_json(encoding_id)) > 0
+    db_session.add(
+        Graphs(hash=hash,
+               sort=current_app.json.dumps(sort),
+               encoding_id=encoding_id,
+               data=None))
+    sort2 = sort
+    sort2.reverse()
+    db_session.add(
+        Graphs(hash=hash,
+               sort=current_app.json.dumps(sort2),
+               encoding_id=encoding_id,
+               data=None))
 
-
-# def test_current_graph_database(graph_info):
-#     db = GraphAccessor()
-#     encoding_id = "test"
-
-#     with pytest.raises(KeyError):
-#         db.load_current_graph(encoding_id)
-#     db.save_graph(graph_info[0], graph_info[1], graph_info[2], encoding_id)
-#     db.set_current_graph(graph_info[1], encoding_id)
-#     r = db.load_current_graph(encoding_id)
-#     assert len(r) > 1
-#     assert type(r) == nx.DiGraph
-
-#     # encoding_id = "test2"
-#     db.save_graph(graph_info[0], graph_info[1][:5], graph_info[2], encoding_id)
-#     db.set_current_graph(graph_info[1][:5], encoding_id)
-#     r = db.load_current_graph(encoding_id)
-#     assert len(r) > 1
-#     assert type(r) == nx.DiGraph
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
 
 
+def test_graph_data_database(db_session, graph_info):
+    encoding_id = "test"
+    graph, hash, sort = graph_info
 
-# def test_sorts_database(get_sort_program, program_multiple_sorts):
-#     # TODO: rewrite / remove this test
-#     # test adjacent tests instead
-#     db = GraphAccessor()
-#     encoding_id = "test"
-#     program = program_multiple_sorts
-#     sort, _ = get_sort_program(program)
+    res = db_session.query(Graphs).filter_by(hash = hash, encoding_id = encoding_id).one_or_none()
+    assert res == None
 
-#     with pytest.raises(KeyError):
-#         db.load_current_graph(encoding_id)
-#     r = db.load_all_sorts(encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 0
+    db_session.add(Graphs(data=current_app.json.dumps(nx.node_link_data(graph)), hash=hash, encoding_id=encoding_id, sort=current_app.json.dumps(sort)))
+    db_session.commit()
 
-#     db.save_sort(hash_from_sorted_transformations(sort), sort, encoding_id)
-#     r = db.load_all_sorts(encoding_id)
-#     assert len(r) == 1
-#     assert type(r) == list
-
-#     db.set_current_graph(hash_from_sorted_transformations(sort),
-#                          encoding_id)
-#     with pytest.raises(ValueError):
-#         db.load_current_graph(encoding_id)
-#     db.clear_all_sorts(encoding_id)
-#     r = db.load_all_sorts(encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 0
+    res = db_session.query(Graphs).filter_by(hash=hash, encoding_id=encoding_id).one_or_none()
+    assert res != None
+    assert type(res) == Graphs
+    assert type(res.data) == str
+    assert len(res.data) > 0
+    assert type(nx.node_link_graph(current_app.json.loads(res.data))) == nx.DiGraph
 
 
-# def test_current_sort_database(graph_info):
-#     db = GraphAccessor()
-#     encoding_id = "test"
+def test_graph_data_is_unique(db_session, graph_info):
+    encoding_id = "test"
+    graph, hash, sort = graph_info
 
-#     r = db.load_all_sorts(encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 0
-#     db.save_graph(graph_info[0], graph_info[1], graph_info[2], encoding_id)
-#     db.set_current_graph(graph_info[1], encoding_id)
-#     r = db.get_current_sort(encoding_id)
-#     assert len(r) == 2
-#     assert type(r) == list
-#     for i in range(len(r)):
-#         assert type(r[i]) == Transformation
-#         assert r[i].id == i
-
-# def test_recursion_database(app_context):
-#     db = GraphAccessor()
-#     encoding_id = "test"
-#     recursion = {hash_transformation_rules(("a :- b.",)), hash_transformation_rules(("b :- c.",))}
-
-#     r = db.load_recursive_transformations_hashes(encoding_id)
-#     assert type(r) == set
-#     assert len(r) == 0
-
-#     db.save_recursive_transformations_hashes(recursion, encoding_id)
-#     r = db.load_recursive_transformations_hashes(encoding_id)
-#     assert type(r) == set
-#     assert len(r) == 2
-
-#     db.save_recursive_transformations_hashes({recursion.pop()}, encoding_id)
-#     r = db.load_recursive_transformations_hashes(encoding_id)
-#     assert type(r) == set
-#     assert len(r) == 2
-
-#     db.clear_recursive_transformations_hashes(encoding_id)
-#     r = db.load_recursive_transformations_hashes(encoding_id)
-#     assert type(r) == set
-#     assert len(r) == 0
-
-# def test_clingraph_database():
-#     db = GraphAccessor()
-#     encoding_id = "test"
-#     clingraph_names = ["test1", "test2"]
-
-#     r = db.load_all_clingraphs(encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 0
-#     for n in clingraph_names:
-#         db.save_clingraph(n, encoding_id)
-#     r = db.load_all_clingraphs(encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 2
-
-#     db.clear_clingraph(encoding_id)
-#     r = db.load_all_clingraphs(encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 0
+    db_session.add(
+        Graphs(data=current_app.json.dumps(nx.node_link_data(graph)),
+               hash=hash,
+               encoding_id=encoding_id,
+               sort=current_app.json.dumps(sort)))
+    db_session.add(
+        Graphs(data=current_app.json.dumps(nx.node_link_data(graph)),
+               hash=hash,
+               encoding_id=encoding_id,
+               sort=current_app.json.dumps(sort)))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
 
 
-# def test_warnings(app_context, load_analyzer, program_simple):
-#     db = GraphAccessor()
 
-#     encoding_id = "test"
-#     analyzer = load_analyzer(program_simple)
-#     some_ast = analyzer.rules[0]
-#     warnings = [
-#         TransformationError(ast=some_ast, reason=FailedReason.FAILURE),
-#         TransformationError(ast=some_ast, reason=FailedReason.FAILURE)
-#     ]
-#     r = db.load_warnings(encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 0
-#     db.save_warnings(warnings, encoding_id)
-#     r = db.load_warnings(encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 2
-#     db.clear_warnings(encoding_id)
-#     r = db.load_warnings(encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 0
+def test_current_graph_json_database(db_session, graph_info):
+    encoding_id = "test"
+    _, hash, _ = graph_info
+
+    res = db_session.query(CurrentGraphs).filter_by(
+        encoding_id=encoding_id).one_or_none()
+    assert res == None
+
+    db_session.add(CurrentGraphs(hash=hash, encoding_id=encoding_id))
+    db_session.commit()
+
+    res = db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).one_or_none()
+    assert res != None
+    assert type(res) == CurrentGraphs
+    assert type(res.hash) == str
+    assert len(res.hash) > 0
 
 
-# def test_related_graphs(app_context):
-#     db = GraphAccessor()
+def test_current_graph_is_unique(db_session, graph_info):
+    encoding_id = "test"
+    _, hash, _ = graph_info
 
-#     encoding_id = "test"
-#     hash_1 = "hash1"
-#     hash_2 = "hash2"
+    res = db_session.query(CurrentGraphs).filter_by(
+        encoding_id=encoding_id).one_or_none()
+    assert res == None
 
-#     elements = ['x:-a.', 'y:-a.', 'z:-a.']
-#     sort_1 = [Transformation(i, RuleContainer(str_=(elements[i], ))) for i in range(len(elements))]
-#     sort_2 = [
-#         Transformation(i, RuleContainer(str_=(elements[(i + 1) % len(elements)], )))
-#         for i in range(len(elements))
-#     ]
+    db_session.add(CurrentGraphs(hash=hash, encoding_id=encoding_id))
+    db_session.add(CurrentGraphs(hash=hash+"2", encoding_id=encoding_id))
 
-#     db.save_sort(hash_1, sort_1, encoding_id)
-#     r = db.get_adjacent_graphs_hashes(hash_1, encoding_id)
-#     assert r == []
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
 
-#     db.insert_graph_adjacency(hash_1, hash_2, sort_2, encoding_id)
+    db_session.add(CurrentGraphs(hash=hash, encoding_id=encoding_id))
+    db_session.add(CurrentGraphs(hash=hash, encoding_id=encoding_id+"2"))
+    db_session.commit()
 
-#     r = db.get_adjacent_graphs_hashes(hash_1, encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 1
-#     assert hash_2 in r
-
-#     # assert bi-directional, many-to-many
-#     hash_3 = "hash3"
-#     sort_3 = [
-#         Transformation(i, RuleContainer(str_=(elements[(i + 2) % len(elements)], )))
-#         for i in range(len(elements))
-#     ]
-#     db.insert_graph_adjacency(hash_2, hash_3, sort_3, encoding_id)
-
-#     r = db.get_adjacent_graphs_hashes(hash_2, encoding_id)
-#     assert type(r) == list
-#     assert len(r) == 2
-#     assert hash_3 in r
-#     assert hash_1 in r
+    res = db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).all()
+    assert len(res) == 1
+    res = db_session.query(CurrentGraphs).filter_by(
+        encoding_id=encoding_id+"2").all()
+    assert len(res) == 1
 
 
-# @pytest.mark.skip(reason="Transformer not registered bc of base exception?")
-# def test_transformer_database(app_context):
-#     db = GraphAccessor()
+def test_graph_nodes_database(db_session, graph_info):
+    encoding_id = "test"
+    graph, hash, sort = graph_info
 
-#     encoding_id = "test"
-#     transformer = ExampleTransfomer()
-#     path = str(
-#         pathlib.Path(__file__).parent.parent.resolve() / "src" / "viasp" / "exampleTransformer.py") # type: ignore
-#     transformer_transport = TransformerTransport.merge(transformer, "", path)
-#     db.save_transformer(transformer_transport, encoding_id)
-#     r = db.load_transformer(encoding_id)
-#     assert type(r) == ExampleTransfomer
-#     assert r == transformer
+    res = db_session.query(GraphNodes).filter_by(
+        encoding_id=encoding_id).all()
+    assert len(res) == 0
+
+    transformation_node_tuples = [(d["transformation"].hash, v)
+                                  for (_, v, d) in graph.edges(data=True)]
+    pos: Dict[Node, List[float]] = get_node_positions(graph)
+    ordered_children = sorted(transformation_node_tuples,
+                              key=lambda transf_node: pos[transf_node[1]][0])
+    ordered_children.append(("-1", get_start_node_from_graph(graph)))
+    db_nodes = [
+        GraphNodes(encoding_id=encoding_id,
+                   graph_hash=hash_from_sorted_transformations(sort),
+                   transformation_hash=transformation_hash,
+                   node=current_app.json.dumps(node))
+        for transformation_hash, node in ordered_children
+    ]
+    db_session.add_all(db_nodes)
+    db_session.commit()
+
+    res = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id).all()
+    assert len(res) == len(graph.nodes)
+    assert len(set([r.node for r in res])) == len(res)
+
+
+@pytest.mark.skip(reason="Not implemented yet")
+def test_graph_edges_database(db_session, graph_info):
+    pass
+
+
+def test_dependency_graphs_database(db_session, load_analyzer):
+    encoding_id = "test"
+    program1 = "a. b:-a."
+
+    analyzer = load_analyzer(program1)
+
+    res = db_session.query(DependencyGraphs).filter_by(
+        encoding_id=encoding_id).all()
+    assert len(res) == 0
+
+    db_session.add(DependencyGraphs(encoding_id=encoding_id, data=current_app.json.dumps(analyzer.dependency_graph)))
+    db_session.commit()
+
+    res = db_session.query(DependencyGraphs).filter_by(encoding_id=encoding_id).all()
+    assert len(res) == 1
+    assert type(res[0].data) == str
+    assert len(res[0].data) > 0
+
+
+def test_recursion_database(app_context, db_session):
+    encoding_id = "test"
+    recursion = [hash_transformation_rules(("a :- b.",)), hash_transformation_rules(("b :- c.",))]
+
+    res = db_session.query(Recursions).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 0
+
+    db_session.add_all([
+        Recursions(encoding_id=encoding_id,
+                   recursive_transformation_hash=r_hash)
+    for r_hash in recursion])
+    db_session.commit()
+
+    res = db_session.query(Recursions).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 2
+
+
+def test_recursion_unique_constraint_database(app_context, db_session):
+    encoding_id = "test"
+    recursion = hash_transformation_rules(("a :- b.", ))
+
+    db_session.add(Recursions(encoding_id=encoding_id,
+                   recursive_transformation_hash=recursion))
+    db_session.add(
+        Recursions(encoding_id=encoding_id,
+                   recursive_transformation_hash=recursion))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    db_session.add(Recursions(encoding_id=encoding_id+"1",
+                    recursive_transformation_hash=recursion))
+    db_session.add(Recursions(encoding_id=encoding_id+"2",
+                    recursive_transformation_hash=recursion))
+    db_session.commit()
+    res = db_session.query(Recursions).all()
+    assert len(res) == 2
+
+
+def test_clingraph_database(db_session):
+    encoding_id = "test"
+    clingraph_names = ["test1", "test2"]
+
+    r = db_session.query(Clingraphs).all()
+    assert type(r) == list
+    assert len(r) == 0
+
+    for n in clingraph_names:
+        db_session.add(Clingraphs(encoding_id=encoding_id, filename=n))
+    db_session.commit()
+
+    r = db_session.query(Clingraphs).filter_by(encoding_id=encoding_id).all()
+    assert type(r) == list
+    assert len(r) == 2
+
+
+def test_clingraph_unique_constraint_database(db_session):
+    encoding_id = "test"
+    clingraph_name = "test1"
+
+    res = db_session.query(Clingraphs).all()
+    assert type(res) == list
+    assert len(res) == 0
+
+    db_session.add(Clingraphs(encoding_id=encoding_id,
+                              filename=clingraph_name))
+    db_session.add(Clingraphs(encoding_id=encoding_id,
+                              filename=clingraph_name))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    db_session.add(Clingraphs(encoding_id=encoding_id+"1",
+                                filename=clingraph_name))
+    db_session.add(Clingraphs(encoding_id=encoding_id+"2",
+                                filename=clingraph_name))
+    db_session.commit()
+    res = db_session.query(Clingraphs).all()
+    assert type(res) == list
+    assert len(res) == 2
+
+
+def test_warnings_database(app_context, load_analyzer, program_simple, db_session):
+    encoding_id = "test"
+    analyzer = load_analyzer(program_simple)
+    warnings = [
+        TransformationError(ast=analyzer.rules[0],
+                            reason=FailedReason.FAILURE),
+        TransformationError(ast=analyzer.rules[1], reason=FailedReason.FAILURE)
+    ]
+
+    res = db_session.query(Warnings).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 0
+
+    db_session.add_all([Warnings(encoding_id=encoding_id, warning=current_app.json.dumps(w)) for w in warnings])
+    db_session.commit()
+
+    res = db_session.query(Warnings).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 2
+
+
+def test_warnings_unique_constraint_database(app_context, load_analyzer, program_simple,
+                           db_session):
+    encoding_id = "test"
+    analyzer = load_analyzer(program_simple)
+    warning = TransformationError(ast=analyzer.rules[0],
+                            reason=FailedReason.FAILURE)
+
+    db_session.add(
+        Warnings(encoding_id=encoding_id,
+                 warning=current_app.json.dumps(warning)))
+    db_session.add(
+        Warnings(encoding_id=encoding_id,
+                 warning=current_app.json.dumps(warning)))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    db_session.add(
+        Warnings(encoding_id=encoding_id+"1",
+                 warning=current_app.json.dumps(warning)))
+    db_session.add(
+        Warnings(encoding_id=encoding_id+"2",
+                 warning=current_app.json.dumps(warning)))
+    db_session.commit()
+    res = db_session.query(Warnings).all()
+    assert len(res) == 2
+
+
+@pytest.mark.skip(reason="Transformer not registered bc of base exception?")
+def test_transformer_database(app_context, db_session):
+    encoding_id = "test"
+    transformer = ExampleTransfomer()
+    path = str(
+        pathlib.Path(__file__).parent.parent.resolve() / "src" / "viasp" / "exampleTransformer.py") # type: ignore
+    transformer_transport = TransformerTransport.merge(transformer, "", path)
+    db_session.add(Transformers(encoding_id=encoding_id, transformer=current_app.json.dumps(transformer_transport)))
+    res = db_session.query(Transformers).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 1
+    res = current_app.json.loads(res[0].transformer)
+    assert res == transformer

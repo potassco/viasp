@@ -31,6 +31,10 @@ class Graphs(Base):
     sort: Mapped[str] = mapped_column()
     encoding_id = mapped_column(ForeignKey("encodings_table.id"))
 
+    __table_args__ = (
+        UniqueConstraint('encoding_id', 'hash', name='_encodingid_hash_uc'),
+    )
+
 
 class CurrentGraphs(Base):
     __tablename__ = "current_graphs_table"
@@ -87,6 +91,10 @@ class Clingraphs(Base):
     encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
     filename: Mapped[str]
 
+    __table_args__ = (UniqueConstraint(
+        'encoding_id',
+        'filename',
+        name='_encoding_filename_uc'), )
 
 class Transformers(Base):
     __tablename__ = "transformers_table"
@@ -102,3 +110,8 @@ class Warnings(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
     warning: Mapped[str]
+
+    __table_args__ = (UniqueConstraint(
+        'encoding_id',
+        'warning',
+        name='_encoding_warning_uc'), )

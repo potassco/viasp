@@ -8,7 +8,6 @@ from clingo import Control, ModelType
 from viasp.shared.io import clingo_model_to_stable_model
 from viasp.shared.model import RuleContainer, StableModel, ClingoMethodCall, Signature, Transformation, TransformationError, \
     FailedReason
-from viasp.server.database import db_session
 from viasp.server.models import CurrentGraphs, Graphs
 
 
@@ -86,19 +85,20 @@ def test_signature(app_context):
     serialized = current_app.json.dumps(object_to_serialize)
     assert serialized
 
-def test_minimize_rule_representation(app_context):
+def test_minimize_rule_representation(app_context, db_session):
     sort = [Transformation(0, RuleContainer(str_=tuple([":~ last(N). [N@0,1]"])))]
     sort_hash = "0"
     encoding_id = "1"
-    db_graph = Graphs(hash=sort_hash, sort=sort, encoding_id=encoding_id, data=None)
+    db_graph = Graphs(hash=sort_hash, sort=current_app.json.dumps(sort), encoding_id=encoding_id)
     db_session.add(db_graph)
     db_current_graph = CurrentGraphs(hash=sort_hash, encoding_id=encoding_id)
     db_session.add(db_current_graph)
     db_session.commit()
+
     db_sort = db_session.query(Graphs).filter_by(hash=sort_hash, encoding_id=encoding_id).first()
     if db_sort is None:
-        raise KeyError(f"Sort {sort_hash} not found in the database.")
-    serialized = current_app.json.dumps(db_sort.sort)
+        assert False
+    serialized = current_app.json.loads(db_sort.sort)
     assert serialized == sort
 
 

@@ -10,7 +10,7 @@ from clingraph.graphviz import compute_graphs, render
 import networkx as nx
 
 from .dag_api import generate_graph, wrap_marked_models
-from ..database import db_session, CallCenter, get_or_create_encoding_id
+from ..database import db_session, get_or_create_encoding_id
 from ..models import *
 from ...asp.reify import ProgramAnalyzer
 from ...asp.relax import ProgramRelaxer, relax_constraints
@@ -20,7 +20,6 @@ from ...shared.defaults import CLINGRAPH_PATH
 
 bp = Blueprint("api", __name__, template_folder='../templates/')
 
-calls = CallCenter()
 using_clingraph: List[str] = []
 
 
@@ -53,11 +52,6 @@ def handle_call_received(call: ClingoMethodCall) -> None:
 def handle_calls_received(calls: Iterable[ClingoMethodCall]) -> None:
     for call in calls:
         handle_call_received(call)
-
-
-@bp.route("/control/calls", methods=["GET"])
-def get_calls():
-    return jsonify(calls.get_all())
 
 
 @bp.route("/control/program", methods=["GET", "POST", "DELETE"])
@@ -131,6 +125,7 @@ def set_stable_models():
             return "Expected a model or a list of models", 400
         encoding_id = get_or_create_encoding_id()
 
+        db_session.query(Models).filter_by(encoding_id = encoding_id).delete()
         for model in parsed_models:
             if not isinstance(model, StableModel):
                 return "Received unexpected data type, consider using viasp.shared.io.clingo_model_to_stable_model()", 400

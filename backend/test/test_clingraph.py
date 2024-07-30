@@ -2,7 +2,7 @@ from flask import current_app
 
 
 def test_clingraph_delete(client_with_a_clingraph):
-    client, _, _, _ = client_with_a_clingraph
+    client = client_with_a_clingraph
     res = client.delete("/control/clingraph")
     assert res.status_code == 200
     res = client.get("/control/clingraph")
@@ -16,7 +16,8 @@ def test_using_clingraph(client_with_a_clingraph):
         attr(node,a,color,blue) :- node(a), not b(a).
         attr(node,a,color,red)  :- node(a), b(a).
     """
-    client, _, _, program = client_with_a_clingraph
+    client = client_with_a_clingraph
+    program = client.get("/control/program").json
 
     serialized = current_app.json.dumps({"viz-encoding":prg, "engine":"dot", "graphviz-type": "graph"})
     res = client.post("/control/clingraph", data=serialized, headers={'Content-Type': 'application/json'})
@@ -37,7 +38,8 @@ def test_clingraph_children(client_with_a_clingraph):
         attr(node,a,color,blue) :- node(a), not b(a).
         attr(node,a,color,red)  :- node(a), b(a).
     """
-    client, _, _, program = client_with_a_clingraph
+    client = client_with_a_clingraph
+    program = client.get("/control/program").json
 
     serialized = current_app.json.dumps({"viz-encoding":prg, "engine":"dot", "graphviz-type": "graph"})
     res = client.post("/control/clingraph", data=serialized, headers={'Content-Type': 'application/json'})
@@ -49,7 +51,7 @@ def test_clingraph_children(client_with_a_clingraph):
     if "{b(X)}" in program:
         # program_simple and program_multiple_sorts
         assert len(clingraph_nodes) == 4
-        res = client.get(f"/graph/clingraph/{clingraph_nodes[0].uuid}")
+        res = client.get(f"/clingraph/{clingraph_nodes[0].uuid}")
         assert res.status_code == 200
         assert res.content_type == 'image/png'
     else:
@@ -63,7 +65,8 @@ def test_clingraph_image(client_with_a_clingraph):
         attr(node,a,color,blue) :- node(a), not b(a).
         attr(node,a,color,red)  :- node(a), b(a).
     """
-    client, _, _, program = client_with_a_clingraph
+    client = client_with_a_clingraph
+    program = client.get("/control/program").json
 
     serialized = current_app.json.dumps({"viz-encoding":prg, "engine":"dot", "graphviz-type": "graph"})
     res = client.post("/control/clingraph", data=serialized, headers={'Content-Type': 'application/json'})
@@ -74,7 +77,7 @@ def test_clingraph_image(client_with_a_clingraph):
     clingraph_nodes = current_app.json.loads(res.data)
 
     if "{b(X)}" in program:
-        res = client.get(f"/graph/clingraph/{clingraph_nodes[0].uuid}")
+        res = client.get(f"/clingraph/{clingraph_nodes[0].uuid}")
         assert res.status_code == 200
         assert res.content_type == 'image/png'
 
@@ -85,7 +88,8 @@ def test_clingraph_edges(client_with_a_clingraph):
         attr(node,a,color,blue) :- node(a), not b(a).
         attr(node,a,color,red)  :- node(a), b(a).
     """
-    client, _, _, program = client_with_a_clingraph
+    client = client_with_a_clingraph
+    program = client.get("/control/program").json
 
     serialized = current_app.json.dumps({
         "viz-encoding": prg,
@@ -97,7 +101,7 @@ def test_clingraph_edges(client_with_a_clingraph):
                       headers={'Content-Type': 'application/json'})
     assert res.status_code == 200
     assert res.data == b'ok'
-    
+
     res = client.post(f"/graph/edges",
                         json={
                             "shownRecursion": [],

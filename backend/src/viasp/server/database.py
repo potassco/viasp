@@ -38,29 +38,6 @@ def init_db():
     Base.metadata.create_all(bind=engine)
 
 
-class CallCenter:
-
-    def __init__(self):
-        self.calls: List[ClingoMethodCall] = []
-        self.used: Set[UUID] = set()
-        subscribe(Event.CALL_EXECUTED, self.mark_call_as_used)
-
-    def append(self, call: ClingoMethodCall):
-        self.calls.append(call)
-
-    def extend(self, calls: List[ClingoMethodCall]):
-        self.calls.extend(calls)
-
-    def get_all(self) -> List[ClingoMethodCall]:
-        return self.calls
-
-    def get_pending(self) -> List[ClingoMethodCall]:
-        return list(filter(lambda call: call.uuid not in self.used,
-                           self.calls))
-
-    def mark_call_as_used(self, call: ClingoMethodCall):
-        self.used.add(call.uuid)
-
 def get_or_create_encoding_id() -> str:
     # TODO
     # if 'encoding_id' not in session:

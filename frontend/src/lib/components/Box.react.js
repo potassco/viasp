@@ -88,7 +88,7 @@ export function Box(props) {
             img.onload = function () {
                 setImageSize({width: this.width, height: this.height});
             };
-            img.src = `${backendURL('graph/clingraph')}/${node.uuid}`;
+            img.src = `${backendURL('clingraph')}/${node.uuid}`;
         }
         return () => {
             mounted = false;

@@ -499,7 +499,7 @@ def search():
     return jsonify([])
 
 
-@bp.route("/graph/clingraph/<uuid>", methods=["GET"])
+@bp.route("/clingraph/<uuid>", methods=["GET"])
 def get_image(uuid):
     # check if file with name uuid exists in static folder
     filename = os.path.join("clingraph", f"{uuid}.png")
@@ -530,9 +530,14 @@ def get_reasons_of():
     if request.method == "POST":
         if request.json is None:
             return jsonify({'error': 'Missing JSON in request'}), 400
+        if "sourceid" not in request.json or "nodeid" not in request.json:
+            return jsonify({'error': 'Missing sourceid or nodeid in request'}), 400
         source_uuid = request.json["sourceid"]
         node_uuid = request.json["nodeid"]
-        reason_uuids = find_reason_by_uuid(source_uuid, node_uuid)
+        try:
+            reason_uuids = find_reason_by_uuid(source_uuid, node_uuid)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 404
         return jsonify([{
             "src": source_uuid,
             "tgt": reason_uuid

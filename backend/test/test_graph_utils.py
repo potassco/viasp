@@ -1,18 +1,18 @@
 from viasp.asp.reify import ProgramAnalyzer
 from viasp.shared.model import RuleContainer
 
-def test_topological_sort(app_context):
+def test_topological_sort(load_analyzer):
     rules = ["{b(X)} :- a(X).", "c(X) :- a(X)."]
     rules_container = [RuleContainer(str_=tuple([r])) for r in rules]
 
-    analyzer = ProgramAnalyzer()
-    sorted = analyzer.sort_program('\n'.join(rules))
+    analyzer = load_analyzer('\n'.join(rules))
+    sorted = analyzer.get_sorted_program()
     assert len(sorted) == len(rules)
     for i in range(len(rules)):
         assert sorted[i].rules == rules_container[i]
 
 
-def test_topological_sort_2(app_context):
+def test_topological_sort_2(load_analyzer):
     rules = ["x:-y.",
              "e:-x.",
              "z:-x.",
@@ -22,16 +22,16 @@ def test_topological_sort_2(app_context):
              "c:-b,a."]
     rules_container = [RuleContainer(str_=tuple([r])) for r in rules]
 
-    analyzer = ProgramAnalyzer()
-    sorted = analyzer.sort_program('\n'.join(rules))
+    analyzer = load_analyzer('\n'.join(rules))
+    sorted = analyzer.get_sorted_program()
     assert len(sorted) == len(rules)
     for i in range(len(rules)):
         assert sorted[i].rules == rules_container[i]
 
-def test_adjacent_sorts(app_context):
+def test_adjacent_sorts(load_analyzer):
     rules = ["{b(X)} :- a(X).", "c(X) :- a(X)."]
-    analyzer = ProgramAnalyzer()
-    sorted = analyzer.sort_program('\n'.join(rules))
+    analyzer = load_analyzer('\n'.join(rules))
+    sorted = analyzer.get_sorted_program()
 
     adjacent_sorts = analyzer.get_index_mapping_for_adjacent_topological_sorts([t.rules for t in sorted])
     assert len(adjacent_sorts.keys()) == 2
@@ -40,7 +40,7 @@ def test_adjacent_sorts(app_context):
     assert adjacent_sorts[1]["lower_bound"] == 0
     assert adjacent_sorts[1]["upper_bound"] == 1
 
-def test_adjacent_sorts_2(app_context):
+def test_adjacent_sorts_2(load_analyzer):
     rules = ["x:-y.",
              "e:-x.",
              "z:-x.",
@@ -48,8 +48,8 @@ def test_adjacent_sorts_2(app_context):
              "a:-x,z.",
              "b:-z.",
              "c:-b,a."]
-    analyzer = ProgramAnalyzer()
-    sorted = analyzer.sort_program('\n'.join(rules))
+    analyzer = load_analyzer('\n'.join(rules))
+    sorted = analyzer.get_sorted_program()
 
     adjacent_sorts = analyzer.get_index_mapping_for_adjacent_topological_sorts([t.rules for t in sorted])
     assert len(adjacent_sorts) == 7

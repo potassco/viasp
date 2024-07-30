@@ -1,11 +1,15 @@
 import pathlib
 from inspect import Signature, signature
 from typing import Any, Collection, Dict, Sequence
+import io
+import sys
 
 from clingo import Control as InnerControl
 from flask.testing import FlaskClient
+from flask import current_app
 from pytest import raises
 
+from viasp import wrapper
 from viasp.api import (FactParserError,
                        add_program_file, add_program_string,
                        clear, load_program_file, load_program_string,
@@ -37,63 +41,41 @@ class DebugClient(ViaspClient):
             "__init__", signature(InnerControl.__init__), args, kwargs)
 
 
-def test_load_program_file(client):
+def test_load_program_file(client, db_session):
     sample_encoding = str(pathlib.Path(__file__).parent.resolve() / "resources" / "sample_encoding.lp")
-    
+
     debug_client = DebugClient(client)
     load_program_file(sample_encoding, _viasp_client=debug_client)
-    
-    # Check that the calls were received
-    res = client.get("control/calls")
-    assert res.status_code == 200
-    assert len(res.json) > 0
-    # Start the reconstructing
-    res = client.get("control/reconstruct")
-    assert res.status_code == 200
+
     # Assert program was called correctly
     res = client.get("control/program")
     assert res.status_code == 200
-    assert res.data.replace(b"\n",b"") == b"sample.{encoding} :- sample.", f"{res.data} should be equal to sample.encoding :- sample."
+    assert res.json == "sample.{encoding} :- sample.\n", f"{res.data} should be equal to sample.encoding :- sample."
 
 
-def test_load_program_string(client):
+def test_load_program_string(client, db_session):
     debug_client = DebugClient(client)
     load_program_string("sample.{encoding} :- sample.",_viasp_client=debug_client)
 
-    # Check that the calls were received
-    res = client.get("control/calls")
-    assert res.status_code == 200
-    assert len(res.json) > 0
-    # Start the reconstructing
-    res = client.get("control/reconstruct")
-    assert res.status_code == 200
-    # Assert program was called correctly
     res = client.get("control/program")
     assert res.status_code == 200
-    assert res.data.replace(b"\n",b"") == b"sample.{encoding} :- sample."
+    assert res.json == "sample.{encoding} :- sample."
 
 
 def test_add_program_file_add1(client):
     sample_encoding = str(pathlib.Path(__file__).parent.resolve() / "resources" / "sample_encoding.lp")
-    
+
     debug_client = DebugClient(client)
     load_program_file(sample_encoding, _viasp_client=debug_client)
 
 
     add_program_file(sample_encoding)
-    
-   # Check that the calls were received
-    res = client.get("control/calls")
-    assert res.status_code == 200
-    assert len(res.json) > 0
-    # Start the reconstructing
-    res = client.get("control/reconstruct")
-    assert res.status_code == 200
+
     # Assert program was called correctly
     res = client.get("control/program")
     assert res.status_code == 200
-    assert res.data.replace(b"\n", b"") ==\
-        b"sample.{encoding} :- sample.sample.{encoding} :- sample."
+    assert res.json ==\
+        "sample.{encoding} :- sample.\nsample.{encoding} :- sample.\n"
 
 
 def test_add_program_file_add2(client):
@@ -108,17 +90,17 @@ def test_add_program_file_add2(client):
     # Assert program was called correctly
     res = client.get("control/program")
     assert res.status_code == 200
-    assert res.data.replace(b"\n", b"") ==\
-        b"sample.{encoding} :- sample.sample.{encoding} :- sample."
-    
-    
+    assert res.json.replace('\n', '') ==\
+        'sample.{encoding} :- sample.sample.{encoding} :- sample.'
+
+
     add_program_file("base", parameters=[], program=sample_encoding)
     # Assert program was called correctly
     res = client.get("control/program")
     assert res.status_code == 200
     print(res.data)
-    assert res.data.replace(b"\n", b"") ==\
-        b"sample.{encoding} :- sample.sample.{encoding} :- sample.sample.{encoding} :- sample."
+    assert res.json.replace("\n", "") ==\
+        "sample.{encoding} :- sample.sample.{encoding} :- sample.sample.{encoding} :- sample."
 
 
 def test_add_program_string_add1(client):
@@ -130,18 +112,10 @@ def test_add_program_string_add1(client):
 
     add_program_string("sample.{encoding} :- sample.")
 
-   # Check that the calls were received
-    res = client.get("control/calls")
-    assert res.status_code == 200
-    assert len(res.json) > 0
-    # Start the reconstructing
-    res = client.get("control/reconstruct")
-    assert res.status_code == 200
-    # Assert program was called correctly
     res = client.get("control/program")
     assert res.status_code == 200
-    assert res.data.replace(b"\n", b"") ==\
-        b"sample.{encoding} :- sample.sample.{encoding} :- sample."
+    assert res.json.replace("\n", "") ==\
+        "sample.{encoding} :- sample.sample.{encoding} :- sample."
 
 
 def test_add_program_string_add2(client):
@@ -156,17 +130,16 @@ def test_add_program_string_add2(client):
     # Assert program was called correctly
     res = client.get("control/program")
     assert res.status_code == 200
-    assert res.data.replace(b"\n", b"") ==\
-        b"sample.{encoding} :- sample.sample.{encoding} :- sample."
+    assert res.json.replace("\n", "") ==\
+        "sample.{encoding} :- sample.sample.{encoding} :- sample."
 
     add_program_string("base", parameters=[],
                        program="sample.{encoding} :- sample.")
     # Assert program was called correctly
     res = client.get("control/program")
     assert res.status_code == 200
-    print(res.data)
-    assert res.data.replace(b"\n", b"") ==\
-        b"sample.{encoding} :- sample.sample.{encoding} :- sample.sample.{encoding} :- sample."
+    assert res.json.replace("\n", "") ==\
+        "sample.{encoding} :- sample.sample.{encoding} :- sample.sample.{encoding} :- sample."
 
 def test_mark_model_from_clingo_model(client):
     debug_client = DebugClient(client)
@@ -185,6 +158,17 @@ def test_mark_model_from_clingo_model(client):
     res = client.get("control/models")
     assert res.status_code == 200
     assert len(res.json) == 2
+
+
+def test_load_from_stdin(client):
+    debug_client = DebugClient(client)
+    ctl = wrapper.Control(_viasp_client=debug_client)
+    sys.stdin = io.StringIO("sample.{encoding} :- sample.")
+    ctl.load("-")
+
+    res = client.get("control/program")
+    assert res.status_code == 200
+    assert res.json == "sample.{encoding} :- sample."
 
 
 def test_mark_model_from_string(client):
@@ -208,7 +192,7 @@ def test_mark_model_from_string(client):
     res = client.get("control/models")
     assert res.status_code == 200
     assert len(res.json) == 2
-    
+
 
 def test_mark_model_not_a_fact_file(client):
     debug_client = DebugClient(client)
