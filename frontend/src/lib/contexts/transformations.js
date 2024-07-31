@@ -25,7 +25,7 @@ function postCurrentSort(backendURL, oldIndex, newIndex) {
 }
 
 function fetchTransformations(backendURL) {
-    return fetch(`${backendURL('graph/transformations')}`).then((r) => {
+    return fetch(`${backendURL('graph/sorts')}`).then((r) => {
         if (r.ok) {
             return r.json();
         }
@@ -34,7 +34,7 @@ function fetchTransformations(backendURL) {
 }
 
 function fetchSortHash(backendURL) {
-    return fetch(`${backendURL('graph/sorts')}`).then((r) => {
+    return fetch(`${backendURL('graph/current')}`).then((r) => {
         if (r.ok) {
             return r.json();
         }
@@ -727,7 +727,6 @@ export {
     toggleTransformation,
     showOnlyTransformation,
     reorderTransformation,
-    setCurrentSort,
     setTransformationDropIndices,
     toggleShownRecursion,
     setNodeIsExpandableV,

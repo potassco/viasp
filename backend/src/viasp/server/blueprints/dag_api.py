@@ -36,10 +36,7 @@ def nx_to_igraph(nx_graph: nx.DiGraph):
                                    > 0).tolist())
 
 def get_current_graph_hash(encoding_id: str) -> Optional[str]:
-    try:
-        current_graph = db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).one_or_none()
-    except MultipleResultsFound as e:
-        raise DatabaseInconsistencyError
+    current_graph = db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).one_or_none()
     if current_graph is None:
         return None
     return current_graph.hash
@@ -183,11 +180,10 @@ def find_reason_by_uuid(symbolid, nodeid):
 
 def get_current_sort():
     encoding_id = get_or_create_encoding_id()
-    result = db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).one_or_none()
-    if result is None or result.hash is None:
-        raise DatabaseInconsistencyError
+    current_hash = get_current_graph_hash(encoding_id)
 
-    db_current_sort = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=result.hash).one_or_none()
+    db_current_sort = db_session.query(Graphs).filter_by(
+        encoding_id=encoding_id, hash=current_hash).one_or_none()
     if db_current_sort is None or db_current_sort.sort is None:
         raise DatabaseInconsistencyError
     current_sort = current_app.json.loads(db_current_sort.sort)
@@ -254,12 +250,6 @@ def handle_new_sort():
     raise NotImplementedError
 
 
-@bp.route("/graph/transformations", methods=["GET"])
-def get_all_transformations():
-    result = get_current_sort()
-    return jsonify(result)
-
-
 @bp.route("/graph/edges", methods=["GET", "POST"])
 def get_edges():
     to_be_returned = []
@@ -324,7 +314,11 @@ def get_sorted_program():
 def current_graph():
     encoding_id = get_or_create_encoding_id()
     if request.method == "GET":
-        return jsonify(get_current_graph_hash(encoding_id))
+        try:
+            current_hash = get_current_graph_hash(encoding_id)
+        except MultipleResultsFound as e:
+            return f"Database error: {e}", 500
+        return jsonify(current_hash)
     if request.method == "POST":
         if request.json is None:
             return "Invalid request", 400

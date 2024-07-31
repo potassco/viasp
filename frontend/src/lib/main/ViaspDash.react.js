@@ -14,7 +14,6 @@ import {
     TransformationProvider,
     useTransformations,
     reorderTransformation,
-    setCurrentSort,
     setTransformationDropIndices,
 } from '../contexts/transformations';
 import {ColorPaletteProvider} from '../contexts/ColorPalette';
