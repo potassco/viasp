@@ -51,6 +51,7 @@ class GraphNodes(Base):
     encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
     graph_hash: Mapped[str] = mapped_column(ForeignKey("graphs_table.hash"))
     transformation_hash: Mapped[str]
+    branch_position: Mapped[float]
     node: Mapped[str]
 
 

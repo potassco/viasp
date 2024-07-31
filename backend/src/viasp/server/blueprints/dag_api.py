@@ -80,7 +80,7 @@ def handle_request_for_children(
         ids_only: bool,
         encoding_id: str) -> Collection[Union[Node, uuid.UUID]]:
     current_graph_hash = get_current_graph_hash(encoding_id)
-    result = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_graph_hash, transformation_hash=transformation_hash).all()
+    result = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_graph_hash, transformation_hash=transformation_hash).order_by(GraphNodes.branch_position).all()
     ordered_children = [current_app.json.loads(n.node) for n in result]
     if ids_only:
         ordered_children = [node.uuid for node in ordered_children]
@@ -291,7 +291,7 @@ def get_rule(uuid):
 
 @bp.route("/graph/model/<uuid>", methods=["GET"])
 def get_node(uuid):
-    graph_nodes = db_session.query(GraphNodes).filter_by(encoding_id=get_or_create_encoding_id()).all()
+    graph_nodes = db_session.query(GraphNodes).filter_by(encoding_id=get_or_create_encoding_id()).order_by(GraphNodes.branch_position).all()
     if graph_nodes is None:
         raise DatabaseInconsistencyError
 
@@ -308,7 +308,7 @@ def get_facts():
 
     current_graph_hash = get_current_graph_hash(encoding_id)
     facts = db_session.query(GraphNodes).filter_by(
-        encoding_id=encoding_id, graph_hash=current_graph_hash, transformation_hash="-1").all()
+        encoding_id=encoding_id, graph_hash=current_graph_hash, transformation_hash="-1").order_by(GraphNodes.branch_position).all()
     facts = [current_app.json.loads(n.node) for n in facts]
 
     return jsonify(facts)
@@ -390,24 +390,27 @@ def entire_graph():
 
 def save_graph(graph: nx.DiGraph, encoding_id: str, sorted_program: List[Transformation]):
     db_session.query(Graphs).filter_by(encoding_id=encoding_id).delete()
-    db_graph = Graphs(encoding_id=encoding_id, hash=hash_from_sorted_transformations(sorted_program),
+    graph_hash = hash_from_sorted_transformations(sorted_program)
+    db_graph = Graphs(encoding_id=encoding_id, hash=graph_hash,
                         data=current_app.json.dumps(nx.node_link_data(graph)),
                         sort=current_app.json.dumps(sorted_program))
     db_session.add(db_graph)
-    transformation_node_tuples = [(d["transformation"].hash, v)
-                                  for (_, v, d) in graph.edges(data=True)]
+
     pos: Dict[Node, List[float]] = get_node_positions(graph)
-    ordered_children = sorted(transformation_node_tuples,
-                              key=lambda transf_node: pos[transf_node[1]][0])
-    ordered_children.append(("-1", get_start_node_from_graph(graph)))
     db_nodes = [
         GraphNodes(encoding_id=encoding_id,
-                   graph_hash=hash_from_sorted_transformations(sorted_program),
-                   transformation_hash=transformation_hash,
+                   graph_hash=graph_hash,
+                   transformation_hash=d["transformation"].hash,
+                   branch_position=pos[node][0],
                    node=current_app.json.dumps(node))
-        for transformation_hash, node in ordered_children
-    ]
+    for _, node, d in graph.edges(data=True)]
+    db_nodes.append(GraphNodes(encoding_id=encoding_id,
+                    graph_hash=graph_hash,
+                    transformation_hash="-1",
+                    branch_position=0,
+                    node=current_app.json.dumps(get_start_node_from_graph(graph))))
     db_session.add_all(db_nodes)
+
     db_session.commit()
 
 

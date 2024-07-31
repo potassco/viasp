@@ -245,23 +245,23 @@ def test_graph_nodes_database(db_session, graph_info):
         encoding_id=encoding_id).all()
     assert len(res) == 0
 
-    transformation_node_tuples = [(d["transformation"].hash, v)
-                                  for (_, v, d) in graph.edges(data=True)]
     pos: Dict[Node, List[float]] = get_node_positions(graph)
-    ordered_children = sorted(transformation_node_tuples,
-                              key=lambda transf_node: pos[transf_node[1]][0])
-    ordered_children.append(("-1", get_start_node_from_graph(graph)))
     db_nodes = [
         GraphNodes(encoding_id=encoding_id,
-                   graph_hash=hash_from_sorted_transformations(sort),
-                   transformation_hash=transformation_hash,
+                   graph_hash=hash,
+                   transformation_hash=d["transformation"].hash,
+                   branch_position=pos[node][0],
                    node=current_app.json.dumps(node))
-        for transformation_hash, node in ordered_children
-    ]
+    for _, node, d in graph.edges(data=True)]
+    db_nodes.append(GraphNodes(encoding_id=encoding_id,
+                    graph_hash=hash,
+                    transformation_hash="-1",
+                    branch_position=0,
+                    node=current_app.json.dumps(get_start_node_from_graph(graph))))
     db_session.add_all(db_nodes)
     db_session.commit()
 
-    res = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id).all()
+    res = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id).order_by(GraphNodes.branch_position).all()
     assert len(res) == len(graph.nodes)
     assert len(set([r.node for r in res])) == len(res)
 
