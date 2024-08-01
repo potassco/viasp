@@ -45,7 +45,6 @@ def handle_call_received(call: ClingoMethodCall) -> None:
             db_session.add(db_encoding)
     else:
         pass
-        print(F"Unknown call {call.name}", flush=True)
     db_session.commit()
 
 

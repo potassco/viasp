@@ -234,14 +234,14 @@ def handle_new_sort():
             db_session.commit()
         except Exception as e:
             return str(e), 500
-
+        
         db_graph = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=new_hash).one_or_none()
         if db_graph is None:
             db_graph = Graphs(encoding_id = encoding_id, hash = new_hash, data = None, sort = current_app.json.dumps(new_sorted_program_transformations))
             db_session.add(db_graph)
             db_session.commit()
             generate_graph(encoding_id)
-        if db_graph.data is None or db_graph.data == "":
+        elif db_graph.data is None or db_graph.data == "":
             generate_graph(encoding_id)
         return jsonify({"hash":new_hash})
     elif request.method == "GET":
@@ -383,12 +383,16 @@ def entire_graph():
     raise NotImplementedError
 
 def save_graph(graph: nx.DiGraph, encoding_id: str, sorted_program: List[Transformation]):
-    db_session.query(Graphs).filter_by(encoding_id=encoding_id).delete()
     graph_hash = hash_from_sorted_transformations(sorted_program)
-    db_graph = Graphs(encoding_id=encoding_id, hash=graph_hash,
-                        data=current_app.json.dumps(nx.node_link_data(graph)),
-                        sort=current_app.json.dumps(sorted_program))
-    db_session.add(db_graph)
+    
+    db_graph = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=graph_hash).one_or_none()
+    if db_graph is not None:
+        db_graph.data = current_app.json.dumps(nx.node_link_data(graph)) 
+    else:
+        db_graph = Graphs(encoding_id=encoding_id, hash=graph_hash,
+                            data=current_app.json.dumps(nx.node_link_data(graph)),
+                            sort=current_app.json.dumps(sorted_program))
+        db_session.add(db_graph)
 
     pos: Dict[Node, List[float]] = get_node_positions(graph)
     db_nodes = [
@@ -594,7 +598,6 @@ def generate_graph(encoding_id: str) -> nx.DiGraph:
         g = build_graph(marked_models, reified, sorted_program, analyzer,
                         recursion_rules)
 
-        # store in database
         save_graph(g, encoding_id, sorted_program)
 
     return g
