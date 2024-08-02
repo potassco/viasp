@@ -24,7 +24,7 @@ def stringify_fact(fact: Symbol) -> str:
 def get_h_symbols_from_model(wrapped_stable_model: Iterable[str],
                              transformed_prg: Collection[Union[str, AST]],
                              facts: List[Symbol],
-                             constants: List[Symbol],
+                             constants: List[str],
                              h="h",
                              h_showTerm="h_showTerm") -> List[Symbol]:
     rules_that_are_reasons_why = []
@@ -32,7 +32,7 @@ def get_h_symbols_from_model(wrapped_stable_model: Iterable[str],
     stringified = "\n".join(map(str, transformed_prg))
     new_head = f"_{h}"
     get_new_atoms_rule = f"{new_head}(I, H, G) :- {h}(I, H, G), not {h}(II,H,_) : II<I, {h}(II,_,_)."
-    ctl.add("base", [], "".join(map(str, constants)))
+    ctl.add("base", [], "".join(constants))
     ctl.add("base", [], "".join(map(stringify_fact, facts)))
     ctl.add("base", [], stringified)
     ctl.add("base", [], "".join(map(str, wrapped_stable_model)))

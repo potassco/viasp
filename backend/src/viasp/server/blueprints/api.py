@@ -220,9 +220,9 @@ def set_primary_sort(analyzer: ProgramAnalyzer, encoding_id: str):
         db_graph = Graphs(encoding_id=encoding_id, hash=primary_hash, data=None, sort=current_app.json.dumps(primary_sort))
         db_session.add(db_graph)
         db_session.commit()
-        generate_graph(encoding_id)
+        generate_graph(encoding_id, analyzer)
     elif db_graph.data is None:
-        generate_graph(encoding_id)
+        generate_graph(encoding_id, analyzer)
 
 
 def save_recursions(analyzer: ProgramAnalyzer, encoding_id: str):
@@ -234,7 +234,7 @@ def save_recursions(analyzer: ProgramAnalyzer, encoding_id: str):
             db_session.commit()
         except IntegrityError:
             pass
-    
+
 
 def save_analyzer_values(analyzer: ProgramAnalyzer, encoding_id: str):
 
@@ -242,11 +242,33 @@ def save_analyzer_values(analyzer: ProgramAnalyzer, encoding_id: str):
                         data=current_app.json.dumps(
                             nx.node_link_data(analyzer.dependency_graph))) if analyzer.dependency_graph != None else None
     db_session.add(db_dependency_graph)
+
+    db_names = db_session.query(AnalyzerNames).filter_by(
+        encoding_id=encoding_id).all()
+    seen = set([n.name for n in db_names])
+    for n in analyzer.get_names():
+        if n not in seen:
+            db_name = AnalyzerNames(encoding_id=encoding_id, name=n)
+            db_session.add(db_name)
+            seen.add(n)
+
+    db_facts = db_session.query(AnalyzerFacts).filter_by(
+        encoding_id=encoding_id).all()
+    seen = set([f.fact for f in db_facts])
+    for f in analyzer.facts:
+        if f not in seen:
+            db_fact = AnalyzerFacts(encoding_id=encoding_id, fact=f)
+            db_session.add(db_fact)
+            seen.add(str(f))
+    db_constants = db_session.query(AnalyzerConstants).filter_by(
+        encoding_id=encoding_id).all()
+    seen = set([f.constant for f in db_constants])
+    for c in analyzer.constants:
+        if c not in seen:
+            db_constant = AnalyzerConstants(encoding_id=encoding_id, constant=c)
+            db_session.add(db_constant)
+            seen.add(str(c))
     db_session.commit()
-
-    db_dependency_graph = db_session.query(DependencyGraphs).filter_by(encoding_id = encoding_id).one_or_none()
-    ## TODO: save attributes
-
 
 
 @bp.route("/control/show", methods=["POST"])

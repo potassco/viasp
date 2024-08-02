@@ -418,6 +418,7 @@ const transformationReducer = (state = initialState, action) => {
             ...state,
             transformations: transformations,
             transformationNodesMap: nodesMap,
+            edges: [],
         };
     }
     if (action.type === ADD_SORT) {
@@ -685,6 +686,7 @@ const TransformationProvider = ({children}) => {
     };
 
     React.useEffect(() => {
+        console.log('fetching graph');
         let mounted = true;
         fetchSortHash(backendUrlRef.current)
             .catch((error) => {

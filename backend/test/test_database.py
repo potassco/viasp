@@ -10,7 +10,7 @@ from viasp.shared.util import hash_from_sorted_transformations, hash_transformat
 from viasp.server.blueprints.dag_api import get_node_positions
 from viasp.shared.model import Transformation, TransformerTransport, TransformationError, FailedReason, RuleContainer, Node
 from viasp.exampleTransformer import Transformer as ExampleTransfomer
-from viasp.server.models import Encodings, Graphs, Recursions, DependencyGraphs, Models, Clingraphs, Warnings, Transformers, CurrentGraphs, GraphEdges, GraphNodes
+from viasp.server.models import Encodings, Graphs, Recursions, DependencyGraphs, Models, Clingraphs, Warnings, Transformers, CurrentGraphs, GraphEdges, GraphNodes, AnalyzerConstants, AnalyzerFacts, AnalyzerNames
 
 
 @pytest.fixture(
@@ -436,3 +436,101 @@ def test_transformer_database(app_context, db_session):
     assert len(res) == 1
     res = current_app.json.loads(res[0].transformer)
     assert res == transformer
+
+
+def test_facts_database(app_context, db_session):
+    encoding_id = "test"
+    facts = {"a", "b"}
+
+    res = db_session.query(AnalyzerFacts).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 0
+
+    db_session.add_all([AnalyzerFacts(encoding_id=encoding_id, fact=f) for f in facts])
+    db_session.commit()
+
+    res = db_session.query(AnalyzerFacts).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 2
+
+def test_facts_unique_constraint_database(app_context, db_session):
+    encoding_id = "test"
+    fact = "a"
+
+    db_session.add(AnalyzerFacts(encoding_id=encoding_id, fact=fact))
+    db_session.add(AnalyzerFacts(encoding_id=encoding_id, fact=fact))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    db_session.add(AnalyzerFacts(encoding_id=encoding_id+"1", fact=fact))
+    db_session.add(AnalyzerFacts(encoding_id=encoding_id+"2", fact=fact))
+    db_session.commit()
+    res = db_session.query(AnalyzerFacts).all()
+    assert len(res) == 2
+
+
+def test_constants_database(app_context, db_session):
+    encoding_id = "test"
+    constants = {"#const n=2.", "#const b=3."}
+
+    res = db_session.query(AnalyzerConstants).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 0
+
+    db_session.add_all([AnalyzerConstants(encoding_id=encoding_id, constant=c) for c in constants])
+    db_session.commit()
+
+    res = db_session.query(AnalyzerConstants).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 2
+
+
+def test_constants_unique_constraint_database(app_context, db_session):
+    encoding_id = "test"
+    constant = "#const n=2."
+
+    db_session.add(AnalyzerConstants(encoding_id=encoding_id, constant=constant))
+    db_session.add(AnalyzerConstants(encoding_id=encoding_id, constant=constant))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    db_session.add(AnalyzerConstants(encoding_id=encoding_id+"1", constant=constant))
+    db_session.add(AnalyzerConstants(encoding_id=encoding_id+"2", constant=constant))
+    db_session.commit()
+    res = db_session.query(AnalyzerConstants).all()
+    assert len(res) == 2
+
+
+def test_analyzer_names_database(app_context, db_session):
+    encoding_id = "test"
+    names = {"a", "b"}
+
+    res = db_session.query(AnalyzerNames).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 0
+
+    db_session.add_all([AnalyzerNames(encoding_id=encoding_id, name=n) for n in names])
+    db_session.commit()
+
+    res = db_session.query(AnalyzerNames).filter_by(encoding_id=encoding_id).all()
+    assert type(res) == list
+    assert len(res) == 2
+
+
+def test_analyzer_names_unique_constraint_database(app_context, db_session):
+    encoding_id = "test"
+    name = "a"
+
+    db_session.add(AnalyzerNames(encoding_id=encoding_id, name=name))
+    db_session.add(AnalyzerNames(encoding_id=encoding_id, name=name))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    db_session.add(AnalyzerNames(encoding_id=encoding_id+"1", name=name))
+    db_session.add(AnalyzerNames(encoding_id=encoding_id+"2", name=name))
+    db_session.commit()
+    res = db_session.query(AnalyzerNames).all()
+    assert len(res) == 2

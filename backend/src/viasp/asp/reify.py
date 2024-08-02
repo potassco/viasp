@@ -184,7 +184,10 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
 
     def __init__(self, dependants: Optional[Dict[Tuple[str, int], Set[ast.Rule]]] = None,  # type: ignore
                     conditions: Optional[Dict[Tuple[str, int], Set[ast.Rule]]] = None,  # type: ignore
-                 dependency_graph: Optional[nx.DiGraph] = None):
+                 dependency_graph: Optional[nx.DiGraph] = None,
+                 names: Set[str] = set(),
+                 facts: Set[str] = set(),
+                 constants: Set[str] = set()):
         DependencyCollector.__init__(self, in_analyzer=True)
         FilteredTransformer.__init__(self)
         self.dependants: Dict[Tuple[str, int],
@@ -195,12 +198,12 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
             str, int], Set[ast.Rule]] = defaultdict(  # type: ignore
                 set)
         self.rule2signatures = defaultdict(set)
-        self.facts: Set[Symbol] = set()
-        self.constants: Set[Symbol] = set()
+        self.facts: Set[str] = facts
+        self.constants: Set[str] = constants
         self.constraints: Set[Rule] = set()  # type: ignore
         self.pass_through: Set[AST] = set()
         self.rules: List[ast.Rule] = []  # type: ignore
-        self.names: Set[str] = set()
+        self.names: Set[str] = names
         self.temp_names: Set[str] = set()
         self.dependency_graph: Optional[nx.DiGraph] = dependency_graph
 
@@ -253,6 +256,9 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         """
         return self._get_conflict_free_version_of_name("derivable")
 
+    def get_names(self):
+        return list(self.names)
+
     def clear_temp_names(self):
         self.temp_names = set()
 
@@ -299,7 +305,7 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
             self,
             definition: ast.Definition,  # type: ignore
             **kwargs: Any) -> AST:
-        self.constants.add(definition)
+        self.constants.add(str(definition))
 
         self.names.add(definition.name)
         return definition.update(**self.visit_children(definition, **kwargs))
@@ -381,6 +387,7 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
             **self.visit_children(theory_guard_definition, **kwargs))
 
     def get_facts(self):
+        print(F"The constants are: {self.constants}", flush=True)
         return extract_symbols(self.facts, self.constants)
 
     def get_constants(self):
@@ -443,7 +450,7 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         self.process_body(rule.head, rule.body, deps)
         self.register_dependencies_and_append_rule(rule, deps)
         if is_fact(rule, deps):
-            self.facts.add(rule.head)
+            self.facts.add(str(rule.head))
 
     def visit_ShowTerm(self, showTerm: ast.ShowTerm):  # type: ignore
         deps = defaultdict(tuple)
@@ -901,12 +908,10 @@ def reify_list(transformations: Iterable[Transformation],
     return reified
 
 
-def extract_symbols(facts, constants=None):
-    if constants is None:
-        constants = set()
+def extract_symbols(facts, constants=set()):
     ctl = clingo.Control()
-    ctl.add("INTERNAL", [], "".join(f"{str(f)}." for f in facts))
-    ctl.add("INTERNAL", [], "".join(f"{str(c)}" for c in constants))
+    ctl.add("INTERNAL", [], "".join(f"{f}." for f in facts))
+    ctl.add("INTERNAL", [], "".join(f"{c}" for c in constants))
     ctl.ground([("INTERNAL", [])])
     result = []
     for fact in ctl.symbolic_atoms:

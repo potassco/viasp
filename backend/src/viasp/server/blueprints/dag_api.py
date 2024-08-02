@@ -4,6 +4,8 @@ from collections import defaultdict
 from typing import Union, Collection, Dict, List, Iterable, Optional
 import uuid
 
+import time
+
 import igraph
 import networkx as nx
 import numpy as np
@@ -17,8 +19,10 @@ from ...shared.defaults import STATIC_PATH
 from ...shared.model import Transformation, Node, Signature
 from ...shared.util import get_start_node_from_graph, is_recursive, hash_from_sorted_transformations
 from ...shared.io import StableModel
+from ...shared.simple_logging import error
 from ..database import get_or_create_encoding_id, db_session
 from ..models import *
+
 
 bp = Blueprint("dag_api",
                __name__,
@@ -214,13 +218,15 @@ def handle_new_sort():
             dependency_graph = nx.node_link_graph(current_app.json.loads(result.data))
         else:
             raise DatabaseInconsistencyError
+        analyzer_names = {n.name for n in db_session.query(AnalyzerNames).filter_by(encoding_id=encoding_id).all()}
+        analyzer_facts = {f.fact for f in db_session.query(AnalyzerFacts).filter_by(encoding_id=encoding_id).all()}
+        analyzer_constants = {c.constant for c in db_session.query(AnalyzerConstants).filter_by(encoding_id=encoding_id).all()}
 
         moved_item = sorted_program_rules.pop(moved_transformation["old_index"])
         sorted_program_rules.insert(moved_transformation["new_index"], moved_item)
 
-        new_sorted_program_transformations = ProgramAnalyzer(
-            dependency_graph=dependency_graph
-        ).make_transformations_from_sorted_program(sorted_program_rules)
+        analyzer = ProgramAnalyzer(dependency_graph=dependency_graph, names=analyzer_names, facts=analyzer_facts, constants=analyzer_constants)
+        new_sorted_program_transformations = analyzer.make_transformations_from_sorted_program(sorted_program_rules)
         new_hash = hash_from_sorted_transformations(new_sorted_program_transformations)
 
         db_current_graph = db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).one_or_none()
@@ -234,15 +240,15 @@ def handle_new_sort():
             db_session.commit()
         except Exception as e:
             return str(e), 500
-        
+
         db_graph = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=new_hash).one_or_none()
         if db_graph is None:
             db_graph = Graphs(encoding_id = encoding_id, hash = new_hash, data = None, sort = current_app.json.dumps(new_sorted_program_transformations))
             db_session.add(db_graph)
             db_session.commit()
-            generate_graph(encoding_id)
+            generate_graph(encoding_id, analyzer)
         elif db_graph.data is None or db_graph.data == "":
-            generate_graph(encoding_id)
+            generate_graph(encoding_id, analyzer)
         return jsonify({"hash":new_hash})
     elif request.method == "GET":
         result = get_current_sort()
@@ -298,7 +304,9 @@ def get_facts():
 
     current_graph_hash = get_current_graph_hash(encoding_id)
     facts = db_session.query(GraphNodes).filter_by(
-        encoding_id=encoding_id, graph_hash=current_graph_hash, transformation_hash="-1").order_by(GraphNodes.branch_position).all()
+        encoding_id=encoding_id,
+        graph_hash=current_graph_hash,
+        transformation_hash="-1").order_by(GraphNodes.branch_position).all()
     facts = [current_app.json.loads(n.node) for n in facts]
 
     return jsonify(facts)
@@ -382,16 +390,21 @@ def entire_graph():
         return "ok", 200
     raise NotImplementedError
 
-def save_graph(graph: nx.DiGraph, encoding_id: str, sorted_program: List[Transformation]):
+
+def save_graph(graph: nx.DiGraph, encoding_id: str,
+               sorted_program: List[Transformation]):
     graph_hash = hash_from_sorted_transformations(sorted_program)
-    
-    db_graph = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=graph_hash).one_or_none()
+
+    db_graph = db_session.query(Graphs).filter_by(
+        encoding_id=encoding_id, hash=graph_hash).one_or_none()
     if db_graph is not None:
-        db_graph.data = current_app.json.dumps(nx.node_link_data(graph)) 
+        db_graph.data = current_app.json.dumps(nx.node_link_data(graph))
     else:
-        db_graph = Graphs(encoding_id=encoding_id, hash=graph_hash,
-                            data=current_app.json.dumps(nx.node_link_data(graph)),
-                            sort=current_app.json.dumps(sorted_program))
+        db_graph = Graphs(encoding_id=encoding_id,
+                          hash=graph_hash,
+                          data=current_app.json.dumps(
+                              nx.node_link_data(graph)),
+                          sort=current_app.json.dumps(sorted_program))
         db_session.add(db_graph)
 
     pos: Dict[Node, List[float]] = get_node_positions(graph)
@@ -401,12 +414,15 @@ def save_graph(graph: nx.DiGraph, encoding_id: str, sorted_program: List[Transfo
                    transformation_hash=d["transformation"].hash,
                    branch_position=pos[node][0],
                    node=current_app.json.dumps(node))
-    for _, node, d in graph.edges(data=True)]
-    db_nodes.append(GraphNodes(encoding_id=encoding_id,
-                    graph_hash=graph_hash,
-                    transformation_hash="-1",
-                    branch_position=0,
-                    node=current_app.json.dumps(get_start_node_from_graph(graph))))
+        for _, node, d in graph.edges(data=True)
+    ]
+    db_nodes.append(
+        GraphNodes(encoding_id=encoding_id,
+                   graph_hash=graph_hash,
+                   transformation_hash="-1",
+                   branch_position=0,
+                   node=current_app.json.dumps(
+                       get_start_node_from_graph(graph))))
     db_session.add_all(db_nodes)
 
     db_session.commit()
@@ -564,8 +580,7 @@ def wrap_marked_models(
     return result
 
 
-def generate_graph(encoding_id: str) -> nx.DiGraph:
-    analyzer = ProgramAnalyzer()
+def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None) -> nx.DiGraph:
     db_program = db_session.query(Encodings).filter_by(id=encoding_id).one_or_none()
     if db_program is None:
         raise DatabaseInconsistencyError
@@ -575,29 +590,33 @@ def generate_graph(encoding_id: str) -> nx.DiGraph:
     if db_transformer is not None:
         transformer = current_app.json.loads(db_transformer.transformer)
 
-    analyzer.add_program(db_program.program, transformer)
+    if analyzer is None:
+        analyzer = ProgramAnalyzer()
+        analyzer.add_program(db_program.program, transformer)
+        if not analyzer.will_work():
+            error("Input program contains forbidden part of clingo language.")
+            return nx.DiGraph()
 
     db_models = db_session.query(Models).filter_by(encoding_id=encoding_id).all()
     marked_models = [current_app.json.loads(m.model) for m in db_models]
     marked_models = wrap_marked_models(marked_models,
                                        analyzer.get_conflict_free_showTerm())
-    if analyzer.will_work():
-        db_recursions = db_session.query(Recursions).filter_by(encoding_id=encoding_id).all()
-        recursion_rules = {
-            r.recursive_transformation_hash for r in db_recursions
-        }
-        sorted_program = get_current_sort()
-        reified: Collection[AST] = reify_list(
-            sorted_program,
-            h=analyzer.get_conflict_free_h(),
-            h_showTerm=analyzer.get_conflict_free_h_showTerm(),
-            model=analyzer.get_conflict_free_model(),
-            conflict_free_showTerm=analyzer.get_conflict_free_showTerm(),
-            get_conflict_free_variable=analyzer.get_conflict_free_variable,
-            clear_temp_names=analyzer.clear_temp_names)
-        g = build_graph(marked_models, reified, sorted_program, analyzer,
-                        recursion_rules)
+    db_recursions = db_session.query(Recursions).filter_by(encoding_id=encoding_id).all()
+    recursion_rules = {
+        r.recursive_transformation_hash for r in db_recursions
+    }
+    sorted_program = get_current_sort()
+    reified: Collection[AST] = reify_list(
+        sorted_program,
+        h=analyzer.get_conflict_free_h(),
+        h_showTerm=analyzer.get_conflict_free_h_showTerm(),
+        model=analyzer.get_conflict_free_model(),
+        conflict_free_showTerm=analyzer.get_conflict_free_showTerm(),
+        get_conflict_free_variable=analyzer.get_conflict_free_variable,
+        clear_temp_names=analyzer.clear_temp_names)
+    g = build_graph(marked_models, reified, sorted_program, analyzer,
+                    recursion_rules)
 
-        save_graph(g, encoding_id, sorted_program)
+    save_graph(g, encoding_id, sorted_program)
 
     return g

@@ -116,3 +116,40 @@ class Warnings(Base):
         'encoding_id',
         'warning',
         name='_encoding_warning_uc'), )
+
+class AnalyzerNames(Base):
+    __tablename__ = "analyzer_names_table"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    name: Mapped[str]
+
+    __table_args__ = (UniqueConstraint(
+        'encoding_id',
+        'name',
+        name='_encoding_name_uc'), )
+
+
+class AnalyzerFacts(Base):
+    __tablename__ = "analyzer_facts_table"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    fact: Mapped[str] = mapped_column()
+
+    __table_args__ = (UniqueConstraint(
+        'encoding_id',
+        'fact',
+        name='_encoding_fact_uc'), )
+
+
+class AnalyzerConstants(Base):
+    __tablename__ = "analyzer_constants_table"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    constant: Mapped[str] = mapped_column()
+
+    __table_args__ = (UniqueConstraint('encoding_id',
+                                       'constant',
+                                       name='_encoding_constant_uc'), )
