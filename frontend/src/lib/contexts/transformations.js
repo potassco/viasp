@@ -139,7 +139,9 @@ const clearNodes = () => ({type: CLEAR_NODES});
  * Manage Edges
 */
 const SET_EDGES = 'APP/EDGES/SET';
+const CLEAR_EDGES = 'APP/EDGES/CLEAR';
 const setEdges = (e) => ({type: SET_EDGES, e});
+const clearEdges = () => ({type: CLEAR_EDGES});
 /**
  * Manage Shown Transformations
  * */
@@ -418,7 +420,6 @@ const transformationReducer = (state = initialState, action) => {
             ...state,
             transformations: transformations,
             transformationNodesMap: nodesMap,
-            edges: [],
         };
     }
     if (action.type === ADD_SORT) {
@@ -551,6 +552,12 @@ const transformationReducer = (state = initialState, action) => {
             edges: action.e,
         };
     }
+    if (action.type === CLEAR_EDGES) {
+        return {
+            ...state,
+            edges: [],
+        };
+    }
     if (action.type === TOGGLE_SHOWN_RECURSION) {
         let shownRecursion = [...state.shownRecursion];
         if (shownRecursion.includes(action.n)) {
@@ -666,6 +673,8 @@ const TransformationProvider = ({children}) => {
     const fetchGraphRef = React.useRef(fetchGraph);
 
     const setSortAndFetchGraph = (oldIndex, newIndex) => {
+        dispatch(clearEdges())
+        dispatch(clearNodes())
         dispatch(reorderTransformation(oldIndex, newIndex));
         dispatch(clearShownRecursion());
         postCurrentSort(backendUrlRef.current, oldIndex, newIndex)
@@ -686,7 +695,6 @@ const TransformationProvider = ({children}) => {
     };
 
     React.useEffect(() => {
-        console.log('fetching graph');
         let mounted = true;
         fetchSortHash(backendUrlRef.current)
             .catch((error) => {
