@@ -91,10 +91,12 @@ def dataclass_to_dict(o):
         sorted_atoms = sorted(o.atoms, key=lambda x: x.symbol)
         sorted_diff = sorted(o.diff, key=lambda x: x.symbol)
         sorted_reason = {} if len(o.reason) == 0 else o.reason
+        sorted_reason_rules = {} if len(o.reason_rules) == 0 else o.reason_rules
         return {"_type": "Node",
                 "atoms": sorted_atoms,
                 "diff": sorted_diff,
                 "reason": sorted_reason,
+                "reason_rules": sorted_reason_rules,
                 "recursive": o.recursive,
                 "uuid": o.uuid,
                 "rule_nr": o.rule_nr,

@@ -204,9 +204,9 @@ const transformationReducer = (state = initialState, action) => {
         return {
             ...state,
             transformations: action.ts.map((t) => ({
-                transformation: t,
+                ...t,
+                rules: t.rules.str_.map((r) => ({_type: "RuleWrapper", rule: r, highlight: false})),
                 shown: true,
-                hash: t.hash,
                 isExpandableV: false,
                 isCollapsibleV: false,
                 allNodesShowMini: false,
@@ -347,7 +347,7 @@ const transformationReducer = (state = initialState, action) => {
         return {
             ...state,
             transformations: state.transformations.map((container) =>
-                container.transformation.id !== action.t.id
+                container.id !== action.t.id
                     ? {
                           ...container,
                           shown: false,
@@ -363,7 +363,7 @@ const transformationReducer = (state = initialState, action) => {
         return {
             ...state,
             transformations: state.transformations.map((container) =>
-                container.transformation === action.t
+                container.id === action.t.id
                     ? {
                           ...container,
                           shown: true,
@@ -376,7 +376,7 @@ const transformationReducer = (state = initialState, action) => {
         return {
             ...state,
             transformations: state.transformations.map((container) =>
-                container.transformation === action.t
+                container.id === action.t.id
                     ? {
                           ...container,
                           shown: false,
@@ -389,10 +389,10 @@ const transformationReducer = (state = initialState, action) => {
         return {
             ...state,
             transformations: state.transformations.map((container) =>
-                container.transformation === action.t
+                container.id === action.t.id
                     ? {
-                          transformation: container.transformation,
-                          shown: !container.shown,
+                        ...container,
+                        shown: !container.shown,
                       }
                     : container
             ),
@@ -405,7 +405,7 @@ const transformationReducer = (state = initialState, action) => {
         transformations = transformations.map((container, i) => {
             return {
                 ...container,
-                transformation: {...container.transformation, id: i},
+                id: i
             };
         });
 
@@ -537,7 +537,7 @@ const transformationReducer = (state = initialState, action) => {
         return action.tid !== null ? {
             ...state,
             transformations: state.transformations.map((container) => {
-                if (container.transformation.id === action.tid) {
+                if (container.id === action.tid) {
                     container.isExpandableV = state.transformationNodesMap[action.tid]?.some((node) => node.isExpandableV);
                     container.isCollapsibleV = state.transformationNodesMap[action.tid]?.some((node) => node.isCollapsibleV);
                     container.allNodesShowMini = state.transformationNodesMap[action.tid]?.every((node) => node.showMini);

@@ -607,14 +607,15 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
 class ProgramReifier(DependencyCollector):
 
     def __init__(self,
-                 rule_nr=1,
+                 component_nr=1,
                  h="h",
                  h_showTerm="h_showTerm",
                  model="model",
                  get_conflict_free_variable=lambda s: s,
                  clear_temp_names=lambda: None,
                  conflict_free_showTerm: str = "showTerm"):
-        self.rule_nr = rule_nr
+        self.component_nr = component_nr
+        self.rule_nr = 0
         self.h = h
         self.h_showTerm = h_showTerm
         self.model = model
@@ -623,8 +624,15 @@ class ProgramReifier(DependencyCollector):
         self.conflict_free_showTerm = conflict_free_showTerm
         super().__init__(in_analyzer=False)
 
-    def make_loc_lit(self, loc: ast.Location) -> ast.Literal:  # type: ignore
+    def make_component_lit(self, loc: ast.Location) -> ast.Literal:  # type: ignore
+        loc_fun = ast.Function(loc, str(self.component_nr), [], False)
+        loc_atm = ast.SymbolicAtom(loc_fun)
+        return ast.Literal(loc, ast.Sign.NoSign, loc_atm)
+
+    def make_rule_lit(self,
+                           loc: ast.Location) -> ast.Literal:  # type: ignore
         loc_fun = ast.Function(loc, str(self.rule_nr), [], False)
+        self.rule_nr += 1
         loc_atm = ast.SymbolicAtom(loc_fun)
         return ast.Literal(loc, ast.Sign.NoSign, loc_atm)
 
@@ -642,7 +650,8 @@ class ProgramReifier(DependencyCollector):
         """
         reasons: List[ast.Literal] = []  # type: ignore
 
-        loc_lit = self.make_loc_lit(loc)
+        component_lit = self.make_component_lit(loc)
+        rule_lit = self.make_rule_lit(loc)
         for literal in conditions:
             if hasattr(literal, "sign") and \
                 literal.sign == ast.Sign.NoSign and \
@@ -659,7 +668,7 @@ class ProgramReifier(DependencyCollector):
         h_attribute = self.h_showTerm if use_h_showTerm else self.h
 
         return [
-            ast.Function(loc, h_attribute, [loc_lit, dependant, reason_lit], 0)
+            ast.Function(loc, h_attribute, [component_lit, rule_lit, dependant, reason_lit], 0)
         ]
 
     def post_rule_creation(self):
@@ -716,6 +725,7 @@ class ProgramReifier(DependencyCollector):
             self.replace_anon_variables(conditions)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions)
+            print(F"new head: {list(map(str,new_head_s))}", flush=True)
 
             conditions.insert(0, dependant)
             # Remove duplicates but preserve order

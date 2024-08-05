@@ -31,15 +31,15 @@ def get_h_symbols_from_model(wrapped_stable_model: Iterable[str],
     ctl = Control()
     stringified = "\n".join(map(str, transformed_prg))
     new_head = f"_{h}"
-    get_new_atoms_rule = f"{new_head}(I, H, G) :- {h}(I, H, G), not {h}(II,H,_) : II<I, {h}(II,_,_)."
+    get_new_atoms_rule = f"{new_head}(I, J, H, G) :- {h}(I, J, H, G), not {h}(II,H,_) : II<I, {h}(II,_,_)."
     ctl.add("base", [], "".join(constants))
     ctl.add("base", [], "".join(map(stringify_fact, facts)))
     ctl.add("base", [], stringified)
     ctl.add("base", [], "".join(map(str, wrapped_stable_model)))
     ctl.add("base", [], get_new_atoms_rule)
     ctl.ground([("base", [])])
-    for x in ctl.symbolic_atoms.by_signature(new_head, 3):
-        if x.symbol.arguments[1] in facts:
+    for x in ctl.symbolic_atoms.by_signature(new_head, 4):
+        if x.symbol.arguments[2] in facts:
             continue
         rules_that_are_reasons_why.append(x.symbol)
     for x in ctl.symbolic_atoms.by_signature(h_showTerm, 3):
@@ -63,32 +63,36 @@ def collect_h_symbols_and_create_nodes(h_symbols: Collection[Symbol], relevant_i
     tmp_symbol: Dict[int, List[Symbol]] = defaultdict(list)
     tmp_symbol_identifier: Dict[int, List[SymbolIdentifier]] = defaultdict(list)
     tmp_reason: Dict[int, Dict[str, List[Symbol]]] = defaultdict(dict)
+    tmp_reason_rules: Dict[int, Dict[str, int]] = defaultdict(dict)
     for sym in h_symbols:
-        rule_nr, symbol, reasons = sym.arguments
-        tmp_symbol[rule_nr.number].append(symbol)
-        tmp_reason[rule_nr.number][str(symbol)] = reasons.arguments
-    for rule_nr in tmp_symbol.keys():
-        tmp_symbol[rule_nr] = list(tmp_symbol[rule_nr])
-        tmp_symbol_identifier[rule_nr] = list(map(lambda symbol: next(filter(
+        component_nr, rule_nr, symbol, reasons = sym.arguments
+        tmp_symbol[component_nr.number].append(symbol)
+        tmp_reason[component_nr.number][str(symbol)] = reasons.arguments
+        tmp_reason_rules[component_nr.number][str(symbol)] = rule_nr.number
+    for component_nr in tmp_symbol.keys():
+        tmp_symbol[component_nr] = list(tmp_symbol[component_nr])
+        tmp_symbol_identifier[component_nr] = list(map(lambda symbol: next(filter(
         lambda supernode_symbol: supernode_symbol==symbol, supernode_symbols)) if
         symbol in supernode_symbols else
-        SymbolIdentifier(symbol),tmp_symbol[rule_nr]))
+        SymbolIdentifier(symbol),tmp_symbol[component_nr]))
     if pad:
         h_nodes: List[Node] = [
-            Node(frozenset(tmp_symbol_identifier[rule_nr]),
-                    rule_nr,
-                    reason=tmp_reason[rule_nr])
-            if rule_nr in tmp_symbol
-            else Node(frozenset(), rule_nr)
-            for rule_nr in relevant_indices]
+            Node(frozenset(tmp_symbol_identifier[component_nr]),
+                    component_nr,
+                    reason=tmp_reason[component_nr],
+                    reason_rules=tmp_reason_rules[component_nr])
+            if component_nr in tmp_symbol
+            else Node(frozenset(), component_nr)
+            for component_nr in relevant_indices]
     else:
         h_nodes: List[Node] = [
-            Node(frozenset(tmp_symbol_identifier[rule_nr]),
-                    rule_nr,
-                    reason=tmp_reason[rule_nr])
-            if rule_nr in tmp_symbol
-            else Node(frozenset(), rule_nr)
-            for rule_nr in range(1, max(tmp_symbol.keys(), default=-1) + 1)]
+            Node(frozenset(tmp_symbol_identifier[component_nr]),
+                    component_nr,
+                    reason=tmp_reason[component_nr],
+                    reason_rules=tmp_reason_rules[component_nr])
+            if component_nr in tmp_symbol
+            else Node(frozenset(), component_nr)
+            for component_nr in range(1, max(tmp_symbol.keys(), default=-1) + 1)]
 
     return h_nodes
 
