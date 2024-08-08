@@ -53,6 +53,7 @@ class GraphNodes(Base):
     transformation_hash: Mapped[str]
     branch_position: Mapped[float]
     node: Mapped[str]
+    node_uuid: Mapped[str]
 
 
 class GraphEdges(Base):

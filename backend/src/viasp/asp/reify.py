@@ -387,7 +387,6 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
             **self.visit_children(theory_guard_definition, **kwargs))
 
     def get_facts(self):
-        print(F"The constants are: {self.constants}", flush=True)
         return extract_symbols(self.facts, self.constants)
 
     def get_constants(self):
@@ -725,7 +724,6 @@ class ProgramReifier(DependencyCollector):
             self.replace_anon_variables(conditions)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions)
-            print(F"new head: {list(map(str,new_head_s))}", flush=True)
 
             conditions.insert(0, dependant)
             # Remove duplicates but preserve order
@@ -877,7 +875,8 @@ class ProgramReifierForRecursions(ProgramReifier):
 
         return new_rules
 
-    def make_loc_lit(self, loc: ast.Location) -> ast.Literal:  # type: ignore
+    def make_component_lit(self,
+                           loc: ast.Location) -> ast.Literal:  # type: ignore
         loc_fun = ast.Function(loc, self.n_str, [], False)
         loc_atm = ast.SymbolicAtom(loc_fun)
         return ast.Literal(loc, ast.Sign.NoSign, loc_atm)

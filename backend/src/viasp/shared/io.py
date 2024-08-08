@@ -63,7 +63,7 @@ def object_hook(obj):
     elif t == "Transformation":
         return Transformation(**obj)
     elif t == "RuleContainer":
-        return RuleContainer(str_=obj["str_"])
+        return RuleContainer(str_=obj["str_"], hash=obj["hash"])
     elif t == "Signature":
         return Signature(**obj)
     elif t == "Graph":
@@ -118,7 +118,7 @@ def dataclass_to_dict(o):
             "hash": o.hash
         }
     elif isinstance(o, RuleContainer):
-        return {"_type": "RuleContainer", "ast": o.ast, "str_": o.str_}
+        return {"_type": "RuleContainer", "ast": o.ast, "str_": o.str_, "hash": o.hash}
     elif isinstance(o, StableModel):
         return {"_type": "StableModel", "cost": o.cost, "optimality_proven": o.optimality_proven, "type": o.type,
                 "atoms": o.atoms, "terms": o.terms, "shown": o.shown, "theory": o.theory}

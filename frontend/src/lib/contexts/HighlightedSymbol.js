@@ -19,12 +19,17 @@ function fetchReasonOf(backendURL, sourceId, nodeId) {
     });
 }
 const defaultHighlightedSymbol = [];
+const defaultHighlightedRule = []; 
+// HighlightedRule { rule_hash: string, color: string, source_id: string }
 
 const HighlightedSymbolContext = React.createContext(defaultHighlightedSymbol);
 
 export const useHighlightedSymbol = () => React.useContext(HighlightedSymbolContext);
 export const HighlightedSymbolProvider = ({ children }) => {
     const [highlightedSymbol, setHighlightedSymbol] = React.useState(defaultHighlightedSymbol);
+    const [highlightedRule, setHighlightedRule] = React.useState(
+        defaultHighlightedRule
+    );
     const colorPalette = useColorPalette();
     const colorArray = colorPalette.explanationHighlights;
     const [, message_dispatch] = useMessages()
@@ -68,6 +73,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
 
     const toggleHighlightedSymbol = React.useCallback(
         (arrows, currentHighlightedSymbol) => {
+            var arrows_are_added = false;
             var arrowsSrcTgt = [];
             var arrowsColors = [];
             currentHighlightedSymbol.forEach((item) => {
@@ -88,6 +94,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
                 if (index === -1) {
                     arrowsSrcTgt.push(JSON.stringify(a));
                     arrowsColors.push(c);
+                    arrows_are_added = true;
                 } else {
                     arrowsSrcTgt.splice(index, 1);
                     arrowsColors.splice(index, 1);
@@ -100,8 +107,40 @@ export const HighlightedSymbolProvider = ({ children }) => {
                     return obj;
                 })
             );
+            if (arrows_are_added) {
+                return c;
+            }
+            return null;
         },
         [setHighlightedSymbol, getNextColor]
+    );
+
+    const toggleHighlightedRule = React.useCallback(
+        (source_id, rule_hash, color, currentHighlightedRule) => {
+            var rulesSrcColor = [];
+            currentHighlightedRule.forEach((item) => {
+                rulesSrcColor.push(
+                    JSON.stringify({
+                        rule_hash: item.rule_hash,
+                        color: item.color,
+                        source_id: item.source_id,
+                    })
+                );
+            });
+
+            var value = JSON.stringify({rule_hash, color, source_id});
+            var index = rulesSrcColor.indexOf(value);
+            if (index === -1) {
+                rulesSrcColor.push(value);
+            }
+            else {
+                rulesSrcColor.splice(index, 1);
+            }
+            setHighlightedRule(
+                rulesSrcColor.map(item=> (JSON.parse(item)))
+            );
+        },
+        [setHighlightedRule]
     );
 
     const getNextHoverColor = React.useCallback(
@@ -119,24 +158,55 @@ export const HighlightedSymbolProvider = ({ children }) => {
     );
 
 
-    const toggleReasonOf = React.useCallback((sourceid, nodeId, currentHighlightedSymbol) => {
-        fetchReasonOf(backendUrlRef.current, sourceid, nodeId).then(reasons => {
-            if (reasons.every(tgt => tgt !== null)) {
-                toggleHighlightedSymbol(reasons, currentHighlightedSymbol);
-            }})
-            .catch((error) => {
-                messageDispatchRef.current(
-                    showError(`Failed to get reason: ${error}`)
-                )
-            });
-    }, [messageDispatchRef, toggleHighlightedSymbol]);
+    const toggleReasonOf = React.useCallback(
+        (
+            sourceid,
+            nodeId,
+            currentHighlightedSymbol,
+            currentHighlightedRule
+        ) => {
+            fetchReasonOf(backendUrlRef.current, sourceid, nodeId)
+                .then((res) => {
+                    const reasons = res.symbols;
+                    const rule_hash = res.rule;
+
+                    var new_color = null;
+                    if (reasons.every((tgt) => tgt !== null)) {
+                        new_color = toggleHighlightedSymbol(
+                            reasons,
+                            currentHighlightedSymbol
+                        );
+                    }
+                    if (rule_hash !== "") {
+                        toggleHighlightedRule(
+                            sourceid,
+                            rule_hash,
+                            new_color,
+                            currentHighlightedRule
+                        );
+                    }
+                })
+                .catch((error) => {
+                    messageDispatchRef.current(
+                        showError(`Failed to get reason: ${error}`)
+                    );
+                });
+        },
+        [messageDispatchRef, toggleHighlightedSymbol, toggleHighlightedRule]
+    );
+
+    const clearHighlightedSymbol = React.useCallback(() => {
+        setHighlightedSymbol([]);
+        setHighlightedRule([]);
+    }, [setHighlightedSymbol, setHighlightedRule]);
 
     return (
         <HighlightedSymbolContext.Provider
             value={{
                 highlightedSymbol,
                 toggleHighlightedSymbol,
-                setHighlightedSymbol,
+                clearHighlightedSymbol,
+                highlightedRule,
                 toggleReasonOf,
                 getNextHoverColor,
             }}

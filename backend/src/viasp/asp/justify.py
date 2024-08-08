@@ -42,7 +42,7 @@ def get_h_symbols_from_model(wrapped_stable_model: Iterable[str],
         if x.symbol.arguments[2] in facts:
             continue
         rules_that_are_reasons_why.append(x.symbol)
-    for x in ctl.symbolic_atoms.by_signature(h_showTerm, 3):
+    for x in ctl.symbolic_atoms.by_signature(h_showTerm, 4):
         rules_that_are_reasons_why.append(x.symbol)
     return rules_that_are_reasons_why
 
@@ -59,16 +59,22 @@ def get_facts(original_program) -> Collection[Symbol]:
     return frozenset(facts)
 
 
-def collect_h_symbols_and_create_nodes(h_symbols: Collection[Symbol], relevant_indices, pad: bool, supernode_symbols: frozenset = frozenset([])) -> List[Node]:
+def collect_h_symbols_and_create_nodes(
+    h_symbols: Collection[Symbol],
+    rule_mapping: Dict[int, Transformation],
+    pad: bool,
+    supernode_symbols: frozenset = frozenset([])) -> List[Node]:
     tmp_symbol: Dict[int, List[Symbol]] = defaultdict(list)
     tmp_symbol_identifier: Dict[int, List[SymbolIdentifier]] = defaultdict(list)
     tmp_reason: Dict[int, Dict[str, List[Symbol]]] = defaultdict(dict)
-    tmp_reason_rules: Dict[int, Dict[str, int]] = defaultdict(dict)
+    tmp_reason_rules: Dict[int, Dict[str, str]] = defaultdict(dict)
     for sym in h_symbols:
         component_nr, rule_nr, symbol, reasons = sym.arguments
         tmp_symbol[component_nr.number].append(symbol)
         tmp_reason[component_nr.number][str(symbol)] = reasons.arguments
-        tmp_reason_rules[component_nr.number][str(symbol)] = rule_nr.number
+        
+        sym_transformation = rule_mapping.get(component_nr.number, rule_mapping.get(-1, None))
+        tmp_reason_rules[component_nr.number][str(symbol)] = sym_transformation.rules.hash[rule_nr.number] if sym_transformation else ""
     for component_nr in tmp_symbol.keys():
         tmp_symbol[component_nr] = list(tmp_symbol[component_nr])
         tmp_symbol_identifier[component_nr] = list(map(lambda symbol: next(filter(
@@ -77,22 +83,23 @@ def collect_h_symbols_and_create_nodes(h_symbols: Collection[Symbol], relevant_i
         SymbolIdentifier(symbol),tmp_symbol[component_nr]))
     if pad:
         h_nodes: List[Node] = [
-            Node(frozenset(tmp_symbol_identifier[component_nr]),
-                    component_nr,
-                    reason=tmp_reason[component_nr],
-                    reason_rules=tmp_reason_rules[component_nr])
-            if component_nr in tmp_symbol
-            else Node(frozenset(), component_nr)
-            for component_nr in relevant_indices]
+            Node(diff=frozenset(tmp_symbol_identifier[component_nr]),
+                 rule_nr=component_nr,
+                 reason=tmp_reason[component_nr],
+                 reason_rules=tmp_reason_rules[component_nr])
+            if component_nr in tmp_symbol else Node(frozenset(), component_nr)
+            for component_nr in rule_mapping.keys()
+        ]
     else:
         h_nodes: List[Node] = [
-            Node(frozenset(tmp_symbol_identifier[component_nr]),
-                    component_nr,
-                    reason=tmp_reason[component_nr],
-                    reason_rules=tmp_reason_rules[component_nr])
-            if component_nr in tmp_symbol
-            else Node(frozenset(), component_nr)
-            for component_nr in range(1, max(tmp_symbol.keys(), default=-1) + 1)]
+            Node(diff=frozenset(tmp_symbol_identifier[component_nr]),
+                 rule_nr=component_nr,
+                 reason=tmp_reason[component_nr],
+                 reason_rules=tmp_reason_rules[component_nr])
+            if component_nr in tmp_symbol else Node(frozenset(), component_nr)
+            for component_nr in range(1,
+                                      max(tmp_symbol.keys(), default=-1) + 1)
+        ]
 
     return h_nodes
 
@@ -106,7 +113,7 @@ def make_reason_path_from_facts_to_stable_model(rule_mapping: Dict[int, Transfor
                                             pad=True) \
                                             -> nx.DiGraph:
     h_syms: List[Node] = collect_h_symbols_and_create_nodes(
-        h_symbols, rule_mapping.keys(), pad)
+        h_symbols, rule_mapping, pad)
     h_syms.sort(key=lambda node: node.rule_nr)
     h_syms.insert(0, fact_node)
 
@@ -258,7 +265,7 @@ def get_recursion_subgraph(
 
     h_syms = collect_h_symbols_and_create_nodes(
         h_syms,
-        relevant_indices=[],
+        rule_mapping={-1: transformation},
         pad=False,
         supernode_symbols=supernode_symbols)
     if len(h_syms) == 1:

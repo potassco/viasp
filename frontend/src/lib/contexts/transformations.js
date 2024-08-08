@@ -191,9 +191,9 @@ const transformationReducer = (state = initialState, action) => {
         return {
             ...state,
             transformations: state.transformations.concat({
-                transformation: action.t,
+                ...action.t,
+                rules: action.t.rules.str_.map((r) => ({_type: "RuleWrapper", rule: r, highlight: false})),
                 shown: true,
-                hash: action.t.hash,
                 isExpandableV: false,
                 isCollapsibleV: false,
                 allNodesShowMini: false,
@@ -205,7 +205,7 @@ const transformationReducer = (state = initialState, action) => {
             ...state,
             transformations: action.ts.map((t) => ({
                 ...t,
-                rules: t.rules.str_.map((r) => ({_type: "RuleWrapper", rule: r, highlight: false})),
+                rules: t.rules.str_.map((r,i) => ({_type: "RuleWrapper", rule: r, hash: t.rules.hash[i]})),
                 shown: true,
                 isExpandableV: false,
                 isCollapsibleV: false,

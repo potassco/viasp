@@ -3,6 +3,7 @@ import {useColorPalette} from "../contexts/ColorPalette";
 import {useHighlightedSymbol} from "../contexts/HighlightedSymbol";
 import './settings.css'
 import { darken } from 'polished';
+import {useTransformations} from "../contexts/transformations";
 
 
 function makeClassNameFromMarkedSymbol(highlightedSymbol) {
@@ -11,7 +12,7 @@ function makeClassNameFromMarkedSymbol(highlightedSymbol) {
 }
 
 function ClearMarked() {
-    const { highlightedSymbol, setHighlightedSymbol } = useHighlightedSymbol()
+    const {highlightedSymbol, clearHighlightedSymbol} = useHighlightedSymbol();
     const colorPalette = useColorPalette();
     const className = makeClassNameFromMarkedSymbol(highlightedSymbol)
     const [isHovered, setIsHovered] = useState(false);
@@ -36,7 +37,11 @@ function ClearMarked() {
     const handleMouseDown = () => setIsClicked(true);
     const handleMouseUp = () => setIsClicked(false);
 
-    return <span onClick={() => setHighlightedSymbol([])}
+    const onClick = () => {
+        clearHighlightedSymbol();
+    }
+
+    return <span onClick={onClick}
                 className={className}
                 style={style}
                 onMouseEnter={handleMouseEnter}

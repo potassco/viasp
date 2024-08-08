@@ -26,11 +26,11 @@ class RecursionReasoner:
         step = 1
         while self.atoms != []:
             control.ground([("iter", [Number(step)])], context=self)
-            self.atoms = [ x.symbol.arguments[1] for x in
-                            control.symbolic_atoms.by_signature(self.conflict_free_h, 3)
+            self.atoms = [ x.symbol.arguments[2] for x in
+                            control.symbolic_atoms.by_signature(self.conflict_free_h, 4)
                            if x.is_fact and x.symbol.arguments[0].number == step
                          ]
             step += 1
 
-        for x in control.symbolic_atoms.by_signature(self.conflict_free_h, 3):
+        for x in control.symbolic_atoms.by_signature(self.conflict_free_h, 4):
             self.register_h_symbols(x.symbol)

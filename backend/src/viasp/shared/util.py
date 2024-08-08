@@ -86,6 +86,8 @@ def hash_transformation_rules(rules: Tuple[Any, ...]) -> str:
         hash_object.update(rule_hash.encode())
     return hash_object.hexdigest()
 
+def hash_string(string: str) -> str:
+    return sha1(string.encode()).hexdigest()
 
 def get_rules_from_input_program(rules: Tuple) -> Sequence[str]:
     from ..server.database import db_session

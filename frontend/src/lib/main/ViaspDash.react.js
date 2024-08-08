@@ -58,12 +58,12 @@ function GraphContainer(props) {
     } = useTransformations();
     const {highlightedSymbol} = useHighlightedSymbol();
     const draggableListRef = React.useRef(null);
-    const {setHighlightedSymbol} = useHighlightedSymbol();
+    const {clearHighlightedSymbol} = useHighlightedSymbol();
     const clingraphUsed = clingraphGraphics.length > 0;
 
     function onMoveEnd(newList, movedItem, oldIndex, newIndex) {
         if (transformationDropIndices.lower_bound <= newIndex && newIndex <= transformationDropIndices.upper_bound) {
-            setHighlightedSymbol([]);
+            clearHighlightedSymbol();
             setSortAndFetchGraph(oldIndex, newIndex)
         }
         dispatchTransformation(setTransformationDropIndices(null));

@@ -27,7 +27,7 @@ export const RULECONTAINER = PropTypes.exact({
 export const RULEWRAPPER = PropTypes.exact({
     _type: PropTypes.oneOf(['RuleWrapper']),
     rule: PropTypes.string,
-    highlight: PropTypes.bool
+    hash: PropTypes.string
 })
 export const TRANSFORMATION = PropTypes.exact({
     _type: PropTypes.oneOf(['Transformation']),
@@ -63,6 +63,7 @@ export const NODE = PropTypes.exact({
     diff: PropTypes.array,
     rule_nr: PropTypes.number,
     reason: PropTypes.object, 
+    reason_rules: PropTypes.object,
     recursive: PropTypes.oneOfType([PropTypes.bool, PropTypes.array]),
     space_multiplier: PropTypes.number,
     uuid: PropTypes.string,

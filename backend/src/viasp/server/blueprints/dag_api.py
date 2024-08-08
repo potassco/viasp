@@ -182,6 +182,30 @@ def find_reason_by_uuid(symbolid, nodeid):
     ]
     return reasonids
 
+
+def find_reason_rule_by_uuid(symbolid, nodeid) -> Optional[int]:
+    encoding_id = get_or_create_encoding_id()
+    current_graph_hash = get_current_graph_hash(encoding_id)
+    matching_nodes = db_session.query(GraphNodes).filter_by(
+        encoding_id=encoding_id,
+        graph_hash=current_graph_hash,
+        node_uuid=nodeid).all()
+
+    print(F"Node uuid: {nodeid}")
+    print(f"Matching nodes: {[n.node_uuid for n in matching_nodes]}", flush=True)
+
+
+    if len(matching_nodes) != 1:
+        raise ValueError(f"{len(matching_nodes)} blabla {nodeid}.")
+    node = current_app.json.loads(matching_nodes[0].node)
+
+    symbolstr = str(
+        getattr(next(filter(lambda x: x.uuid == symbolid, node.diff)),
+                "symbol", ""))
+    reasonrule = node.reason_rules.get(symbolstr, None)
+
+    return reasonrule
+
 def get_current_sort():
     encoding_id = get_or_create_encoding_id()
     current_hash = get_current_graph_hash(encoding_id)
@@ -413,16 +437,18 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    graph_hash=graph_hash,
                    transformation_hash=d["transformation"].hash,
                    branch_position=pos[node][0],
-                   node=current_app.json.dumps(node))
+                   node=current_app.json.dumps(node),
+                   node_uuid=node.uuid.hex)
         for _, node, d in graph.edges(data=True)
     ]
+    fact_node = get_start_node_from_graph(graph)
     db_nodes.append(
         GraphNodes(encoding_id=encoding_id,
                    graph_hash=graph_hash,
                    transformation_hash="-1",
                    branch_position=0,
-                   node=current_app.json.dumps(
-                       get_start_node_from_graph(graph))))
+                   node=current_app.json.dumps(fact_node),
+                   node_uuid=fact_node.uuid.hex))
     db_session.add_all(db_nodes)
 
     db_session.commit()
@@ -553,12 +579,15 @@ def get_reasons_of():
         node_uuid = request.json["nodeid"]
         try:
             reason_uuids = find_reason_by_uuid(source_uuid, node_uuid)
+            reason_rule_uuid = find_reason_rule_by_uuid(source_uuid, node_uuid)
         except Exception as e:
             return jsonify({'error': str(e)}), 404
-        return jsonify([{
-            "src": source_uuid,
-            "tgt": reason_uuid
-        } for reason_uuid in reason_uuids])
+        return jsonify({
+            "symbols": [{
+                "src": source_uuid,
+                "tgt": reason_uuid
+            } for reason_uuid in reason_uuids],
+            "rule": reason_rule_uuid})
     raise NotImplementedError
 
 
