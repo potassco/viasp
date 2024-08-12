@@ -4,8 +4,6 @@ from collections import defaultdict
 from typing import Union, Collection, Dict, List, Iterable, Optional
 import uuid
 
-import time
-
 import igraph
 import networkx as nx
 import numpy as np
@@ -17,7 +15,7 @@ from ...asp.reify import ProgramAnalyzer, reify_list
 from ...asp.justify import build_graph
 from ...shared.defaults import STATIC_PATH
 from ...shared.model import Transformation, Node, Signature
-from ...shared.util import get_start_node_from_graph, is_recursive, hash_from_sorted_transformations
+from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations
 from ...shared.io import StableModel
 from ...shared.simple_logging import error
 from ..database import get_or_create_encoding_id, db_session
@@ -81,7 +79,7 @@ def handle_request_for_children(
         ids_only: bool,
         encoding_id: str) -> Collection[Union[Node, uuid.UUID]]:
     current_graph_hash = get_current_graph_hash(encoding_id)
-    result = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_graph_hash, transformation_hash=transformation_hash).order_by(GraphNodes.branch_position).all()
+    result = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_graph_hash, transformation_hash=transformation_hash, recursive_supernode_uuid = None).order_by(GraphNodes.branch_position).all()
     ordered_children = [current_app.json.loads(n.node) for n in result]
     if ids_only:
         ordered_children = [node.uuid for node in ordered_children]
@@ -115,64 +113,43 @@ def get_children(transformation_hash):
 def get_src_tgt_mapping_from_graph(encoding_id: str,
                                    shown_recursive_ids=[],
                                    shown_clingraph=False):
-    graph = _get_graph(encoding_id)
-
-    to_be_added = []
-
-    for source, target, edge in graph.edges(data=True):
-        to_be_added.append({
-            "src": source.uuid,
-            "tgt": target.uuid,
-            "transformation": edge["transformation"].hash,
-            "style": "solid"
-        })
-
+    current_graph_hash = get_current_graph_hash(encoding_id)
+    db_edges = db_session.query(GraphEdges).filter_by(
+        encoding_id=encoding_id,
+        graph_hash=current_graph_hash,
+        recursive_supernode_uuid=None).all()
+    
     for recursive_uuid in shown_recursive_ids:
-        # get recursion super-node from graph
-        try:
-            node = next(n for n in graph.nodes if n.uuid == recursive_uuid)
-        except StopIteration:
-            continue
-        _, _, edge = next(e for e in graph.in_edges(node, data=True))
-        for source, target in pairwise(node.recursive):
-            to_be_added.append({
-                "src": source.uuid,
-                "tgt": target.uuid,
-                "transformation": edge["transformation"].hash,
-                "style": "solid"
-            })
-        # add connections to outer node
-        to_be_added.append({
-            "src": node.uuid,
-            "tgt": node.recursive[0].uuid,
-            "transformation": edge["transformation"].hash,
-            "recursion": "in",
-            "style": "solid"
-        })
-        if graph.out_degree(node) > 0:
-            # only add connection out if there are more nodes / clingraph
-            to_be_added.append({
-                "src": node.recursive[-1].uuid,
-                "tgt": node.uuid,
-                "transformation": edge["transformation"].hash,
-                "recursion": "out",
-                "style": "solid"
-            })
+        db_edges.extend(db_session.query(GraphEdges).filter_by(
+            encoding_id=encoding_id,
+            graph_hash=current_graph_hash,
+            recursive_supernode_uuid=recursive_uuid).all())
+    
+    # Clingraph
+    distinct_sources = db_session.query(GraphEdges.source).filter_by(
+        encoding_id=encoding_id,
+        graph_hash=current_graph_hash,
+        recursive_supernode_uuid = None).distinct()
+    last_nodes_in_graph = [e.target for e in db_session.query(GraphEdges).filter(
+        GraphEdges.encoding_id == encoding_id,
+        GraphEdges.graph_hash == current_graph_hash,
+        GraphEdges.recursive_supernode_uuid == None,
+        ~GraphEdges.target.in_(distinct_sources)
+    ).all()]
 
     if shown_clingraph:
         clingraph_names = db_session.query(Clingraphs).where(Clingraphs.encoding_id == encoding_id).all()
-        for src, tgt in list(zip(last_nodes_in_graph(graph), clingraph_names)):
-            to_be_added.append({
-                "src": src,
-                "tgt": tgt.filename,
-                "transformation": "boxrow_container",
-                "style": "dashed"
-            })
-    return to_be_added
+        for src, tgt in list(zip(last_nodes_in_graph, clingraph_names)):
+            db_edges.append(GraphEdges(
+                source=src,
+                target=tgt.filename,
+                transformation_hash="boxrow_container",
+                style="dashed"
+            ))
+    return db_edges
 
-
-def find_reason_by_uuid(symbolid, nodeid):
-    node = find_node_by_uuid(nodeid)
+def find_reason_by_uuid(symbolid, nodeid, encoding_id):
+    node = find_node_by_uuid(nodeid, encoding_id)
 
     symbolstr = str(
         getattr(next(filter(lambda x: x.uuid == symbolid, node.diff)),
@@ -183,20 +160,24 @@ def find_reason_by_uuid(symbolid, nodeid):
     return reasonids
 
 
-def find_reason_rule_by_uuid(symbolid, nodeid) -> Optional[int]:
-    encoding_id = get_or_create_encoding_id()
+def find_reason_rule_by_uuid(symbolid, nodeid, encoding_id) -> Optional[int]:
     current_graph_hash = get_current_graph_hash(encoding_id)
     matching_nodes = db_session.query(GraphNodes).filter_by(
         encoding_id=encoding_id,
         graph_hash=current_graph_hash,
         node_uuid=nodeid).all()
 
-    print(F"Node uuid: {nodeid}")
-    print(f"Matching nodes: {[n.node_uuid for n in matching_nodes]}", flush=True)
-
+    if len(matching_nodes) == 0:
+        for node in db_session.query(GraphNodes).all():
+            n = current_app.json.loads(node.node)
+            if len(n.recursive) > 0:
+                matching_nodes = [
+                    x for x in n.recursive
+                    if x.uuid == nodeid
+                ]
 
     if len(matching_nodes) != 1:
-        raise ValueError(f"{len(matching_nodes)} blabla {nodeid}.")
+        raise ValueError(f"Couldn't find reason rule of {symbolid}.")
     node = current_app.json.loads(matching_nodes[0].node)
 
     symbolstr = str(
@@ -432,15 +413,69 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
         db_session.add(db_graph)
 
     pos: Dict[Node, List[float]] = get_node_positions(graph)
-    db_nodes = [
+    db_nodes = []
+    db_edges = []
+    for source, target, edge in graph.edges(data=True):
+        db_edges.append(GraphEdges(
+            encoding_id=encoding_id,
+            graph_hash=graph_hash,
+            source=source.uuid.hex,
+            target=target.uuid.hex,
+            transformation_hash=edge["transformation"].hash,
+            style="solid"
+        ))
+
+        branch_position = pos[target][0]
+        db_nodes.append(
         GraphNodes(encoding_id=encoding_id,
                    graph_hash=graph_hash,
-                   transformation_hash=d["transformation"].hash,
-                   branch_position=pos[node][0],
-                   node=current_app.json.dumps(node),
-                   node_uuid=node.uuid.hex)
-        for _, node, d in graph.edges(data=True)
-    ]
+                   transformation_hash=edge["transformation"].hash,
+                   branch_position=branch_position,
+                   node=current_app.json.dumps(target),
+                   node_uuid=target.uuid.hex)
+        )
+
+        if len(target.recursive) > 0:
+            for n in target.recursive:
+                db_nodes.append(
+                    GraphNodes(encoding_id=encoding_id,
+                               graph_hash=graph_hash,
+                               transformation_hash=edge["transformation"].hash,
+                               branch_position=branch_position,
+                               node=current_app.json.dumps(n),
+                               node_uuid=n.uuid.hex,
+                               recursive_supernode_uuid=target.uuid.hex)
+                )
+            db_edges.append(GraphEdges(
+                encoding_id=encoding_id,
+                graph_hash=graph_hash,
+                source=target.uuid.hex,
+                target=target.recursive[0].uuid.hex,
+                transformation_hash=edge["transformation"].hash,
+                style="solid",
+                recursion_anchor_keyword="in",
+                recursive_supernode_uuid=target.uuid.hex
+            ))
+            for s, t in pairwise(target.recursive):
+                db_edges.append(GraphEdges(
+                    encoding_id=encoding_id,
+                    graph_hash=graph_hash,
+                    source=s.uuid.hex,
+                    target=t.uuid.hex,
+                    transformation_hash=edge["transformation"].hash,
+                    style="solid",
+                    recursive_supernode_uuid=target.uuid.hex
+                ))
+            if graph.out_degree(target) > 0:
+                db_edges.append(
+                    GraphEdges(encoding_id=encoding_id,
+                               graph_hash=graph_hash,
+                               source=target.recursive[-1].uuid.hex,
+                               target=target.uuid.hex,
+                               transformation_hash=edge["transformation"].hash,
+                               style="solid",
+                               recursion_anchor_keyword="out",
+                               recursive_supernode_uuid=target.uuid.hex))
     fact_node = get_start_node_from_graph(graph)
     db_nodes.append(
         GraphNodes(encoding_id=encoding_id,
@@ -450,13 +485,14 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    node=current_app.json.dumps(fact_node),
                    node_uuid=fact_node.uuid.hex))
     db_session.add_all(db_nodes)
+    db_session.add_all(db_edges)
 
     db_session.commit()
 
 
-def get_atoms_in_path_by_signature(uuid: str):
+def get_atoms_in_path_by_signature(uuid: str, encoding_id: str):
     signature_to_atom_mapping = defaultdict(set)
-    node = find_node_by_uuid(uuid)
+    node = find_node_by_uuid(uuid, encoding_id)
     for s in node.atoms:
         signature = Signature(s.symbol.name, len(s.symbol.arguments))
         signature_to_atom_mapping[signature].add(s.symbol)
@@ -464,27 +500,34 @@ def get_atoms_in_path_by_signature(uuid: str):
             for s in signature_to_atom_mapping.keys()]
 
 
-def find_node_by_uuid(uuid: str) -> Node:
-    graph = _get_graph(get_or_create_encoding_id())
-    matching_nodes = [x for x, _ in graph.nodes(data=True) if x.uuid == uuid]
+def find_node_by_uuid(uuid: str, encoding_id: str) -> Node:
+    current_graph_hash = get_current_graph_hash(encoding_id)
+    matching_nodes = db_session.query(GraphNodes).filter_by(
+        encoding_id=encoding_id,
+        graph_hash=current_graph_hash,
+        node_uuid=uuid).all()
 
-    if len(matching_nodes) != 1:
-        for node in graph.nodes():
-            if len(node.recursive) > 0:
-                matching_nodes = [
-                    x for x in node.recursive
-                    if x.uuid == uuid
-                ]
-                if len(matching_nodes) == 1:
-                    return matching_nodes[0]
-        abort(Response(f"No node with uuid {uuid}.", 404))
-    return matching_nodes[0]
+    if len(matching_nodes) == 0:
+        raise ValueError(f"No node with uuid {uuid}.")
+    return current_app.json.loads(matching_nodes[0].node)
 
 
-def get_kind(uuid: str) -> str:
-    graph = _get_graph(get_or_create_encoding_id())
-    node = find_node_by_uuid(uuid)
-    recursive = is_recursive(node, graph)
+def is_recursive(node: str) -> bool:
+    """
+    Checks if the node is recursive.
+    :param node: The node to check.
+    :return: True if the node is recursive, False otherwise.
+    """
+    graph_node = db_session.query(GraphNodes).filter(GraphNodes.node_uuid == node).first()
+    if graph_node is None:
+        return False
+    return graph_node.recursive_supernode_uuid != None
+
+
+def get_kind(uuid: str, encoding_id: str) -> str:
+    graph = _get_graph(encoding_id)
+    node = find_node_by_uuid(uuid, encoding_id)
+    recursive = is_recursive(node.uuid.hex)
     if recursive:
         return "Partial Answer Set"
     if len(graph.out_edges(node)) == 0:
@@ -499,8 +542,9 @@ def get_kind(uuid: str) -> str:
 def model(uuid):
     if uuid is None:
         abort(Response("Parameter 'key' required.", 400))
-    kind = get_kind(uuid)
-    path = get_atoms_in_path_by_signature(uuid)
+    encoding_id = get_or_create_encoding_id()
+    kind = get_kind(uuid, encoding_id)
+    path = get_atoms_in_path_by_signature(uuid, encoding_id)
     return jsonify((kind, path))
 
 
@@ -508,7 +552,7 @@ def model(uuid):
 def explain(uuid):
     if uuid is None:
         abort(Response("Parameter 'key' required.", 400))
-    node = find_node_by_uuid(uuid)
+    node = find_node_by_uuid(uuid, get_or_create_encoding_id())
     explain = node.reason
     return jsonify(explain)
 
@@ -577,9 +621,10 @@ def get_reasons_of():
             return jsonify({'error': 'Missing sourceid or nodeid in request'}), 400
         source_uuid = request.json["sourceid"]
         node_uuid = request.json["nodeid"]
+        encoding_id = get_or_create_encoding_id()
         try:
-            reason_uuids = find_reason_by_uuid(source_uuid, node_uuid)
-            reason_rule_uuid = find_reason_rule_by_uuid(source_uuid, node_uuid)
+            reason_uuids = find_reason_by_uuid(source_uuid, node_uuid, encoding_id)
+            reason_rule_uuid = find_reason_rule_by_uuid(source_uuid, node_uuid, encoding_id)
         except Exception as e:
             return jsonify({'error': str(e)}), 404
         return jsonify({

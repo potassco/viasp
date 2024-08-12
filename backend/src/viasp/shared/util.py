@@ -56,21 +56,6 @@ def pairwise(iterable: Iterable[T]) -> Iterable[Tuple[T, T]]:
 def DefaultMappingProxyType() -> MappingProxyType[str, List]:
     return MappingProxyType(defaultdict())
 
-def is_recursive(node, graph):
-    """
-    Checks if the node is recursive.
-    :param node: The node to check.
-    :param graph: The graph that contains the node.
-    :return: True if the node is recursive, False otherwise.
-    """
-    nn = set(graph.nodes)
-    if node in nn:
-        return False
-    else:
-        for n in nn:
-            if len(n.recursive) > 0 and node in n.recursive:
-                return True
-
 
 def hash_from_sorted_transformations(sorted_program: List) -> str:
     hashes = [s.hash for s in sorted_program]

@@ -86,7 +86,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
                 );
                 arrowsColors.push(item.color);
             });
-            const c = `${getNextColor(currentHighlightedSymbol)}`;
+            var c = `${getNextColor(currentHighlightedSymbol)}`;
 
             arrows.forEach((a) => {
                 var value = JSON.stringify(a);
@@ -94,10 +94,9 @@ export const HighlightedSymbolProvider = ({ children }) => {
                 if (index === -1) {
                     arrowsSrcTgt.push(JSON.stringify(a));
                     arrowsColors.push(c);
-                    arrows_are_added = true;
                 } else {
                     arrowsSrcTgt.splice(index, 1);
-                    arrowsColors.splice(index, 1);
+                    c = arrowsColors.splice(index, 1)[0];
                 }
             });
             setHighlightedSymbol(
@@ -107,10 +106,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
                     return obj;
                 })
             );
-            if (arrows_are_added) {
-                return c;
-            }
-            return null;
+            return c;
         },
         [setHighlightedSymbol, getNextColor]
     );
