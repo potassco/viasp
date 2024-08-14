@@ -69,12 +69,10 @@ def collect_h_symbols_and_create_nodes(
     tmp_reason: Dict[int, Dict[str, List[Symbol]]] = defaultdict(dict)
     tmp_reason_rules: Dict[int, Dict[str, str]] = defaultdict(dict)
     for sym in h_symbols:
-        component_nr, rule_nr, symbol, reasons = sym.arguments
+        component_nr, rule_hash, symbol, reasons = sym.arguments
         tmp_symbol[component_nr.number].append(symbol)
         tmp_reason[component_nr.number][str(symbol)] = reasons.arguments
-        
-        sym_transformation = rule_mapping.get(component_nr.number, rule_mapping.get(-1, None))
-        tmp_reason_rules[component_nr.number][str(symbol)] = sym_transformation.rules.hash[rule_nr.number] if sym_transformation else ""
+        tmp_reason_rules[component_nr.number][str(symbol)] = rule_hash.string
     for component_nr in tmp_symbol.keys():
         tmp_symbol[component_nr] = list(tmp_symbol[component_nr])
         tmp_symbol_identifier[component_nr] = list(map(lambda symbol: next(filter(

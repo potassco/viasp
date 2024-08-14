@@ -233,7 +233,7 @@ def save_recursions(analyzer: ProgramAnalyzer, encoding_id: str):
         try:
             db_session.commit()
         except IntegrityError:
-            pass
+            db_session.rollback()
 
 
 def save_analyzer_values(analyzer: ProgramAnalyzer, encoding_id: str):

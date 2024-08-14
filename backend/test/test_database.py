@@ -251,13 +251,18 @@ def test_graph_nodes_database(db_session, graph_info):
                    graph_hash=hash,
                    transformation_hash=d["transformation"].hash,
                    branch_position=pos[node][0],
-                   node=current_app.json.dumps(node))
+                   node=current_app.json.dumps(node),
+                   node_uuid=node.uuid.hex)
     for _, node, d in graph.edges(data=True)]
-    db_nodes.append(GraphNodes(encoding_id=encoding_id,
-                    graph_hash=hash,
-                    transformation_hash="-1",
-                    branch_position=0,
-                    node=current_app.json.dumps(get_start_node_from_graph(graph))))
+    fact_node = get_start_node_from_graph(graph)
+    db_nodes.append(
+        GraphNodes(encoding_id=encoding_id,
+                   graph_hash=hash,
+                   transformation_hash="-1",
+                   branch_position=0,
+                   node=current_app.json.dumps(fact_node),
+                   node_uuid=fact_node.uuid.hex))
+
     db_session.add_all(db_nodes)
     db_session.commit()
 

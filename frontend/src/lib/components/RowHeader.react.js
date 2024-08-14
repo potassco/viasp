@@ -8,16 +8,6 @@ import {useHighlightedSymbol} from '../contexts/HighlightedSymbol';
 function Rule(props) {
     const {ruleWrapper} = props;
     const {highlightedRule} = useHighlightedSymbol();
-    // const [thisRuleHighlightColors, setThisRuleHighlightColors] =
-    //     React.useState([]);
-
-    // React.useEffect(() => {
-    //     setThisRuleHighlightColors(
-    //         highlightedRule
-    //             .map((r) => (r.rule_hash === ruleWrapper.hash ? r.color : ''))
-    //             .filter((e) => e !== '')
-    //     );
-    // }, [highlightedRule, ruleWrapper.hash]);
 
     const thisRuleHighlightColors = 
             highlightedRule
@@ -27,6 +17,7 @@ function Rule(props) {
     return (
         <div
             key={ruleWrapper.hash}
+            className={`rule ${ruleWrapper.hash}`}
             style={{position: 'relative', width: 'fit-content'}}
         >
             <div

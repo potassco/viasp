@@ -118,13 +118,13 @@ def get_src_tgt_mapping_from_graph(encoding_id: str,
         encoding_id=encoding_id,
         graph_hash=current_graph_hash,
         recursive_supernode_uuid=None).all()
-    
+
     for recursive_uuid in shown_recursive_ids:
         db_edges.extend(db_session.query(GraphEdges).filter_by(
             encoding_id=encoding_id,
             graph_hash=current_graph_hash,
             recursive_supernode_uuid=recursive_uuid).all())
-    
+
     # Clingraph
     distinct_sources = db_session.query(GraphEdges.source).filter_by(
         encoding_id=encoding_id,
@@ -386,10 +386,15 @@ def entire_graph():
             # clear_encoding_session_data(get_or_create_encoding_id())
             encoding_id = get_or_create_encoding_id()
             current_graph_hash = get_current_graph_hash(encoding_id)
-            db_graph = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=current_graph_hash).first()
+            # db_session.query(Graphs).filter_by(
+            #     encoding_id=encoding_id, hash=current_graph_hash).delete()
+            db_graph = db_session.query(Graphs).filter_by(
+                encoding_id=encoding_id, hash=current_graph_hash).first()
             if db_graph is not None and db_graph.data is not None and db_graph.data != "":
                 db_graph.data = ""
-                db_session.commit()
+            db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).delete()
+            # db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_graph_hash).delete()
+            db_session.commit()
         except Exception as e:
             return str(e), 500
         return "ok", 200

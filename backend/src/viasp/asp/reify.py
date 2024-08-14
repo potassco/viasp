@@ -12,7 +12,8 @@ from clingo.ast import (
     Literal as astLiteral,
     SymbolicAtom as astSymbolicAtom
 )
-from viasp.shared.util import hash_transformation_rules
+from viasp.server.database import get_or_create_encoding_id
+from viasp.shared.util import hash_transformation_rules, hash_string 
 
 from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, topological_sort, filter_body_aggregates
 from ..asp.utils import merge_cycles, remove_loops
@@ -629,9 +630,9 @@ class ProgramReifier(DependencyCollector):
         return ast.Literal(loc, ast.Sign.NoSign, loc_atm)
 
     def make_rule_lit(self,
-                           loc: ast.Location) -> ast.Literal:  # type: ignore
-        loc_fun = ast.Function(loc, str(self.rule_nr), [], False)
-        self.rule_nr += 1
+                           loc: ast.Location,
+                           **kwargs: Any) -> ast.Literal:  # type: ignore
+        loc_fun = ast.Function(loc, '"'+kwargs.get("rule_hash", "")+'"', [], False)
         loc_atm = ast.SymbolicAtom(loc_fun)
         return ast.Literal(loc, ast.Sign.NoSign, loc_atm)
 
@@ -641,6 +642,7 @@ class ProgramReifier(DependencyCollector):
         dependant: ast.Literal,  # type: ignore
         conditions: List[ast.Literal],  # type: ignore
         use_h_showTerm: bool = False,
+        **kwargs: Any
     ):
         """
         In: H :- B.
@@ -650,7 +652,7 @@ class ProgramReifier(DependencyCollector):
         reasons: List[ast.Literal] = []  # type: ignore
 
         component_lit = self.make_component_lit(loc)
-        rule_lit = self.make_rule_lit(loc)
+        rule_lit = self.make_rule_lit(loc, **kwargs)
         for literal in conditions:
             if hasattr(literal, "sign") and \
                 literal.sign == ast.Sign.NoSign and \
@@ -692,7 +694,7 @@ class ProgramReifier(DependencyCollector):
             dependant = ast.Literal(loc, ast.Sign.NoSign, symbol)
         return dependant
 
-    def visit_Rule(self, rule: ast.Rule) -> List[AST]:  # type: ignore
+    def visit_Rule(self, rule: ast.Rule, **kwargs) -> List[AST]:  # type: ignore
         """
         Reify a rule into a set of new rules.
         Also replaces any interval in the head with a variable and adds it to the body.
@@ -723,7 +725,7 @@ class ProgramReifier(DependencyCollector):
             )
             self.replace_anon_variables(conditions)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
-                rule.location, dependant, conditions)
+                rule.location, dependant, conditions, **kwargs)
 
             conditions.insert(0, dependant)
             # Remove duplicates but preserve order
@@ -738,7 +740,7 @@ class ProgramReifier(DependencyCollector):
 
         return new_rules
 
-    def visit_ShowTerm(self, showTerm: ast.ShowTerm):  # type: ignore
+    def visit_ShowTerm(self, showTerm: ast.ShowTerm, **kwargs):  # type: ignore
         # Embed the head
         deps = defaultdict(list)
         loc = showTerm.location
@@ -754,7 +756,7 @@ class ProgramReifier(DependencyCollector):
         )
         self.replace_anon_variables(conditions)
         new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
-            showTerm.location, showTerm.term, conditions, True)
+            showTerm.location, showTerm.term, conditions, True, **kwargs)
 
         conditions.insert(
             0,
@@ -824,7 +826,7 @@ class ProgramReifierForRecursions(ProgramReifier):
         self.derivable_str: str = kwargs.pop("conflict_free_derivable", "derivable")
         super().__init__(*args, **kwargs)
 
-    def visit_Rule(self, rule: ast.Rule) -> List[AST]:  # type: ignore
+    def visit_Rule(self, rule: ast.Rule, **kwargs: Any) -> List[AST]:  # type: ignore
         deps = defaultdict(tuple)
         loc = cast(ast.Location, rule.location)
         _ = self.visit(rule.head, deps=deps, in_head=True)
@@ -845,7 +847,7 @@ class ProgramReifierForRecursions(ProgramReifier):
 
             self.replace_anon_variables(conditions)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
-                rule.location, dependant, conditions)
+                rule.location, dependant, conditions, **kwargs)
 
             # Remove duplicates but preserve order
             conditions = [
@@ -897,15 +899,15 @@ def transform(program: str, visitor=None, **kwargs):
         visitor = ProgramReifier(**kwargs)
     rulez = []
     parse_string(program,
-                 lambda rule: register_rules(visitor.visit(rule), rulez))
+                 lambda rule: register_rules(visitor.visit(rule, rule_hash=hash_string(str(rule))), rulez))
     return rulez
 
 
 def reify(transformation: Transformation, **kwargs):
     visitor = ProgramReifier(transformation.id, **kwargs)
     result: List[AST] = []
-    for rule in transformation.rules.ast:
-        result.extend(cast(Iterable[AST], visitor.visit(rule)))
+    for rule, hash in zip(transformation.rules.ast, transformation.rules.hash):
+        result.extend(cast(Iterable[AST], visitor.visit(rule, rule_hash=hash)))
     return result
 
 
@@ -946,8 +948,8 @@ def reify_recursion_transformation(transformation: Transformation,
                                    **kwargs) -> List[AST]:
     visitor = ProgramReifierForRecursions(**kwargs)
     result: List[AST] = []
-    for rule in transformation.rules.ast:
-        result.extend(cast(Iterable[AST], visitor.visit(rule)))
+    for rule, hash in zip(transformation.rules.ast, transformation.rules.hash):
+        result.extend(cast(Iterable[AST], visitor.visit(rule, rule_hash=hash)))
     return result
 
 

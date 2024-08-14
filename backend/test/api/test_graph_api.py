@@ -1,8 +1,4 @@
-from re import L
-import networkx as nx
-
-from flask import current_app
-
+from viasp.shared.util import hash_from_sorted_transformations
 from viasp.shared.model import Node, Transformation
 
 def test_sorted_program(client_with_a_graph):
@@ -55,7 +51,11 @@ def test_set_graph(client_with_a_graph):
     res = client.get("graph")
     graph = res.json
     assert len(res.json) >= 0.
-    req = {"data": graph, "hash": "0123", "sort": sorted_program}
+    req = {
+        "data": graph,
+        "hash": hash_from_sorted_transformations(sorted_program),
+        "sort": sorted_program
+    }
 
     res = client.delete("graph")
     assert res.status_code == 200
@@ -142,7 +142,7 @@ def test_detail_endpoint_returns_details_on_valid_uuid(client_with_a_graph):
     graph = res.json
 
     for node in graph.nodes:
-        uuid = node.uuid
+        uuid = node.uuid.hex
         res = client.get(f"detail/{uuid}")
         assert res.status_code == 200
         assert type(res.json[0]) == str
@@ -184,10 +184,12 @@ def test_graph_reason(client_with_a_graph):
         for source in node.diff:
             res = client.post("graph/reason", json={"sourceid": source.uuid, "nodeid": node.uuid})
             assert res.status_code == 200
-            assert type(res.json) == list
-            assert len(res.json) >= 0
-            for reason in res.json:
+            assert type(res.json) == dict
+            assert "rule" in res.json
+            assert type(res.json["rule"]) == str or res.json["rule"] == None
+            assert "symbols" in res.json
+            assert len(res.json["symbols"]) >= 0
+            for reason in res.json["symbols"]:
                 assert type(reason) == dict
                 assert "src" in reason
                 assert "tgt" in reason
-

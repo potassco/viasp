@@ -58,6 +58,7 @@ def object_hook(obj):
     elif t == "Node":
         obj['atoms'] = frozenset(obj['atoms'])
         obj['diff'] = frozenset(obj['diff'])
+        obj['uuid'] = UUID(obj['uuid'])
         return Node(**obj)
     elif t == "ClingraphNode":
         return ClingraphNode(**obj)
@@ -79,6 +80,8 @@ def object_hook(obj):
         return SymbolIdentifier(**obj)
     elif t == "Transformer":
         return reconstruct_transformer(obj)
+    elif t == "GraphEdges":
+        return GraphEdges(**obj)
     return obj
 
 
