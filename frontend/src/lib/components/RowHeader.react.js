@@ -6,22 +6,25 @@ import {useColorPalette} from '../contexts/ColorPalette';
 import {useHighlightedSymbol} from '../contexts/HighlightedSymbol';
 
 function Rule(props) {
-    const {ruleWrapper} = props;
+    const {
+        ruleWrapper: {hash, rule},
+        multipleRules,
+    } = props;
     const {highlightedRule} = useHighlightedSymbol();
 
     const thisRuleHighlightColors = 
             highlightedRule
-                .map((r) => (r.rule_hash === ruleWrapper.hash ? r.color : ''))
+                .map((r) => (r.rule_hash === hash ? r.color : ''))
                 .filter((e) => e !== '')
 
     return (
         <div
-            key={ruleWrapper.hash}
-            className={`rule ${ruleWrapper.hash}`}
+            key={hash}
+            className={`rule ${hash}`}
             style={{position: 'relative', width: 'fit-content'}}
         >
             <div
-                key={ruleWrapper.rule}
+                key={rule}
                 style={{
                     whiteSpace: 'pre-wrap',
                     padding: '4px 0',
@@ -29,19 +32,19 @@ function Rule(props) {
                     width: 'fit-content',
                 }}
                 dangerouslySetInnerHTML={{
-                    __html: ruleWrapper.rule
+                    __html: rule
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;')
                         .replace(/\n/g, '<br>'),
                 }}
             />
-            {thisRuleHighlightColors.map((hc, i) => (
+            {!multipleRules ? null : thisRuleHighlightColors.map((hc, i) => (
                 <span
                     key={i}
                     className="rule_highlight"
                     style={{
                         backgroundColor: hc,
-                        marginLeft: `${2 * Constants.hSpacing + i * Constants.hSpacing}px`,
+                        marginLeft: `${Constants.hSpacing + i * Constants.hSpacing}px`,
                         transform: `translateY(${
                             i % 2 === 0 ? '-80%' : '-20%'
                         })`,
@@ -54,10 +57,11 @@ function Rule(props) {
 
 Rule.propTypes = {
     ruleWrapper: RULEWRAPPER,
+    multipleRules: PropTypes.bool,
 };
 
 export function RowHeader(props) {
-    const {ruleWrapper} = props;
+    const {ruleWrappers} = props;
     const colorPalette = useColorPalette();
 
     return (
@@ -69,8 +73,8 @@ export function RowHeader(props) {
             }}
             className="txt-elem row_header"
         >
-            {ruleWrapper.map((rw) => {
-                return <Rule key={rw.hash} ruleWrapper={rw} />;
+            {ruleWrappers.map((rw) => {
+                return <Rule key={rw.hash} ruleWrapper={rw} multipleRules={ruleWrappers.length > 1}/>;
             })}
         </div>
     );
@@ -80,5 +84,5 @@ RowHeader.propTypes = {
     /**
      * The rule wrapper of the transformation
      */
-    ruleWrapper: PropTypes.arrayOf(RULEWRAPPER),
+    ruleWrappers: PropTypes.arrayOf(RULEWRAPPER),
 };

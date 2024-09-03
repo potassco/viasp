@@ -244,7 +244,7 @@ export function Row(props) {
     return (
         <div className={`row_container ${transformation.hash}`}>
             {transformation.rules.length === 0 ? null : (
-                <RowHeader ruleWrapper={transformation.rules} />
+                <RowHeader ruleWrappers={transformation.rules} />
             )}
             {dragHandleProps === null ||
             transformation.adjacent_sort_indices === null ||
