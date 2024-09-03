@@ -500,13 +500,16 @@ def get_all_atoms(graph: nx.Graph):
             atoms.add(a.symbol)
     return atoms
 
+def get_atoms_from_nodes(nodes: List[Node]):
+    atoms = set()
+    for n in nodes:
+        for a in n.diff:
+            atoms.add(a.symbol)
+    return atoms
+
 
 @bp.route("/query", methods=["GET"])
 def search():
-    encoding_id = get_or_create_encoding_id()
-    if "q" in request.args.keys():
-        query = request.args["q"]
-        graph = _get_graph(encoding_id)
     if request.method == "POST":
         if request.json is None:
             abort(Response("No json data provided.", 400))
@@ -514,9 +517,11 @@ def search():
             "shownRecursion"] if "shownRecursion" in request.json else []
         query = request.json["query"] if "query" in request.json else ""
     if "q" in request.args.keys():
+        encoding_id = get_or_create_encoding_id()
+        current_graph_hash = get_current_graph_hash(encoding_id)
+
         query = request.args["q"]
         query = query.replace(" ", "")
-        graph = _get_graph(encoding_id)
         result = []
 
         # signatures = get_all_signatures(graph)
@@ -536,11 +541,13 @@ def search():
         #            transformation.rules.str_) and transformation not in result:
         #         result.append(transformation)
 
-        atoms = get_all_atoms(graph)
+        db_graph_nodes = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_graph_hash).all()
+        nodes = [current_app.json.loads(n.node) for n in db_graph_nodes]
+        atoms = get_atoms_from_nodes(nodes)
         for atom in atoms:
             if query in str(atom) and atom not in result:
                 result.append(atom)
-        
+
         result.sort(key=lambda x: str(x))
         return jsonify(result[:10])
     return jsonify([])
