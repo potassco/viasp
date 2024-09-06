@@ -387,7 +387,6 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
             **self.visit_children(theory_guard_definition, **kwargs))
 
     def get_facts(self):
-        print(F"The constants are: {self.constants}", flush=True)
         return extract_symbols(self.facts, self.constants)
 
     def get_constants(self):

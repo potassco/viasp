@@ -26,7 +26,7 @@ export const useHighlightedSymbol = () => React.useContext(HighlightedSymbolCont
 export const HighlightedSymbolProvider = ({ children }) => {
     const [highlightedSymbol, setHighlightedSymbol] = React.useState(defaultHighlightedSymbol);
     const colorPalette = useColorPalette();
-    const colorArray = colorPalette.explanationHighlights;
+    const colorArray = Object.values(colorPalette.explanationHighlights);
     const [, message_dispatch] = useMessages()
     const messageDispatchRef = React.useRef(message_dispatch);
 
