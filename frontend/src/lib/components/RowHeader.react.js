@@ -5,31 +5,101 @@ import * as Constants from '../constants';
 import {useColorPalette} from '../contexts/ColorPalette';
 import {useHighlightedSymbol} from '../contexts/HighlightedSymbol';
 
+const checkNewArrayHasNoNewElements = (oldArray, newArray) => {
+    if (oldArray === newArray) {
+        return true;
+    }
+    if (oldArray === null || newArray === null) {
+        return false;
+    }
+
+    // Check if the new array is produced by removing element from the old array
+    if (newArray.length < oldArray.length) {
+        for (let i = 0; i < newArray.length; ++i) {
+            if (oldArray.indexOf(newArray[i]) === -1) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    if (oldArray.length !== newArray.length) {
+        return false;
+    }
+
+    for (let i = 0; i < oldArray.length; ++i) {
+        if (oldArray[i] !== newArray[i]) {
+            return false;
+        }
+    }
+    return true;
+};
+
+const arraysEqual = (oldArray, newArray) => {
+    if (oldArray === newArray) {
+        return true;
+    }
+    if (oldArray === null || newArray === null) {
+        return false;
+    }
+
+    if (oldArray.length !== newArray.length) {
+        return false;
+    }
+
+    for (let i = 0; i < oldArray.length; ++i) {
+        if (oldArray[i] !== newArray[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function Rule(props) {
     const {
         ruleWrapper: {hash, rule},
         multipleRules,
     } = props;
-    const {highlightedRule} = useHighlightedSymbol();
+    const {highlightedRule, backgroundHighlightColor} = useHighlightedSymbol();
 
-    const thisRuleHighlightColors = 
-            highlightedRule
-                .map((r) => (r.rule_hash === hash ? r.color : ''))
-                .filter((e) => e !== '')
+    const [thisRuleHighlightDotColors, setThisRuleHighlightDotColors] =
+        React.useState([]);
 
+    const thisRuleHighlightDotColorsRef = React.useRef(thisRuleHighlightDotColors);
+    React.useEffect(() => {
+        thisRuleHighlightDotColorsRef.current = thisRuleHighlightDotColors;
+    });
+
+    
+    
+    React.useEffect(() => {
+        if (!multipleRules) {
+            setThisRuleHighlightDotColors([]);
+        }
+        else {
+            const newHighlightColors = highlightedRule
+            .map((r) => (r.rule_hash === hash ? r.color : ''))
+            .filter((e) => e !== '');
+            if (!arraysEqual(thisRuleHighlightDotColorsRef.current, newHighlightColors)) {
+                setThisRuleHighlightDotColors(newHighlightColors);
+            }
+        }
+    }, [highlightedRule, hash, multipleRules]);
+    
     return (
         <div
             key={hash}
             className={`rule ${hash}`}
-            style={{position: 'relative', width: 'fit-content'}}
+            style={{
+                position: 'relative',
+                width: 'fit-content',
+            }}
         >
             <div
                 key={rule}
+                className="rule_text"
                 style={{
-                    whiteSpace: 'pre-wrap',
-                    padding: '4px 0',
-                    position: 'relative',
-                    width: 'fit-content',
+                    backgroundColor: multipleRules ? backgroundHighlightColor[hash] : 'transparent',
                 }}
                 dangerouslySetInnerHTML={{
                     __html: rule
@@ -38,13 +108,15 @@ function Rule(props) {
                         .replace(/\n/g, '<br>'),
                 }}
             />
-            {!multipleRules ? null : thisRuleHighlightColors.map((hc, i) => (
+            {thisRuleHighlightDotColors.map((hc, i) => (
                 <span
                     key={i}
-                    className="rule_highlight"
+                    className="rule_highlight_dot"
                     style={{
                         backgroundColor: hc,
-                        marginLeft: `${Constants.hSpacing + i * Constants.hSpacing}px`,
+                        marginLeft: `${
+                            Constants.hSpacing + i * Constants.hSpacing
+                        }px`,
                         transform: `translateY(${
                             i % 2 === 0 ? '-80%' : '-20%'
                         })`,
@@ -74,7 +146,13 @@ export function RowHeader(props) {
             className="txt-elem row_header"
         >
             {ruleWrappers.map((rw) => {
-                return <Rule key={rw.hash} ruleWrapper={rw} multipleRules={ruleWrappers.length > 1}/>;
+                return (
+                    <Rule
+                        key={rw.hash}
+                        ruleWrapper={rw}
+                        multipleRules={ruleWrappers.length > 1}
+                    />
+                );
             })}
         </div>
     );

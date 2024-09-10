@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import { useSettings } from "./Settings";
 import { useColorPalette } from "../contexts/ColorPalette";
 import { useMessages, showError } from "./UserMessages";
+import * as Constants from "../constants";
 
 function fetchReasonOf(backendURL, sourceId, nodeId) {
     return fetch(`${backendURL("graph/reason")}`, {
@@ -30,6 +31,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
     const [highlightedRule, setHighlightedRule] = React.useState(
         defaultHighlightedRule
     );
+    const [backgroundHighlightColor, setBackgroundHighlightColor] = React.useState({});
     const colorPalette = useColorPalette();
     const colorArray = colorPalette.explanationHighlights;
     const [, message_dispatch] = useMessages()
@@ -73,7 +75,6 @@ export const HighlightedSymbolProvider = ({ children }) => {
 
     const toggleHighlightedSymbol = React.useCallback(
         (arrows, currentHighlightedSymbol) => {
-            var arrows_are_added = false;
             var arrowsSrcTgt = [];
             var arrowsColors = [];
             currentHighlightedSymbol.forEach((item) => {
@@ -112,8 +113,9 @@ export const HighlightedSymbolProvider = ({ children }) => {
     );
 
     const toggleHighlightedRule = React.useCallback(
-        (source_id, rule_hash, color, currentHighlightedRule) => {
+        (source_id, rule_hash, color, currentHighlightedRule, currentBackgroundHighlightColors) => {
             var rulesSrcColor = [];
+            var backgroundHighlightColor = currentBackgroundHighlightColors;
             currentHighlightedRule.forEach((item) => {
                 rulesSrcColor.push(
                     JSON.stringify({
@@ -123,20 +125,35 @@ export const HighlightedSymbolProvider = ({ children }) => {
                     })
                 );
             });
+            
+
 
             var value = JSON.stringify({rule_hash, color, source_id});
             var index = rulesSrcColor.indexOf(value);
             if (index === -1) {
                 rulesSrcColor.push(value);
-            }
-            else {
+                backgroundHighlightColor[rule_hash] = color;
+            } else {
                 rulesSrcColor.splice(index, 1);
+                if (Object.hasOwn(backgroundHighlightColor, rule_hash)) {
+                    delete backgroundHighlightColor[rule_hash];
+                }
             }
-            setHighlightedRule(
-                rulesSrcColor.map(item=> (JSON.parse(item)))
-            );
+            setHighlightedRule(rulesSrcColor.map((item) => JSON.parse(item)));
+            setBackgroundHighlightColor(backgroundHighlightColor);
+            setTimeout(() => {
+                setBackgroundHighlightColor((prev) => {
+                    var new_backgroundHighlightColor = {...prev};
+                    if (
+                        Object.hasOwn(new_backgroundHighlightColor, rule_hash)
+                    ) {
+                        delete new_backgroundHighlightColor[rule_hash];
+                    }
+                    return new_backgroundHighlightColor;
+                });
+            }, Constants.ruleHighlightDuration);
         },
-        [setHighlightedRule]
+        [setHighlightedRule, setBackgroundHighlightColor]
     );
 
     const getNextHoverColor = React.useCallback(
@@ -159,7 +176,8 @@ export const HighlightedSymbolProvider = ({ children }) => {
             sourceid,
             nodeId,
             currentHighlightedSymbol,
-            currentHighlightedRule
+            currentHighlightedRule,
+            currentBackgroundHighlightColors
         ) => {
             fetchReasonOf(backendUrlRef.current, sourceid, nodeId)
                 .then((res) => {
@@ -178,7 +196,8 @@ export const HighlightedSymbolProvider = ({ children }) => {
                             sourceid,
                             rule_hash,
                             new_color,
-                            currentHighlightedRule
+                            currentHighlightedRule,
+                            currentBackgroundHighlightColors
                         );
                     }
                 })
@@ -194,7 +213,8 @@ export const HighlightedSymbolProvider = ({ children }) => {
     const clearHighlightedSymbol = React.useCallback(() => {
         setHighlightedSymbol([]);
         setHighlightedRule([]);
-    }, [setHighlightedSymbol, setHighlightedRule]);
+        setBackgroundHighlightColor({});
+    }, [setHighlightedSymbol, setHighlightedRule, setBackgroundHighlightColor]);
 
     return (
         <HighlightedSymbolContext.Provider
@@ -203,6 +223,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
                 toggleHighlightedSymbol,
                 clearHighlightedSymbol,
                 highlightedRule,
+                backgroundHighlightColor,
                 toggleReasonOf,
                 getNextHoverColor,
             }}

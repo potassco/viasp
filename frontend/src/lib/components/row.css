@@ -14,7 +14,7 @@
     background-color: whitesmoke;
 }
 
-.rule_highlight {
+.rule_highlight_dot {
     display: inline-block;
     width: 9px;
     height: 9px;
@@ -22,6 +22,15 @@
     position: absolute;
     left: 100%;
     top: 50%;
+}
+
+.rule_text {
+    white-space: pre-wrap;
+    padding: 4px 0;
+    position: relative;
+    width: fit-content;
+    border-radius: 7px;
+    transition: background-color 1.0s ease;
 }
 
 .row_toggle {
@@ -66,3 +75,4 @@
     filter: grayscale(100%);
 
 }
+

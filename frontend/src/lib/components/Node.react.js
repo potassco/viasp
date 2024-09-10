@@ -35,7 +35,12 @@ function NodeContent(props) {
         props;
     const colorPalette = useColorPalette();
     const [{activeFilters}] = useFilters();
-    const {highlightedSymbol,highlightedRule, toggleReasonOf} = useHighlightedSymbol();
+    const {
+        highlightedSymbol,
+        highlightedRule,
+        backgroundHighlightColor,
+        toggleReasonOf,
+    } = useHighlightedSymbol();
     const {dispatch: dispatchTransformation} = useTransformations();
 
     let contentToShow;
@@ -75,7 +80,13 @@ function NodeContent(props) {
     function handleClick(e, src) {
         e.stopPropagation();
         if (src.has_reason) {
-            toggleReasonOf(src.uuid, node.uuid, highlightedSymbol, highlightedRule);
+            toggleReasonOf(
+                src.uuid,
+                node.uuid,
+                highlightedSymbol,
+                highlightedRule,
+                backgroundHighlightColor
+            );
         }
     }
 
