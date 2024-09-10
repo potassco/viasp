@@ -117,9 +117,9 @@ function Rule(props) {
                         marginLeft: `${
                             Constants.hSpacing + i * Constants.hSpacing
                         }px`,
-                        transform: `translateY(${
-                            i % 2 === 0 ? '-80%' : '-20%'
-                        })`,
+                        transform: `translateY(-50%)`,
+                        //     i % 2 === 0 ? '-80%' : '-20%'
+                        // })`,
                     }}
                 />
             ))}
