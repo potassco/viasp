@@ -136,3 +136,14 @@ def test_version():
         parse(test_args)
     except SystemExit as e:
         assert e.code == 0
+
+def test_color():
+    # Test with a specific color
+    test_args = ['--color', 'yellow']
+    options = parse(test_args)[0]
+    assert options['color'] == 'yellow'
+
+    # Test with the default color
+    test_args = []
+    options = parse(test_args)[0]
+    assert options['color'] == 'blue'

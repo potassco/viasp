@@ -1,5 +1,4 @@
 import argparse
-from curses import meta
 import textwrap
 import sys
 import re
@@ -14,9 +13,9 @@ from clingo.script import enable_python
 from viasp import Control as viaspControl
 from viasp.api import parse_fact_string
 from viasp.server import startup
-from viasp.shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_FRONTEND_PORT, DEFAULT_BACKEND_PROTOCOL
+from viasp.shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_FRONTEND_PORT, DEFAULT_BACKEND_PROTOCOL, DEFAULT_COLOR
 from viasp.shared.io import clingo_model_to_stable_model, clingo_symbols_to_stable_model
-from viasp.shared.util import get_json, get_lp_files, SolveHandle, get_optimal_models
+from viasp.shared.util import get_json, get_lp_files, SolveHandle
 from viasp.shared.simple_logging import error, warn, plain
 
 #
@@ -235,6 +234,13 @@ class ViaspArgumentParser:
             type=int,
             help=': The port for the frontend',
             default=DEFAULT_FRONTEND_PORT)
+        basic.add_argument(
+            '--color',
+            choices=['blue', 'yellow', 'orange', 'green', 'red', 'purple'],
+            metavar='<color>',
+            help=': The primary color',
+            default=DEFAULT_COLOR)
+
 
         # Solving Options
         solving = cmd_parser.add_argument_group('Solving Options')
@@ -538,6 +544,7 @@ class ViaspRunner():
         host = options.get("host", DEFAULT_BACKEND_HOST)
         port = options.get("port", DEFAULT_BACKEND_PORT)
         frontend_port = options.get("frontend_port", DEFAULT_FRONTEND_PORT)
+        primary_color = options.get("color", DEFAULT_COLOR)
 
         head_name = options.get("head_name", "unsat")
         no_collect_variables = options.get("no_collect_variables", False)
@@ -559,11 +566,10 @@ class ViaspRunner():
         for i in file_warnings:
             warn(WARNING_INCLUDED_FILE.format(i))
 
-        app = startup.run(host=host, port=port)
+        app = startup.run(host=host, port=port, primary_color=primary_color)
         ctl_options = [
             '--models',
-            str(options['max_models']),
-            options['opt_mode_str']
+            str(options['max_models']), options['opt_mode_str']
         ]
         for k, v in options['constants'].items():
             ctl_options.extend(["--const", f"{k}={v}"])
