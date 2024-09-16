@@ -1,4 +1,3 @@
-from itertools import pairwise
 import os
 from collections import defaultdict
 from typing import Union, Collection, Dict, List, Iterable, Optional
@@ -15,7 +14,7 @@ from ...asp.reify import ProgramAnalyzer, reify_list
 from ...asp.justify import build_graph
 from ...shared.defaults import STATIC_PATH
 from ...shared.model import Transformation, Node, Signature
-from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations
+from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations, pairwise
 from ...shared.io import StableModel
 from ...shared.simple_logging import error
 from ..database import get_or_create_encoding_id, db_session
