@@ -65,7 +65,7 @@ def run(host=DEFAULT_BACKEND_HOST,
     log = open('viasp.log', 'w', encoding="utf-8")
     viasp_backend = Popen(command, stdout=log, stderr=log)
 
-    color_palette = load_color_palette(COLOR_PALETTE_PATH, primary_color)
+    color_palette = json.load(open(COLOR_PALETTE_PATH, "r")).pop("colorThemes").pop(primary_color)
     app = Dash(__name__)
     app.layout = viasp_dash.ViaspDash(id="myID",
                                       backendURL=backend_url,
@@ -124,17 +124,3 @@ def run(host=DEFAULT_BACKEND_HOST,
     atexit.register(shutdown)
 
     return app
-
-def load_color_palette(palette_path, primary_color):
-    """ load the color palette from the palette_path and set the primary color 
-    the alternate primary colors are taken from the explanationHighlights """
-    color_palette = json.load(open(palette_path, "r"))
-    if primary_color == "blue":
-        return color_palette
-    elif primary_color in color_palette["explanationHighlights"]:
-        buf = color_palette["primary"]
-        color_palette["primary"] = color_palette["explanationHighlights"][
-            primary_color]
-        del color_palette["explanationHighlights"][primary_color]
-        color_palette["explanationHighlights"]["primary"] = buf
-    return color_palette

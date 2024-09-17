@@ -27,16 +27,18 @@ const HighlightedSymbolContext = React.createContext(defaultHighlightedSymbol);
 
 export const useHighlightedSymbol = () => React.useContext(HighlightedSymbolContext);
 export const HighlightedSymbolProvider = ({ children }) => {
-    const [highlightedSymbol, setHighlightedSymbol] = React.useState(defaultHighlightedSymbol);
+    const [highlightedSymbol, setHighlightedSymbol] = React.useState(
+        defaultHighlightedSymbol
+    );
     const [highlightedRule, setHighlightedRule] = React.useState(
         defaultHighlightedRule
     );
-    const [backgroundHighlightColor, setBackgroundHighlightColor] = React.useState({});
+    const [backgroundHighlightColor, setBackgroundHighlightColor] =
+        React.useState({});
     const colorPalette = useColorPalette();
-    const colorArray = Object.values(colorPalette.explanationHighlights);
-    const [, message_dispatch] = useMessages()
+    const colorArray = colorPalette.explanationHighlights;
+    const [, message_dispatch] = useMessages();
     const messageDispatchRef = React.useRef(message_dispatch);
-
 
     const {backendURL} = useSettings();
     const backendUrlRef = React.useRef(backendURL);
@@ -68,7 +70,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
                     leastOccuringColor = color;
                 }
             });
-            return leastOccuringColor
+            return leastOccuringColor;
         },
         [colorArray]
     );
@@ -113,7 +115,13 @@ export const HighlightedSymbolProvider = ({ children }) => {
     );
 
     const toggleHighlightedRule = React.useCallback(
-        (source_id, rule_hash, color, currentHighlightedRule, currentBackgroundHighlightColors) => {
+        (
+            source_id,
+            rule_hash,
+            color,
+            currentHighlightedRule,
+            currentBackgroundHighlightColors
+        ) => {
             var rulesSrcColor = [];
             var backgroundHighlightColor = currentBackgroundHighlightColors;
             currentHighlightedRule.forEach((item) => {
@@ -125,8 +133,6 @@ export const HighlightedSymbolProvider = ({ children }) => {
                     })
                 );
             });
-            
-
 
             var value = JSON.stringify({rule_hash, color, source_id});
             var index = rulesSrcColor.indexOf(value);
@@ -162,14 +168,16 @@ export const HighlightedSymbolProvider = ({ children }) => {
                 .map((item) => item.src)
                 .indexOf(symbol);
             if (searchSymbolSourceIndex !== -1) {
-                return {backgroundColor: currentHighlightedSymbol[searchSymbolSourceIndex].color};
+                return {
+                    backgroundColor:
+                        currentHighlightedSymbol[searchSymbolSourceIndex].color,
+                };
             }
             const g = getNextColor(currentHighlightedSymbol);
             return {backgroundColor: g};
         },
         [getNextColor]
     );
-
 
     const toggleReasonOf = React.useCallback(
         (
@@ -191,7 +199,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
                             currentHighlightedSymbol
                         );
                     }
-                    if (rule_hash !== "") {
+                    if (rule_hash !== '') {
                         toggleHighlightedRule(
                             sourceid,
                             rule_hash,
