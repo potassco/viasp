@@ -39,6 +39,7 @@ function NodeContent(props) {
         highlightedSymbol,
         highlightedRule,
         backgroundHighlightColor,
+        ruleDotHighlightColor,
         toggleReasonOf,
     } = useHighlightedSymbol();
     const {dispatch: dispatchTransformation} = useTransformations();
@@ -85,7 +86,8 @@ function NodeContent(props) {
                 node.uuid,
                 highlightedSymbol,
                 highlightedRule,
-                backgroundHighlightColor
+                backgroundHighlightColor,
+                ruleDotHighlightColor
             );
         }
     }

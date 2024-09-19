@@ -32,6 +32,8 @@ export const HighlightedSymbolProvider = ({ children }) => {
         defaultHighlightedRule
     );
     const [backgroundHighlightColor, setBackgroundHighlightColor] = React.useState({});
+    const [ruleDotHighlightColor, setRuleDotHighlightColor] =
+        React.useState({});
     const colorPalette = useColorPalette();
     const colorArray = Object.values(colorPalette.explanationHighlights);
     const [, message_dispatch] = useMessages()
@@ -113,9 +115,17 @@ export const HighlightedSymbolProvider = ({ children }) => {
     );
 
     const toggleHighlightedRule = React.useCallback(
-        (source_id, rule_hash, color, currentHighlightedRule, currentBackgroundHighlightColors) => {
+        (
+            source_id,
+            rule_hash,
+            color,
+            currentHighlightedRule,
+            currentBackgroundHighlightColors,
+            currentRuleDotHighlightColor
+        ) => {
             var rulesSrcColor = [];
             var backgroundHighlightColor = currentBackgroundHighlightColors;
+            var ruleDotHighlightColor = currentRuleDotHighlightColor;
             currentHighlightedRule.forEach((item) => {
                 rulesSrcColor.push(
                     JSON.stringify({
@@ -125,35 +135,57 @@ export const HighlightedSymbolProvider = ({ children }) => {
                     })
                 );
             });
-            
-
 
             var value = JSON.stringify({rule_hash, color, source_id});
             var index = rulesSrcColor.indexOf(value);
             if (index === -1) {
                 rulesSrcColor.push(value);
                 backgroundHighlightColor[rule_hash] = color;
+
+                var new_ruleDotHighlightColorObject = {
+                    color: color, 
+                    markedForDeletion: false,
+                    markedForInsertion: true
+                };
+                if (
+                    ruleDotHighlightColor[rule_hash] &&
+                    ruleDotHighlightColor[rule_hash].length >= 0
+                ) {
+                    ruleDotHighlightColor[rule_hash].push(new_ruleDotHighlightColorObject);
+                } else {
+                    ruleDotHighlightColor[rule_hash] = [new_ruleDotHighlightColorObject];
+                }
             } else {
                 rulesSrcColor.splice(index, 1);
-                if (Object.hasOwn(backgroundHighlightColor, rule_hash)) {
+                if (backgroundHighlightColor[rule_hash]) {
                     delete backgroundHighlightColor[rule_hash];
+                }
+                if (ruleDotHighlightColor[rule_hash]) {
+                    ruleDotHighlightColor[rule_hash] = ruleDotHighlightColor[
+                        rule_hash
+                    ].map((item) => {
+                        if (item.color === color) {
+                            item.markedForDeletion = true;
+                            item.markedForInsertion = false;
+                        }
+                        return item;
+                    });
                 }
             }
             setHighlightedRule(rulesSrcColor.map((item) => JSON.parse(item)));
+            setRuleDotHighlightColor(ruleDotHighlightColor);
             setBackgroundHighlightColor(backgroundHighlightColor);
             setTimeout(() => {
                 setBackgroundHighlightColor((prev) => {
                     var new_backgroundHighlightColor = {...prev};
-                    if (
-                        Object.hasOwn(new_backgroundHighlightColor, rule_hash)
-                    ) {
+                    if (new_backgroundHighlightColor[rule_hash]) {
                         delete new_backgroundHighlightColor[rule_hash];
                     }
                     return new_backgroundHighlightColor;
                 });
             }, Constants.ruleHighlightDuration);
         },
-        [setHighlightedRule, setBackgroundHighlightColor]
+        [setHighlightedRule, setBackgroundHighlightColor, setRuleDotHighlightColor]
     );
 
     const getNextHoverColor = React.useCallback(
@@ -177,7 +209,8 @@ export const HighlightedSymbolProvider = ({ children }) => {
             nodeId,
             currentHighlightedSymbol,
             currentHighlightedRule,
-            currentBackgroundHighlightColors
+            currentBackgroundHighlightColors,
+            currentRuleDotHighlightColor
         ) => {
             fetchReasonOf(backendUrlRef.current, sourceid, nodeId)
                 .then((res) => {
@@ -197,7 +230,8 @@ export const HighlightedSymbolProvider = ({ children }) => {
                             rule_hash,
                             new_color,
                             currentHighlightedRule,
-                            currentBackgroundHighlightColors
+                            currentBackgroundHighlightColors,
+                            currentRuleDotHighlightColor
                         );
                     }
                 })
@@ -214,7 +248,40 @@ export const HighlightedSymbolProvider = ({ children }) => {
         setHighlightedSymbol([]);
         setHighlightedRule([]);
         setBackgroundHighlightColor({});
+        setRuleDotHighlightColor({});
     }, [setHighlightedSymbol, setHighlightedRule, setBackgroundHighlightColor]);
+
+    const unmarkInsertedSymbolHighlightDot = React.useCallback(
+        (hash, ruleDotHighlightColor, currentRuleDotHighlightColor) => {
+            if (currentRuleDotHighlightColor[hash]) {
+                currentRuleDotHighlightColor[hash] =
+                    currentRuleDotHighlightColor[hash].map((item) => {
+                        if (
+                            item.color === ruleDotHighlightColor &&
+                            item.markedForInsertion
+                        ) {
+                            item.markedForInsertion = false;
+                        }
+                        return item;
+                    });
+            }
+            setRuleDotHighlightColor(currentRuleDotHighlightColor);
+        },
+        [setRuleDotHighlightColor]
+    );
+
+    const removeDeletedSymbolHighlightDot = React.useCallback(
+        (hash, ruleDotHighlightColor, currentRuleDotHighlightColor) => {
+            if (currentRuleDotHighlightColor[hash]) {
+                currentRuleDotHighlightColor[hash] =
+                    currentRuleDotHighlightColor[hash].filter(item => (
+                        !(item.color === ruleDotHighlightColor && item.markedForDeletion)
+                    ));
+            }
+            setRuleDotHighlightColor(currentRuleDotHighlightColor);
+        },
+        [setRuleDotHighlightColor]
+    );
 
     return (
         <HighlightedSymbolContext.Provider
@@ -224,8 +291,11 @@ export const HighlightedSymbolProvider = ({ children }) => {
                 clearHighlightedSymbol,
                 highlightedRule,
                 backgroundHighlightColor,
+                ruleDotHighlightColor,
                 toggleReasonOf,
                 getNextHoverColor,
+                unmarkInsertedSymbolHighlightDot,
+                removeDeletedSymbolHighlightDot,
             }}
         >
             {children}
