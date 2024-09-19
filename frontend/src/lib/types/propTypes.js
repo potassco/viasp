@@ -93,7 +93,6 @@ export const COLORPALETTE = PropTypes.exact({
     error: PropTypes.string,
     infoBackground: PropTypes.string,
     rowShading: PropTypes.arrayOf(PropTypes.string),
-    explanationSuccess: PropTypes.string,
     explanationHighlights: PropTypes.arrayOf(PropTypes.string),
 })
 export const MAPZOOMSTATE = PropTypes.exact({
