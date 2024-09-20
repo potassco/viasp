@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import { useSettings } from "./Settings";
 import { useColorPalette } from "../contexts/ColorPalette";
 import { useMessages, showError } from "./UserMessages";
+import * as Constants from "../constants";
 
 function fetchReasonOf(backendURL, sourceId, nodeId) {
     return fetch(`${backendURL("graph/reason")}`, {
@@ -19,17 +20,26 @@ function fetchReasonOf(backendURL, sourceId, nodeId) {
     });
 }
 const defaultHighlightedSymbol = [];
+const defaultHighlightedRule = []; 
+// HighlightedRule { rule_hash: string, color: string, source_id: string }
 
 const HighlightedSymbolContext = React.createContext(defaultHighlightedSymbol);
 
 export const useHighlightedSymbol = () => React.useContext(HighlightedSymbolContext);
 export const HighlightedSymbolProvider = ({ children }) => {
-    const [highlightedSymbol, setHighlightedSymbol] = React.useState(defaultHighlightedSymbol);
+    const [highlightedSymbol, setHighlightedSymbol] = React.useState(
+        defaultHighlightedSymbol
+    );
+    const [highlightedRule, setHighlightedRule] = React.useState(
+        defaultHighlightedRule
+    );
+    const [backgroundHighlightColor, setBackgroundHighlightColor] = React.useState({});
+    const [ruleDotHighlightColor, setRuleDotHighlightColor] =
+        React.useState({});
     const colorPalette = useColorPalette();
     const colorArray = colorPalette.explanationHighlights;
-    const [, message_dispatch] = useMessages()
+    const [, message_dispatch] = useMessages();
     const messageDispatchRef = React.useRef(message_dispatch);
-
 
     const {backendURL} = useSettings();
     const backendUrlRef = React.useRef(backendURL);
@@ -61,7 +71,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
                     leastOccuringColor = color;
                 }
             });
-            return leastOccuringColor
+            return leastOccuringColor;
         },
         [colorArray]
     );
@@ -80,7 +90,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
                 );
                 arrowsColors.push(item.color);
             });
-            const c = `${getNextColor(currentHighlightedSymbol)}`;
+            var c = `${getNextColor(currentHighlightedSymbol)}`;
 
             arrows.forEach((a) => {
                 var value = JSON.stringify(a);
@@ -90,7 +100,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
                     arrowsColors.push(c);
                 } else {
                     arrowsSrcTgt.splice(index, 1);
-                    arrowsColors.splice(index, 1);
+                    c = arrowsColors.splice(index, 1)[0];
                 }
             });
             setHighlightedSymbol(
@@ -100,8 +110,83 @@ export const HighlightedSymbolProvider = ({ children }) => {
                     return obj;
                 })
             );
+            return c;
         },
         [setHighlightedSymbol, getNextColor]
+    );
+
+    const toggleHighlightedRule = React.useCallback(
+        (
+            source_id,
+            rule_hash,
+            color,
+            currentHighlightedRule,
+            currentBackgroundHighlightColors,
+            currentRuleDotHighlightColor
+        ) => {
+            var rulesSrcColor = [];
+            var backgroundHighlightColor = currentBackgroundHighlightColors;
+            var ruleDotHighlightColor = currentRuleDotHighlightColor;
+            currentHighlightedRule.forEach((item) => {
+                rulesSrcColor.push(
+                    JSON.stringify({
+                        rule_hash: item.rule_hash,
+                        color: item.color,
+                        source_id: item.source_id,
+                    })
+                );
+            });
+
+            var value = JSON.stringify({rule_hash, color, source_id});
+            var index = rulesSrcColor.indexOf(value);
+            if (index === -1) {
+                rulesSrcColor.push(value);
+                backgroundHighlightColor[rule_hash] = color;
+
+                var new_ruleDotHighlightColorObject = {
+                    color: color, 
+                    markedForDeletion: false,
+                    markedForInsertion: true
+                };
+                if (
+                    ruleDotHighlightColor[rule_hash] &&
+                    ruleDotHighlightColor[rule_hash].length >= 0
+                ) {
+                    ruleDotHighlightColor[rule_hash].push(new_ruleDotHighlightColorObject);
+                } else {
+                    ruleDotHighlightColor[rule_hash] = [new_ruleDotHighlightColorObject];
+                }
+            } else {
+                rulesSrcColor.splice(index, 1);
+                if (backgroundHighlightColor[rule_hash]) {
+                    delete backgroundHighlightColor[rule_hash];
+                }
+                if (ruleDotHighlightColor[rule_hash]) {
+                    ruleDotHighlightColor[rule_hash] = ruleDotHighlightColor[
+                        rule_hash
+                    ].map((item) => {
+                        if (item.color === color) {
+                            item.markedForDeletion = true;
+                            item.markedForInsertion = false;
+                        }
+                        return item;
+                    });
+                }
+            }
+            setHighlightedRule(rulesSrcColor.map((item) => JSON.parse(item)));
+            setRuleDotHighlightColor(ruleDotHighlightColor);
+            setBackgroundHighlightColor(backgroundHighlightColor);
+            setTimeout(() => {
+                setBackgroundHighlightColor((prev) => {
+                    var new_backgroundHighlightColor = {...prev};
+                    if (new_backgroundHighlightColor[rule_hash]) {
+                        delete new_backgroundHighlightColor[rule_hash];
+                    }
+                    return new_backgroundHighlightColor;
+                });
+            }, Constants.ruleHighlightDuration);
+        },
+        [setHighlightedRule, setBackgroundHighlightColor, setRuleDotHighlightColor]
     );
 
     const getNextHoverColor = React.useCallback(
@@ -110,7 +195,10 @@ export const HighlightedSymbolProvider = ({ children }) => {
                 .map((item) => item.src)
                 .indexOf(symbol);
             if (searchSymbolSourceIndex !== -1) {
-                return {backgroundColor: currentHighlightedSymbol[searchSymbolSourceIndex].color};
+                return {
+                    backgroundColor:
+                        currentHighlightedSymbol[searchSymbolSourceIndex].color,
+                };
             }
             const g = getNextColor(currentHighlightedSymbol);
             return {backgroundColor: g};
@@ -118,27 +206,99 @@ export const HighlightedSymbolProvider = ({ children }) => {
         [getNextColor]
     );
 
+    const toggleReasonOf = React.useCallback(
+        (
+            sourceid,
+            nodeId,
+            currentHighlightedSymbol,
+            currentHighlightedRule,
+            currentBackgroundHighlightColors,
+            currentRuleDotHighlightColor
+        ) => {
+            fetchReasonOf(backendUrlRef.current, sourceid, nodeId)
+                .then((res) => {
+                    const reasons = res.symbols;
+                    const rule_hash = res.rule;
 
-    const toggleReasonOf = React.useCallback((sourceid, nodeId, currentHighlightedSymbol) => {
-        fetchReasonOf(backendUrlRef.current, sourceid, nodeId).then(reasons => {
-            if (reasons.every(tgt => tgt !== null)) {
-                toggleHighlightedSymbol(reasons, currentHighlightedSymbol);
-            }})
-            .catch((error) => {
-                messageDispatchRef.current(
-                    showError(`Failed to get reason: ${error}`)
-                )
-            });
-    }, [messageDispatchRef, toggleHighlightedSymbol]);
+                    var new_color = null;
+                    if (reasons.every((tgt) => tgt !== null)) {
+                        new_color = toggleHighlightedSymbol(
+                            reasons,
+                            currentHighlightedSymbol
+                        );
+                    }
+                    if (rule_hash !== '') {
+                        toggleHighlightedRule(
+                            sourceid,
+                            rule_hash,
+                            new_color,
+                            currentHighlightedRule,
+                            currentBackgroundHighlightColors,
+                            currentRuleDotHighlightColor
+                        );
+                    }
+                })
+                .catch((error) => {
+                    messageDispatchRef.current(
+                        showError(`Failed to get reason: ${error}`)
+                    );
+                });
+        },
+        [messageDispatchRef, toggleHighlightedSymbol, toggleHighlightedRule]
+    );
+
+    const clearHighlightedSymbol = React.useCallback(() => {
+        setHighlightedSymbol([]);
+        setHighlightedRule([]);
+        setBackgroundHighlightColor({});
+        setRuleDotHighlightColor({});
+    }, [setHighlightedSymbol, setHighlightedRule, setBackgroundHighlightColor]);
+
+    const unmarkInsertedSymbolHighlightDot = React.useCallback(
+        (hash, ruleDotHighlightColor, currentRuleDotHighlightColor) => {
+            if (currentRuleDotHighlightColor[hash]) {
+                currentRuleDotHighlightColor[hash] =
+                    currentRuleDotHighlightColor[hash].map((item) => {
+                        if (
+                            item.color === ruleDotHighlightColor &&
+                            item.markedForInsertion
+                        ) {
+                            item.markedForInsertion = false;
+                        }
+                        return item;
+                    });
+            }
+            setRuleDotHighlightColor(currentRuleDotHighlightColor);
+        },
+        [setRuleDotHighlightColor]
+    );
+
+    const removeDeletedSymbolHighlightDot = React.useCallback(
+        (hash, ruleDotHighlightColor, currentRuleDotHighlightColor) => {
+            if (currentRuleDotHighlightColor[hash]) {
+                currentRuleDotHighlightColor[hash] =
+                    currentRuleDotHighlightColor[hash].filter(item => (
+                        !(item.color === ruleDotHighlightColor && item.markedForDeletion)
+                    ));
+            }
+            setRuleDotHighlightColor(currentRuleDotHighlightColor);
+        },
+        [setRuleDotHighlightColor]
+    );
 
     return (
         <HighlightedSymbolContext.Provider
             value={{
                 highlightedSymbol,
                 toggleHighlightedSymbol,
-                setHighlightedSymbol,
+                clearHighlightedSymbol,
+                highlightedRule,
+                backgroundHighlightColor,
+                ruleDotHighlightColor,
                 toggleReasonOf,
                 getNextHoverColor,
+                unmarkInsertedSymbolHighlightDot,
+                removeDeletedSymbolHighlightDot,
             }}
         >
             {children}

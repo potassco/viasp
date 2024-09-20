@@ -10,7 +10,7 @@ import {
     setTransformationDropIndices,
     TransformationContext,
 } from '../contexts/transformations';
-import {MAPZOOMSTATE, TRANSFORMATION, TRANSFORMATIONWRAPPER} from '../types/propTypes';
+import {MAPZOOMSTATE, TRANSFORMATIONWRAPPER} from '../types/propTypes';
 import {ColorPaletteContext} from '../contexts/ColorPalette';
 import {make_default_nodes} from '../utils';
 import {AnimationUpdater} from '../contexts/AnimationUpdater';
@@ -42,17 +42,17 @@ export class RowTemplate extends React.Component {
         if (
             this.props.itemSelected > prevProps.itemSelected &&
             this.context.state.transformationDropIndices !==
-                this.props.item.transformation.adjacent_sort_indices &&
+                this.props.item.adjacent_sort_indices &&
             prevProps.itemSelected !== this.props.itemSelected
         ) {
             this.context.dispatch(
-                setTransformationDropIndices(this.props.item.transformation.adjacent_sort_indices)
+                setTransformationDropIndices(this.props.item.adjacent_sort_indices)
             )
         }
         if (
             this.props.itemSelected < prevProps.itemSelected &&
             this.context.state.transformationDropIndices ===
-                this.props.item.transformation.adjacent_sort_indices &&
+                this.props.item.adjacent_sort_indices &&
             prevProps.itemSelected !== this.props.itemSelected
         ) {
             this.context.dispatch(setTransformationDropIndices(null));
@@ -88,8 +88,7 @@ export class RowTemplate extends React.Component {
     }
 
     render() {
-        const {item, itemSelected, anySelected, dragHandleProps, commonProps} = this.props;
-        const transformation = item.transformation;
+        const {item: transformation, itemSelected, anySelected, dragHandleProps, commonProps} = this.props;
 
         return (
             <AnimationUpdater.Consumer>
@@ -156,7 +155,6 @@ export class RowTemplate extends React.Component {
                                                                 dragHandleProps
                                                             }
                                                             transform = {commonProps.transform}
-                                                            transformationWrapper={item}
                                                         />
                                                     )}
                                                 </div>
@@ -200,7 +198,7 @@ RowTemplate.propTypes = {
 };
 
 export function Row(props) {
-    const {transformation, dragHandleProps, transform, transformationWrapper} = props;
+    const {transformation, dragHandleProps, transform} = props;
     const {
         state: {transformations, transformationNodesMap},
     } = useTransformations();
@@ -232,7 +230,7 @@ export function Row(props) {
 
     const showNodes =
         transformations.find(
-            ({transformation: t, shown}) => transformation.id === t.id && shown
+            ({shown, id}) => id === transformation.id && shown
         ) !== null;
 
     const branchSpaceRefs = React.useRef([]);
@@ -245,8 +243,8 @@ export function Row(props) {
 
     return (
         <div className={`row_container ${transformation.hash}`}>
-            {transformation.rules.str_.length === 0 ? null : (
-                <RowHeader ruleContainer={transformation.rules} />
+            {transformation.rules.length === 0 ? null : (
+                <RowHeader ruleWrappers={transformation.rules} />
             )}
             {dragHandleProps === null ||
             transformation.adjacent_sort_indices === null ||
@@ -310,9 +308,9 @@ export function Row(props) {
                     })}
                 </div>
             )}
-            {!transformationWrapper.allNodesShowMini &&
-            (transformationWrapper.isExpandableV ||
-                transformationWrapper.isCollapsibleV) ? (
+            {!transformation.allNodesShowMini &&
+            (transformation.isExpandableV ||
+                transformation.isCollapsibleV) ? (
                 <OverflowButton
                     transformationId={transformation.id}
                     nodes={nodes}
@@ -324,9 +322,9 @@ export function Row(props) {
 
 Row.propTypes = {
     /**
-     * The Transformation object to be displayed
+     * The Transformation wrapper object to be displayed
      */
-    transformation: TRANSFORMATION,
+    transformation: TRANSFORMATIONWRAPPER,
     /**
      * an object which should be spread as props on the HTML element to be used as the drag handle.
      * The whole item will be draggable by the wrapped element.
@@ -340,8 +338,4 @@ Row.propTypes = {
      * The current zoom transformation of the graph
      */
     transform: MAPZOOMSTATE,
-    /**
-     * The transformation wrapper object
-     */
-    transformationWrapper: TRANSFORMATIONWRAPPER,
 };

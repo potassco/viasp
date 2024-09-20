@@ -13,7 +13,7 @@ function makeClassNameFromMarkedSymbol(highlightedSymbol) {
 }
 
 function ClearMarked() {
-    const { highlightedSymbol, setHighlightedSymbol } = useHighlightedSymbol()
+    const {highlightedSymbol, clearHighlightedSymbol} = useHighlightedSymbol();
     const colorPalette = useColorPalette();
     const className = makeClassNameFromMarkedSymbol(highlightedSymbol)
     const [isHovered, setIsHovered] = useState(false);
@@ -38,16 +38,21 @@ function ClearMarked() {
     const handleMouseDown = () => setIsClicked(true);
     const handleMouseUp = () => setIsClicked(false);
 
-    return <div className="clear_marked">
-     <span onClick={() => setHighlightedSymbol([])}
+    return (
+        <div className="clear_marked">
+            <span
+                onClick={() => clearHighlightedSymbol()}
                 className={className}
                 style={style}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
                 onMouseDown={handleMouseDown}
-                onMouseUp={handleMouseUp}>
-            clear</span>
-    </div>
+                onMouseUp={handleMouseUp}
+            >
+                clear
+            </span>
+        </div>
+    );
 }
 
 function Header(props) {

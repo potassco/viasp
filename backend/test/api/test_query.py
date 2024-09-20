@@ -1,5 +1,4 @@
 import pytest
-
 from viasp.shared.model import Node, Signature, Transformation, Symbol
 
 def test_query_endpoints_methods(client_with_a_graph):
@@ -27,7 +26,7 @@ def test_query_atoms(client_with_a_graph):
         # program_recursive
         assert len(res.json) == 0
 
-@pytest.mark.skip("Undid implementation")
+@pytest.mark.skip(reason="Unimplemented")
 def test_query_for_symbol(client_with_a_graph):
     client = client_with_a_graph
     program = client.get("control/program").json
@@ -42,7 +41,7 @@ def test_query_for_symbol(client_with_a_graph):
         assert all(all(str(atom.symbol) != q for atom in result.atoms) for result in res.json if isinstance(result, Node))
 
 
-@pytest.mark.skip("Undid implementation")
+@pytest.mark.skip(reason="Unimplemented")
 def test_query_for_signature(client_with_a_graph):
     client = client_with_a_graph
     program = client.get("control/program").json
@@ -57,7 +56,8 @@ def test_query_for_signature(client_with_a_graph):
         assert all(result.args != 1 and result.name != "a" for result in res.json if isinstance(result, Signature))
 
 
-@pytest.mark.skip("Undid implementation")
+
+@pytest.mark.skip(reason="Unimplemented")
 def test_query_for_rule(client_with_a_graph):
     client = client_with_a_graph
     program = client.get("control/program").json
@@ -76,7 +76,7 @@ def test_query_for_rule(client_with_a_graph):
                 isinstance(result, Transformation))
 
 
-@pytest.mark.skip("Undid implementation")
+@pytest.mark.skip(reason="Unimplemented")
 def test_query_multiple_sorts(client_with_a_graph):
     from random import sample
     client = client_with_a_graph

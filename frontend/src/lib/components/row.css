@@ -14,6 +14,57 @@
     background-color: whitesmoke;
 }
 
+.rule_highlight_dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.rule_highlight_dot.fade-in {
+    animation-name: animate-fade-in;
+}
+
+@keyframes animate-fade-in {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.rule_highlight_dot.fade-out {
+    animation-name: animate-fade-out;
+    animation-fill-mode: forwards;
+}
+
+@keyframes animate-fade-out {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        visibility: hidden;
+        display:none;
+    }
+}
+
+.rule_text {
+    white-space: pre-wrap;
+    padding: 4px 0;
+    position: relative;
+    width: fit-content;
+    border-radius: 7px;
+    transition: background-color 1.0s ease;
+}
+
 .row_toggle {
     font-size: 10pt;
     cursor: pointer;
@@ -54,5 +105,5 @@
 .faded {
     opacity: 0.6;
     filter: grayscale(100%);
-
 }
+

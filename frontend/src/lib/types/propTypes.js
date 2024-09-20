@@ -24,6 +24,11 @@ export const RULECONTAINER = PropTypes.exact({
     ast: PropTypes.arrayOf(PropTypes.string),
     str_: PropTypes.arrayOf(PropTypes.string)
 })
+export const RULEWRAPPER = PropTypes.exact({
+    _type: PropTypes.oneOf(['RuleWrapper']),
+    rule: PropTypes.string,
+    hash: PropTypes.string
+})
 export const TRANSFORMATION = PropTypes.exact({
     _type: PropTypes.oneOf(['Transformation']),
     id: PropTypes.number,
@@ -35,13 +40,19 @@ export const TRANSFORMATION = PropTypes.exact({
     hash: PropTypes.string
 })
 export const TRANSFORMATIONWRAPPER = PropTypes.exact({
-    transformation: TRANSFORMATION,
+    _type: PropTypes.oneOf(['Transformation']),
+    id: PropTypes.number,
+    rules: PropTypes.arrayOf(RULEWRAPPER),
+    adjacent_sort_indices: PropTypes.exact({
+        lower_bound: PropTypes.number,
+        upper_bound: PropTypes.number,
+    }),
+    hash: PropTypes.string,
     shown: PropTypes.bool,
     isExpandableV: PropTypes.bool,
     isCollapsibleV: PropTypes.bool,
     allNodesShowMini: PropTypes.bool,
-    hash: PropTypes.string,
-})
+});
 export const GRAPH = PropTypes.exact({
     _type: PropTypes.oneOf(['Graph']),
     _graph: PropTypes.object
@@ -52,6 +63,7 @@ export const NODE = PropTypes.exact({
     diff: PropTypes.array,
     rule_nr: PropTypes.number,
     reason: PropTypes.object, 
+    reason_rules: PropTypes.object,
     recursive: PropTypes.oneOfType([PropTypes.bool, PropTypes.array]),
     space_multiplier: PropTypes.number,
     uuid: PropTypes.string,
@@ -81,7 +93,6 @@ export const COLORPALETTE = PropTypes.exact({
     error: PropTypes.string,
     infoBackground: PropTypes.string,
     rowShading: PropTypes.arrayOf(PropTypes.string),
-    explanationSuccess: PropTypes.string,
     explanationHighlights: PropTypes.arrayOf(PropTypes.string),
 })
 export const MAPZOOMSTATE = PropTypes.exact({

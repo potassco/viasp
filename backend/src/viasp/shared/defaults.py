@@ -6,6 +6,7 @@ DEFAULT_BACKEND_HOST = "localhost"
 DEFAULT_BACKEND_PORT = 5050
 DEFAULT_FRONTEND_PORT = 8050
 DEFAULT_BACKEND_URL = f"{DEFAULT_BACKEND_PROTOCOL}://{DEFAULT_BACKEND_HOST}:{DEFAULT_BACKEND_PORT}"
+DEFAULT_COLOR = "blue"
 SHARED_PATH = pathlib.Path(__file__).parent.resolve()
 GRAPH_PATH = SHARED_PATH / "viasp_graph_storage.db"
 SERVER_PATH =  pathlib.Path(__file__).parent.parent.resolve() / "server/"

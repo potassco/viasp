@@ -1,7 +1,7 @@
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.schema import UniqueConstraint
-
+from dataclasses import dataclass
 from viasp.server.database import Base
 
 class Encodings(Base):
@@ -53,16 +53,22 @@ class GraphNodes(Base):
     transformation_hash: Mapped[str]
     branch_position: Mapped[float]
     node: Mapped[str]
+    node_uuid: Mapped[str]
+    recursive_supernode_uuid: Mapped[str] = mapped_column(nullable=True)
 
-
+@dataclass
 class GraphEdges(Base):
     __tablename__ = "edges_table"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    graph_hash: Mapped[str] = mapped_column(ForeignKey("graphs_table.hash"))
     source: Mapped[str] = mapped_column(ForeignKey("nodes_table.id"))
     target: Mapped[str] = mapped_column(ForeignKey("nodes_table.id"))
-
+    transformation_hash: Mapped[str] = mapped_column()
+    style: Mapped[str] = mapped_column()
+    recursion_anchor_keyword: Mapped[str] = mapped_column(nullable=True)  
+    recursive_supernode_uuid: Mapped[str] = mapped_column(nullable=True)
 
 class DependencyGraphs(Base):
     __tablename__ = "dependency_graphs_table"

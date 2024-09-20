@@ -25,11 +25,13 @@ from viasp import clingoApiClient
 from viasp.shared.defaults import (DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT,
                                    DEFAULT_BACKEND_PROTOCOL, CLINGRAPH_PATH,
                                    GRAPH_PATH, PROGRAM_STORAGE_PATH,
-                                   STDIN_TMP_STORAGE_PATH, COLOR_PALETTE_PATH)
+                                   STDIN_TMP_STORAGE_PATH, COLOR_PALETTE_PATH, DEFAULT_COLOR)
 
 
 
-def run(host=DEFAULT_BACKEND_HOST, port=DEFAULT_BACKEND_PORT):
+def run(host=DEFAULT_BACKEND_HOST,
+        port=DEFAULT_BACKEND_PORT,
+        primary_color=DEFAULT_COLOR):
     """ create the dash app, set layout and start the backend on host:port """
 
     # if running in binder, get proxy information
@@ -54,7 +56,7 @@ def run(host=DEFAULT_BACKEND_HOST, port=DEFAULT_BACKEND_PORT):
     env = os.getenv("ENV", "production")
     if env == "production":
         command = ["waitress-serve", "--host", host, "--port", str(port), "--call", "viasp.server.factory:create_app"]
-    else: 
+    else:
         command = ["viasp_server", "--host", host, "--port", str(port)]
     # if 'ipykernel_launcher.py' in sys.argv[0]:
     #     display_refresh_button()
@@ -63,7 +65,7 @@ def run(host=DEFAULT_BACKEND_HOST, port=DEFAULT_BACKEND_PORT):
     log = open('viasp.log', 'w', encoding="utf-8")
     viasp_backend = Popen(command, stdout=log, stderr=log)
 
-    color_palette = json.load(open(COLOR_PALETTE_PATH, "r"))
+    color_palette = json.load(open(COLOR_PALETTE_PATH, "r")).pop("colorThemes").pop(primary_color)
     app = Dash(__name__)
     app.layout = viasp_dash.ViaspDash(id="myID",
                                       backendURL=backend_url,

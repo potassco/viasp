@@ -11,6 +11,7 @@ import {showOnlyTransformation, useTransformations, addAtom, removeAtom} from ".
 import {useColorPalette} from "../contexts/ColorPalette";
 import { useShownDetail } from "../contexts/ShownDetail";
 import { make_atoms_string } from '../utils';
+import { useHighlightedSymbol } from '../contexts/HighlightedSymbol';
 
 function ActiveFilters() {
     const [{activeFilters},] = useFilters();
@@ -113,6 +114,13 @@ export function Search() {
     const colorPalette = useColorPalette();
     const { setShownDetail } = useShownDetail();
     const {state: {shownRecursion}} =  useTransformations();
+    const {
+        highlightedSymbol: compareHighlightedSymbol,
+        highlightedRule: compareHighlightedRule,
+        backgroundHighlightColor: compareBackgroundHighlightColor,
+        ruleDotHighlightColor: compareRuleDotHighlightColor,
+        toggleReasonOf,
+    } = useHighlightedSymbol();
 
     let suggestionsListComponent;
     React.useEffect(() => {
@@ -153,6 +161,14 @@ export function Search() {
         }
         if (selection._type === "Function") {
             dispatchT(addAtom(selection));
+            // toggleReasonOf(
+            //     selection.atom.uuid,
+            //     selection.node,
+            //     compareHighlightedSymbol,
+            //     compareHighlightedRule,
+            //     compareBackgroundHighlightColor,
+            //     compareRuleDotHighlightColor
+            // );
         }
     }
 

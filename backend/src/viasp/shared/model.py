@@ -10,7 +10,7 @@ import networkx as nx
 
 from clingo import Symbol, ModelType
 from clingo.ast import AST, Transformer
-from .util import DefaultMappingProxyType, hash_transformation_rules, get_rules_from_input_program, get_ast_from_input_string
+from .util import DefaultMappingProxyType, hash_string, hash_transformation_rules, get_rules_from_input_program, get_ast_from_input_string
 
 @dataclass()
 class SymbolIdentifier:
@@ -38,8 +38,9 @@ class Node:
     atoms: FrozenSet[SymbolIdentifier] = field(default_factory=frozenset, hash=True)
     reason: Union[
         Dict[str, List[Symbol]],
-        MappingProxyType[str, List[SymbolIdentifier]]] \
+        MappingProxyType] \
         = field(default_factory=DefaultMappingProxyType, hash=True)
+    reason_rules: Dict[str, str] = field(default_factory=dict, hash=False)
     recursive: List = field(default_factory=list, hash=False)
     space_multiplier: float = field(default=1.0, hash=False)
     uuid: UUID = field(default_factory=uuid4, hash=False)
@@ -80,6 +81,7 @@ class ClingraphNode:
 class RuleContainer:
     ast: Tuple[AST, ...] = field(default_factory=tuple, hash=True)
     str_: Tuple[str, ...] = field(default_factory=tuple, hash=False)
+    hash: Tuple[str, ...] = field(default_factory=tuple, hash=True)
 
     def __post_init__(self):
         if isinstance(self.ast, AST):
@@ -95,7 +97,9 @@ class RuleContainer:
             self.str_ = tuple(get_rules_from_input_program(self.ast))
         if len(self.ast) == 0 and len(self.str_) > 0:
             self.ast = tuple(get_ast_from_input_string(self.str_))
-    
+        if len(self.hash) == 0 and len(self.str_) > 0:
+            self.hash = tuple([hash_string(rule_str) for rule_str in self.str_])
+
     def __hash__(self):
         return hash(self.ast)
 

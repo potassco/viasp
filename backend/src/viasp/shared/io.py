@@ -4,7 +4,7 @@ from json import JSONDecoder, JSONEncoder
 # Legacy: To be deleted in Version 3.0
 # from enum import IntEnum
 from flask.json.provider import JSONProvider
-from dataclasses import is_dataclass
+from dataclasses import is_dataclass, asdict
 from typing import Union, Collection, Iterable, Sequence, cast, Tuple
 from pathlib import PosixPath
 from uuid import UUID
@@ -27,6 +27,7 @@ from clingo.ast import AST, ASTType
 
 from .interfaces import ViaspClient
 from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer
+from ..server.models import GraphEdges
 
 class DataclassJSONProvider(JSONProvider):
     def dumps(self, obj, **kwargs):
@@ -57,13 +58,14 @@ def object_hook(obj):
     elif t == "Node":
         obj['atoms'] = frozenset(obj['atoms'])
         obj['diff'] = frozenset(obj['diff'])
+        obj['uuid'] = UUID(obj['uuid'])
         return Node(**obj)
     elif t == "ClingraphNode":
         return ClingraphNode(**obj)
     elif t == "Transformation":
         return Transformation(**obj)
     elif t == "RuleContainer":
-        return RuleContainer(str_=obj["str_"])
+        return RuleContainer(str_=obj["str_"], hash=obj["hash"])
     elif t == "Signature":
         return Signature(**obj)
     elif t == "Graph":
@@ -78,6 +80,8 @@ def object_hook(obj):
         return SymbolIdentifier(**obj)
     elif t == "Transformer":
         return reconstruct_transformer(obj)
+    elif t == "GraphEdges":
+        return GraphEdges(**obj)
     return obj
 
 
@@ -91,10 +95,12 @@ def dataclass_to_dict(o):
         sorted_atoms = sorted(o.atoms, key=lambda x: x.symbol)
         sorted_diff = sorted(o.diff, key=lambda x: x.symbol)
         sorted_reason = {} if len(o.reason) == 0 else o.reason
+        sorted_reason_rules = {} if len(o.reason_rules) == 0 else o.reason_rules
         return {"_type": "Node",
                 "atoms": sorted_atoms,
                 "diff": sorted_diff,
                 "reason": sorted_reason,
+                "reason_rules": sorted_reason_rules,
                 "recursive": o.recursive,
                 "uuid": o.uuid,
                 "rule_nr": o.rule_nr,
@@ -116,7 +122,7 @@ def dataclass_to_dict(o):
             "hash": o.hash
         }
     elif isinstance(o, RuleContainer):
-        return {"_type": "RuleContainer", "ast": o.ast, "str_": o.str_}
+        return {"_type": "RuleContainer", "ast": o.ast, "str_": o.str_, "hash": o.hash}
     elif isinstance(o, StableModel):
         return {"_type": "StableModel", "cost": o.cost, "optimality_proven": o.optimality_proven, "type": o.type,
                 "atoms": o.atoms, "terms": o.terms, "shown": o.shown, "theory": o.theory}
@@ -133,8 +139,16 @@ def dataclass_to_dict(o):
                   "Imports": o.imports,
                   "Path": o.path}
         return o_json
+    elif isinstance(o, GraphEdges):
+        return {"_type": "GraphEdges",
+                "source": o.source,
+                "target": o.target,
+                "style": o.style,
+                "transformation_hash": o.transformation_hash,
+                "recursion_anchor_keyword": o.recursion_anchor_keyword,
+        }
     else:
-        raise Exception(f"I/O for {type(o)} not implemented!")
+        return asdict(o)
 
 
 class DataclassJSONEncoder(JSONEncoder):
@@ -177,6 +191,7 @@ def encode_object(o):
         return str(o)
     elif isinstance(o, Iterable):
         return list(o)
+
 
 
 

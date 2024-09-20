@@ -53,23 +53,8 @@ def pairwise(iterable: Iterable[T]) -> Iterable[Tuple[T, T]]:
     next(b, None)
     return zip(a, b)
 
-def DefaultMappingProxyType() -> MappingProxyType[str, List]:
+def DefaultMappingProxyType() -> MappingProxyType:
     return MappingProxyType(defaultdict())
-
-def is_recursive(node, graph):
-    """
-    Checks if the node is recursive.
-    :param node: The node to check.
-    :param graph: The graph that contains the node.
-    :return: True if the node is recursive, False otherwise.
-    """
-    nn = set(graph.nodes)
-    if node in nn:
-        return False
-    else:
-        for n in nn:
-            if len(n.recursive) > 0 and node in n.recursive:
-                return True
 
 
 def hash_from_sorted_transformations(sorted_program: List) -> str:
@@ -86,6 +71,8 @@ def hash_transformation_rules(rules: Tuple[Any, ...]) -> str:
         hash_object.update(rule_hash.encode())
     return hash_object.hexdigest()
 
+def hash_string(string: str) -> str:
+    return sha1(string.encode()).hexdigest()
 
 def get_rules_from_input_program(rules: Tuple) -> Sequence[str]:
     from ..server.database import db_session
