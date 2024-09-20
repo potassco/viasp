@@ -776,7 +776,7 @@ class ProgramReifier(DependencyCollector):
 
         return new_rules
 
-    def visit_Minimize(self, minimize: ast.Minimize):  # type: ignore
+    def visit_Minimize(self, minimize: ast.Minimize, **kwargs):  # type: ignore
         return [minimize]
 
     def replace_anon_variables(
