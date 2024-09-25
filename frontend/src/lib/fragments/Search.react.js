@@ -281,7 +281,7 @@ export function Search() {
                 <div className="search_content">
                     <div className="search_input_container">
                         <input
-                            className="search_input"
+                            className="search_input txt-elem"
                             type="text"
                             onChange={onChange}
                             onKeyDown={onKeyDown}
@@ -289,7 +289,11 @@ export function Search() {
                         />
                         <span
                             className="clear_search_input_btn"
-                            onClick={() => {setSearchActivated(false); setUserInput(""); setActiveSuggestion(0);}}
+                            onClick={() => {
+                                setSearchActivated(false);
+                                setUserInput('');
+                                setActiveSuggestion(0);
+                            }}
                             style={{
                                 color: colorPalette.dark,
                             }}

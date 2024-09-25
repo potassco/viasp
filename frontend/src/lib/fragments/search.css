@@ -35,8 +35,8 @@
 
 .search_input {
     width: 100%;
+    border-radius: 0.7em;
     padding: 1ex;
-    border-radius: 5px;
 }
 
 .search_row {
