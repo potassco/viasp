@@ -31,7 +31,7 @@ def get_h_symbols_from_model(wrapped_stable_model: Iterable[str],
     ctl = Control()
     stringified = "\n".join(map(str, transformed_prg))
     new_head = f"_{h}"
-    get_new_atoms_rule = f"{new_head}(I, J, H, G) :- {h}(I, J, H, G), not {h}(II,H,_) : II<I, {h}(II,_,_)."
+    get_new_atoms_rule = f"{new_head}(I, J, H, G) :- {h}(I, J, H, G), not {h}(II,_,H,_) : II<I, {h}(II,_,_,_)."
     ctl.add("base", [], "".join(constants))
     ctl.add("base", [], "".join(map(stringify_fact, facts)))
     ctl.add("base", [], stringified)
