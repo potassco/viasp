@@ -71,25 +71,19 @@ Header.propTypes = {
      */
     text: PropTypes.string,
 };
-function SettingsTable() {
 
-    return (<div>
-            <ClearMarked />
-            <Search />
-    </div>);
-}
 export default function Settings() {
     return (
         <div className="settings noselect">
-            <div className="drawer"
-            >
+            <div className="drawer">
                 <div
                     className="drawer_content"
                     style={{
                         maxWidth: '500px',
                     }}
                 >
-                    <SettingsTable />
+                    <ClearMarked />
+                    <Search />
                 </div>
             </div>
         </div>

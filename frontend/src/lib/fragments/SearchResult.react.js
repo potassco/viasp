@@ -5,10 +5,14 @@ import {NODE, SIGNATURE, TRANSFORMATION, SYMBOL} from "../types/propTypes";
 import {useSettings} from "../contexts/Settings";
 import { styled as styledComponents } from "styled-components";
 import {useColorPalette} from "../contexts/ColorPalette";
+import {darken} from 'polished';
+import * as Constants from "../constants";
+
 
 const StyledSuggestion = styledComponents.span`
  &:before {
     color: ${props => props.color};
+    background-color: ${props => props.backgroundColor};
     position: absolute;
     left: 0;
     content: '${props => props.content}';
@@ -21,7 +25,6 @@ function SuggestionContent(props) {
     const colorPalette = useColorPalette();
     let display = "UNKNOWN FILTER"
     let suggestionSymbol = "?";
-    const color = colorPalette.primary;
 
     if (value._type === "Node") {
         suggestionSymbol = "{}"
@@ -39,7 +42,7 @@ function SuggestionContent(props) {
         suggestionSymbol = " ."
         display = make_atoms_string(value)
     }
-    return <StyledSuggestion color={color} content={suggestionSymbol}>{display}</StyledSuggestion>
+    return <StyledSuggestion color={colorPalette.light} content={suggestionSymbol}>{display}</StyledSuggestion>
 }
 
 
@@ -55,18 +58,29 @@ SuggestionContent.propTypes = {
     ]),
 }
 
-export function Suggestion(props) {
+export const Suggestion = React.forwardRef((props, ref) => {
     const {value, active, select} = props;
+    const colorPalette = useColorPalette();
 
-    const classes = ["search_row"];
+    const classes = ['search_row'];
     if (active) {
-        classes.push("active")
+        classes.push('active');
     }
-    return <li className={classes.join(" ")} name={value} onClick={() => select(value)}><SuggestionContent
-        value={value}/>
-    </li>
-
-}
+    return (
+        <li
+            className={classes.join(' ')}
+            name={value}
+            onClick={() => select(value)}
+            style={{
+                backgroundColor: classes.includes('active') 
+                        ? darken(Constants.hoverFactor, colorPalette.primary)
+                        :null}}
+            ref={ref}
+        >
+            <SuggestionContent value={value} />
+        </li>
+    );
+});
 
 Suggestion.propTypes = {
     /**

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {Suspense} from 'react';
 import "./search.css";
 import * as Constants from "../constants";
 import {Suggestion} from "./SearchResult.react";
@@ -12,6 +12,9 @@ import {useColorPalette} from "../contexts/ColorPalette";
 import { useShownDetail } from "../contexts/ShownDetail";
 import { make_atoms_string } from '../utils';
 import { useHighlightedSymbol } from '../contexts/HighlightedSymbol';
+import {darken} from 'polished';
+import IconWrapper from './IconWrapper.react';
+
 
 function ActiveFilters() {
     const [{activeFilters},] = useFilters();
@@ -102,6 +105,7 @@ ActiveHighlight.propTypes = {
 
 
 export function Search() {
+    const [searchActivated, setSearchActivated] = React.useState(false);
     const [activeSuggestion, setActiveSuggestion] = React.useState(0);
     const [filteredSuggestions, setFilteredSuggestions] = React.useState([]);
     const [showSuggestions, setShowSuggestions] = React.useState(false);
@@ -113,6 +117,7 @@ export function Search() {
     const {backendURL} = useSettings();
     const colorPalette = useColorPalette();
     const { setShownDetail } = useShownDetail();
+    const suggestionRefs = React.useRef([]);
     const {state: {shownRecursion}} =  useTransformations();
     const {
         highlightedSymbol: compareHighlightedSymbol,
@@ -121,6 +126,27 @@ export function Search() {
         ruleDotHighlightColor: compareRuleDotHighlightColor,
         toggleReasonOf,
     } = useHighlightedSymbol();
+
+    const [isHovered, setIsHovered] = React.useState(false);
+    const [isClicked, setIsClicked] = React.useState(false);
+
+    const style = {
+        background: colorPalette.primary,
+        color: colorPalette.light,
+    };
+
+    if (isHovered) {
+        style.background = darken(Constants.hoverFactor, style.background);
+    }
+    if (isClicked) {
+        style.background = colorPalette.infoBackground;
+    }
+
+    const handleMouseEnter = () => setIsHovered(true);
+    const handleMouseLeave = () => setIsHovered(false);
+    const handleMouseDown = () => setIsClicked(true);
+    const handleMouseUp = () => setIsClicked(false);
+
 
     let suggestionsListComponent;
     React.useEffect(() => {
@@ -184,46 +210,99 @@ export function Search() {
             select(filteredSuggestions[activeSuggestion])
             setHighlightedNode(null);
         } else if (e.keyCode === Constants.KEY_UP) {
-
+            e.preventDefault()
             if (activeSuggestion === 0) {
                 return;
             }
             setActiveSuggestion(activeSuggestion - 1);
         } else if (e.keyCode === Constants.KEY_DOWN) {
-            if (activeSuggestion - 1 === filteredSuggestions.length) {
+            if (activeSuggestion + 1 === filteredSuggestions.length) {
                 return;
             }
             setActiveSuggestion(activeSuggestion + 1);
         }
     }
 
+    React.useEffect(() => {
+        if (suggestionRefs.current[activeSuggestion]) {
+            suggestionRefs.current[activeSuggestion].scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+            });
+        }
+    }, [activeSuggestion]);
+
     if (showSuggestions && userInput) {
         if (filteredSuggestions.length) {
             suggestionsListComponent = (
-                <ul className="search_result_list" style={{backgroundColor: colorPalette.light}}>
+                <ul
+                    className="search_result_list"
+                    style={{
+                        backgroundColor: colorPalette.primary,
+                        color: colorPalette.light,
+                    }}
+                >
                     {filteredSuggestions.map((suggestion, index) => {
-                        return <Suggestion active={index === activeSuggestion} key={index} 
-                                           value={suggestion} select={select}/>
+                        return (
+                            <Suggestion
+                                active={index === activeSuggestion}
+                                key={index}
+                                value={suggestion}
+                                select={select}
+                                ref={(el) =>
+                                    (suggestionRefs.current[index] = el)
+                                }
+                            />
+                        );
                     })}
                 </ul>
             );
         } else {
-            suggestionsListComponent = (
-                <div className="no-suggestions"/>
-            );
+            suggestionsListComponent = <div className="no-suggestions" />;
         }
     }
     return (
         <div className="search">
-            <input
-                className="search_input"
-                type="text"
-                onChange={onChange}
-                onKeyDown={onKeyDown}
-                value={userInput}
-                />
-            <ActiveFilters/>
-            {suggestionsListComponent}
+            {!searchActivated ? (
+                <span
+                    onClick={() => setSearchActivated(!searchActivated)}
+                    className="search_content open_search_input_btn txt-elem noselect toggle_part unselected"
+                    style={style}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseDown={handleMouseDown}
+                    onMouseUp={handleMouseUp}
+                >
+                    <Suspense fallback={<div>...</div>}>
+                        <IconWrapper icon="search" height="20px" />
+                    </Suspense>
+                </span>
+            ) : (
+                <div className="search_content">
+                    <div className="search_input_container">
+                        <input
+                            className="search_input"
+                            type="text"
+                            onChange={onChange}
+                            onKeyDown={onKeyDown}
+                            value={userInput}
+                        />
+                        <span
+                            className="clear_search_input_btn"
+                            onClick={() => {setSearchActivated(false); setUserInput(""); setActiveSuggestion(0);}}
+                            style={{
+                                color: colorPalette.dark,
+                            }}
+                        >
+                            <Suspense fallback={<div>x</div>}>
+                                <IconWrapper icon="close" height="15px" />
+                            </Suspense>
+                        </span>
+                    </div>
+                    <ActiveFilters />
+                    {suggestionsListComponent}
+                </div>
+            )}
         </div>
     );
 }

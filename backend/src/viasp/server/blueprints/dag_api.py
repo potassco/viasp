@@ -625,7 +625,7 @@ def search():
             if query in str(atom) and atom not in result:
                 result.append(atom)
         result.sort(key=lambda x: str(x))
-        return jsonify(result[:10])
+        return jsonify(result)
 
         # result_with_node_uuid =  []
         # for node in nodes:
