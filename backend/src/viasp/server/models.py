@@ -47,14 +47,23 @@ class CurrentGraphs(Base):
 class GraphNodes(Base):
     __tablename__ = "nodes_table"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    # id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
     graph_hash: Mapped[str] = mapped_column(ForeignKey("graphs_table.hash"))
     transformation_hash: Mapped[str]
     branch_position: Mapped[float]
     node: Mapped[str]
-    node_uuid: Mapped[str]
+    node_uuid: Mapped[str] = mapped_column(primary_key=True)
     recursive_supernode_uuid: Mapped[str] = mapped_column(nullable=True)
+
+@dataclass
+class GraphSymbols(Base):
+    __tablename__ = "symbols_table"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    node: Mapped[str] = mapped_column(ForeignKey("nodes_table.node_uuid"))
+    symbol_uuid: Mapped[str] = mapped_column()
+    symbol: Mapped[str] = mapped_column()
 
 @dataclass
 class GraphEdges(Base):
@@ -63,11 +72,11 @@ class GraphEdges(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
     graph_hash: Mapped[str] = mapped_column(ForeignKey("graphs_table.hash"))
-    source: Mapped[str] = mapped_column(ForeignKey("nodes_table.id"))
-    target: Mapped[str] = mapped_column(ForeignKey("nodes_table.id"))
+    source: Mapped[str] = mapped_column(ForeignKey("nodes_table.node_uuid"))
+    target: Mapped[str] = mapped_column(ForeignKey("nodes_table.node_uuid"))
     transformation_hash: Mapped[str] = mapped_column()
     style: Mapped[str] = mapped_column()
-    recursion_anchor_keyword: Mapped[str] = mapped_column(nullable=True)  
+    recursion_anchor_keyword: Mapped[str] = mapped_column(nullable=True)
     recursive_supernode_uuid: Mapped[str] = mapped_column(nullable=True)
 
 class DependencyGraphs(Base):

@@ -170,11 +170,6 @@ export function Search() {
     }
 
 
-    function select(transformation) {
-        handleSelection(transformation)
-        reset()
-    }
-
     function handleSelection(selection) {
         if (selection._type === "Signature") {
             dispatch(addSignature(selection));
@@ -187,16 +182,24 @@ export function Search() {
         }
         if (selection._type === "Function") {
             dispatchT(addAtom(selection));
-            // toggleReasonOf(
-            //     selection.atom.uuid,
-            //     selection.node,
-            //     compareHighlightedSymbol,
-            //     compareHighlightedRule,
-            //     compareBackgroundHighlightColor,
-            //     compareRuleDotHighlightColor
-            // );
+        }
+        if (selection._type === 'SearchResultSymbolWrapper') {
+            toggleReasonOf(
+                selection.includes[0].symbol_uuid,
+                selection.includes[0].node_uuid,
+                compareHighlightedSymbol,
+                compareHighlightedRule,
+                compareBackgroundHighlightColor,
+                compareRuleDotHighlightColor
+            );
         }
     }
+
+    function select(transformation) {
+        handleSelection(transformation)
+        reset()
+    }
+
 
     function reset() {
         setActiveSuggestion(0)

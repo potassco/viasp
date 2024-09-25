@@ -1,7 +1,12 @@
 import React from "react";
 import {make_atoms_string, make_rules_string} from "../utils/index";
 import PropTypes from "prop-types";
-import {NODE, SIGNATURE, TRANSFORMATION, SYMBOL} from "../types/propTypes";
+import {
+    NODE,
+    SIGNATURE,
+    TRANSFORMATION,
+    SEARCHRESULTSYMBOLWRAPPER,
+} from '../types/propTypes';
 import {useSettings} from "../contexts/Settings";
 import { styled as styledComponents } from "styled-components";
 import {useColorPalette} from "../contexts/ColorPalette";
@@ -42,6 +47,10 @@ function SuggestionContent(props) {
         suggestionSymbol = " ."
         display = make_atoms_string(value)
     }
+    if (value._type === 'SearchResultSymbolWrapper') {
+        suggestionSymbol = ' .';
+        display = value.repr;
+    }
     return <StyledSuggestion color={colorPalette.light} content={suggestionSymbol}>{display}</StyledSuggestion>
 }
 
@@ -54,9 +63,9 @@ SuggestionContent.propTypes = {
         SIGNATURE,
         TRANSFORMATION,
         NODE,
-        SYMBOL
+        SEARCHRESULTSYMBOLWRAPPER,
     ]),
-}
+};
 
 export const Suggestion = React.forwardRef((props, ref) => {
     const {value, active, select} = props;
@@ -90,7 +99,7 @@ Suggestion.propTypes = {
         SIGNATURE,
         TRANSFORMATION,
         NODE,
-        SYMBOL
+        SEARCHRESULTSYMBOLWRAPPER,
     ]),
     /**
      *  Whether the result is highlighted or not.
@@ -99,5 +108,5 @@ Suggestion.propTypes = {
     /**
      *  onClick Callback
      */
-    select: PropTypes.func
-}
+    select: PropTypes.func,
+};

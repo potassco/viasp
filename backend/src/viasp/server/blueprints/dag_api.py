@@ -9,6 +9,7 @@ import numpy as np
 from flask import Blueprint, current_app, request, jsonify, abort, Response, send_file
 from clingo.ast import AST
 from sqlalchemy.exc import MultipleResultsFound
+from sqlalchemy import select
 
 from ...asp.reify import ProgramAnalyzer, reify_list
 from ...asp.justify import build_graph
@@ -418,6 +419,7 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
 
     pos: Dict[Node, List[float]] = get_node_positions(graph)
     db_nodes = []
+    db_symbols = []
     db_edges = []
     for source, target, edge in graph.edges(data=True):
         db_edges.append(GraphEdges(
@@ -438,18 +440,28 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    node=current_app.json.dumps(target),
                    node_uuid=target.uuid.hex)
         )
+        for symbol in target.diff:
+            db_symbols.append(
+                GraphSymbols(node=target.uuid.hex,
+                             symbol_uuid=symbol.uuid.hex,
+                             symbol=str(symbol.symbol)))
 
         if len(target.recursive) > 0:
-            for n in target.recursive:
+            for subnode in target.recursive:
                 db_nodes.append(
                     GraphNodes(encoding_id=encoding_id,
                                graph_hash=graph_hash,
                                transformation_hash=edge["transformation"].hash,
                                branch_position=branch_position,
-                               node=current_app.json.dumps(n),
-                               node_uuid=n.uuid.hex,
+                               node=current_app.json.dumps(subnode),
+                               node_uuid=subnode.uuid.hex,
                                recursive_supernode_uuid=target.uuid.hex)
                 )
+                for symbol in subnode.diff:
+                    db_symbols.append(
+                        GraphSymbols(node=subnode.uuid.hex,
+                                     symbol_uuid=symbol.uuid.hex,
+                                     symbol=str(symbol.symbol)))
             db_edges.append(GraphEdges(
                 encoding_id=encoding_id,
                 graph_hash=graph_hash,
@@ -488,7 +500,13 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    branch_position=0,
                    node=current_app.json.dumps(fact_node),
                    node_uuid=fact_node.uuid.hex))
+    for symbol in fact_node.diff:
+        db_symbols.append(
+            GraphSymbols(node=fact_node.uuid.hex,
+                         symbol_uuid=symbol.uuid.hex,
+                         symbol=str(symbol.symbol)))
     db_session.add_all(db_nodes)
+    db_session.add_all(db_symbols)
     db_session.add_all(db_edges)
 
     db_session.commit()
@@ -584,6 +602,40 @@ def get_atoms_from_nodes(nodes: List[Node]):
     return atoms
 
 
+def get_all_symbols_in_graph(encoding_id, current_graph_hash):
+    db_graph_node_uuids = db_session.execute(
+        select(GraphNodes.node_uuid).filter_by(
+            encoding_id=encoding_id, graph_hash=current_graph_hash)).scalars().all()
+    db_graph_symbols = db_session.execute(
+        select(GraphSymbols).filter(GraphSymbols.node.in_(db_graph_node_uuids))).scalars().all()
+    return db_graph_symbols
+
+def search_term_in_symbols(query, db_graph_symbols):
+    all_filtered_symbols = list(filter(lambda x: query in x.symbol, db_graph_symbols))
+    symbols_results = []
+    for symbol in all_filtered_symbols:
+        existing_atom_result = next((s for s in symbols_results if s["repr"] == symbol.symbol), None)
+        if existing_atom_result:
+            existing_atom_result["includes"].append({
+                "_type": "SearchResultIncludeAtom",
+                "symbol_uuid": symbol.symbol_uuid,
+                "node_uuid": symbol.node
+            })
+        else:
+            symbols_results.append({
+                "_type":
+                "SearchResultSymbolWrapper",
+                "repr":
+                symbol.symbol,
+                "includes": [{
+                    "_type": "Atom",
+                    "symbol_uuid": symbol.symbol_uuid,
+                    "node_uuid": symbol.node
+                }]
+            })
+    return symbols_results
+
+
 @bp.route("/query", methods=["GET"])
 def search():
     if request.method == "POST":
@@ -625,19 +677,26 @@ def search():
             if query in str(atom) and atom not in result:
                 result.append(atom)
         result.sort(key=lambda x: str(x))
-        return jsonify(result)
+        # return jsonify(result)
 
-        # result_with_node_uuid =  []
-        # for node in nodes:
-        #     for atom in node.diff:
-        #         if (query in str(atom)):
-        #             result_with_node_uuid.append({
-        #                 "_type": "Function",
-        #                 "node": node.uuid.hex,
-        #                 "atom": atom
-        #             })
-        # result_with_node_uuid.sort(key=lambda x: str(x.atom))
-        # return jsonify(result_with_node_uuid[:10])
+        result_with_node_uuid =  []
+        for node in nodes:
+            for atom in node.diff:
+                if (query in str(atom)):
+                    result_with_node_uuid.append({
+                        "_type": "Atom",
+                        "node": node.uuid.hex,
+                        "atom": atom
+                    })
+        result_with_node_uuid.sort(key=lambda x: str(x["atom"]))
+        # return jsonify(result_with_node_uuid)
+
+        db_graph_symbols = get_all_symbols_in_graph(encoding_id, current_graph_hash)
+        results = search_term_in_symbols(query, db_graph_symbols)
+        results.sort(key=lambda x: x["repr"])
+        return jsonify(results)
+        # get all atoms in the current graph
+
     return jsonify([])
 
 
