@@ -13,7 +13,7 @@ const App = () => {
                 id="myID"
                 backendURL={backend_url}
                 setProps={setClickedOn}
-                colorPalette={colorPaletteData}
+                colorPalette={colorPaletteData.colorThemes.blue}
             />
         </div>
     );
