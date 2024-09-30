@@ -10,16 +10,18 @@
     margin-right: 1em;
     margin-top: 1.2em;
     width: 10%;
-    max-width: 220px;
-    min-width: 50px;
+    max-width: 20em;
+    min-width: 7em;
 }
 
 .fadeOut {
+    z-index: 20;
     opacity: 0;
     transition: opacity 0.8s;
 }
 
 .fadeIn {
+    z-index: 20;
     opacity: 1;
     transition: opacity 0.8s;
 }
@@ -44,17 +46,17 @@
 }
 
 .drawer_content {
-    z-index: 1;
-    border-radius: 0 0 0 5px;
+    max-width: 500px;
+    padding-top: 0.1em;
+    padding-bottom: 0.1em;
 }
 
 .toggle_part {
     font-family: monospace;
     border-radius: 0.7em;
     cursor: pointer;
-    padding-right: 20px;
-    padding-left: 20px;
 }
+
 .clear_marked {
     display: flex;
     justify-content: end;

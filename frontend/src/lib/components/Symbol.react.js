@@ -16,19 +16,50 @@ export function Symbol(props) {
     const suffix = `_${isSubnode ? "sub" : "main"}`
     let classNames = "symbol";
     let style = null;
-    const {highlightedSymbol: compareHighlightedSymbol, getNextHoverColor} =
-        useHighlightedSymbol();
+    const {
+        highlightedSymbol: compareHighlightedSymbol,
+        searchResultHighlightedSymbol: compareSearchResultHighlightedSymbol,
+        getNextHoverColor
+    } = useHighlightedSymbol();
 
     const combinedIndices = compareHighlightedSymbol
         .flatMap((item, index) =>
             [item.tgt, item.src].includes(symbolIdentifier.uuid) ? index : []
         )
-        .filter((value, index, self) => self.indexOf(value) === index);
+        .filter((value, index, self) => self.indexOf(value) === index)
+    const moreindices = compareSearchResultHighlightedSymbol
+                .flatMap((item, index) =>
+                    [item.symbol_id].includes(symbolIdentifier.uuid) ? index : []
+                )
+                .filter((value, index, self) => self.indexOf(value) === index)
     
     if (make_atoms_string(activeHighlights).includes(make_atoms_string(symbolIdentifier))) {
         classNames += ' highlight_symbol';
     }
+    if (moreindices.length > 0) {
+        classNames += ' mark_symbol';
+        const uniqueColors = [
+            ...new Set(
+                moreindices
+                    .map(
+                        (index) =>
+                            compareSearchResultHighlightedSymbol[index].color
+                    )
+                    .reverse()
+            ),
+        ];
 
+        const gradientStops = uniqueColors
+            .map((color, index, array) => {
+                const start = (index / array.length) * 100;
+                const end = ((index + 1) / array.length) * 100;
+                return `${color} ${start}%, ${color} ${end}%`;
+            })
+            .join(', ');
+        style = {
+            background: `linear-gradient(-45deg, ${gradientStops})`,
+        };
+    }
     if (combinedIndices.length > 0) {
         classNames += ' mark_symbol';
         const uniqueColors = [
@@ -54,6 +85,7 @@ export function Symbol(props) {
     if (symbolIdentifier.has_reason && isHovered) {
         style = getNextHoverColor(
             compareHighlightedSymbol,
+            compareSearchResultHighlightedSymbol,
             symbolIdentifier.uuid
         );
     }

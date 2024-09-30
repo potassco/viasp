@@ -628,7 +628,7 @@ def search_term_in_symbols(query, db_graph_symbols):
                 "repr":
                 symbol.symbol,
                 "includes": [{
-                    "_type": "Atom",
+                    "_type": "SearchResultIncludeAtom",
                     "symbol_uuid": symbol.symbol_uuid,
                     "node_uuid": symbol.node
                 }]
@@ -668,28 +668,6 @@ def search():
         #     if any(query in rule for rule in
         #            transformation.rules.str_) and transformation not in result:
         #         result.append(transformation)
-
-        db_graph_nodes = db_session.query(GraphNodes).filter_by(
-            encoding_id=encoding_id, graph_hash=current_graph_hash).all()
-        nodes = [current_app.json.loads(n.node) for n in db_graph_nodes]
-        atoms = get_atoms_from_nodes(nodes)
-        for atom in atoms:
-            if query in str(atom) and atom not in result:
-                result.append(atom)
-        result.sort(key=lambda x: str(x))
-        # return jsonify(result)
-
-        result_with_node_uuid =  []
-        for node in nodes:
-            for atom in node.diff:
-                if (query in str(atom)):
-                    result_with_node_uuid.append({
-                        "_type": "Atom",
-                        "node": node.uuid.hex,
-                        "atom": atom
-                    })
-        result_with_node_uuid.sort(key=lambda x: str(x["atom"]))
-        # return jsonify(result_with_node_uuid)
 
         db_graph_symbols = get_all_symbols_in_graph(encoding_id, current_graph_hash)
         results = search_term_in_symbols(query, db_graph_symbols)

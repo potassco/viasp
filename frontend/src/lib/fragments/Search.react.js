@@ -105,7 +105,7 @@ ActiveHighlight.propTypes = {
 
 
 export function Search() {
-    const [searchActivated, setSearchActivated] = React.useState(false);
+    const [searchActivated, setSearchActivated] = React.useState(true);
     const [activeSuggestion, setActiveSuggestion] = React.useState(0);
     const [filteredSuggestions, setFilteredSuggestions] = React.useState([]);
     const [showSuggestions, setShowSuggestions] = React.useState(false);
@@ -121,10 +121,12 @@ export function Search() {
     const {state: {shownRecursion}} =  useTransformations();
     const {
         highlightedSymbol: compareHighlightedSymbol,
+        searchResultHighlightedSymbol: compareSearchResultHighlightedSymbol,
         highlightedRule: compareHighlightedRule,
         backgroundHighlightColor: compareBackgroundHighlightColor,
         ruleDotHighlightColor: compareRuleDotHighlightColor,
         toggleReasonOf,
+        setSearchResultSymbolHighlight,
     } = useHighlightedSymbol();
 
     const [isHovered, setIsHovered] = React.useState(false);
@@ -184,13 +186,11 @@ export function Search() {
             dispatchT(addAtom(selection));
         }
         if (selection._type === 'SearchResultSymbolWrapper') {
-            toggleReasonOf(
+            setSearchResultSymbolHighlight(
                 selection.includes[0].symbol_uuid,
                 selection.includes[0].node_uuid,
                 compareHighlightedSymbol,
-                compareHighlightedRule,
-                compareBackgroundHighlightColor,
-                compareRuleDotHighlightColor
+                compareSearchResultHighlightedSymbol,
             );
         }
     }
@@ -289,11 +289,13 @@ export function Search() {
                             onChange={onChange}
                             onKeyDown={onKeyDown}
                             value={userInput}
+                            style={{backgroundColor: colorPalette.primary, border: '0px', color: colorPalette.light}}
+                            placeholder='query'
                         />
                         <span
                             className="clear_search_input_btn"
                             onClick={() => {
-                                setSearchActivated(false);
+                                setSearchActivated(true);
                                 setUserInput('');
                                 setActiveSuggestion(0);
                             }}
@@ -306,7 +308,7 @@ export function Search() {
                             </Suspense>
                         </span>
                     </div>
-                    <ActiveFilters />
+                    {/* <ActiveFilters /> */}
                     {suggestionsListComponent}
                 </div>
             )}

@@ -8,7 +8,9 @@ import { Search } from "./Search.react";
 
 
 function makeClassNameFromMarkedSymbol(highlightedSymbol) {
-    const className = `txt-elem noselect toggle_part unselected ${highlightedSymbol.length === 0 ? "fadeOut" : "fadeIn"}`;
+    const className = `txt-elem noselect toggle_part unselected ${
+        highlightedSymbol.length === 0 ? 'fadeOut' : 'fadeIn'
+    }`;
     return className;
 }
 
@@ -48,7 +50,7 @@ function ClearMarked() {
                 onMouseLeave={handleMouseLeave}
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}
-            >
+                >
                 clear
             </span>
         </div>
@@ -76,14 +78,11 @@ export default function Settings() {
     return (
         <div className="settings noselect">
             <div className="drawer">
-                <div
-                    className="drawer_content"
-                    style={{
-                        maxWidth: '500px',
-                    }}
-                >
-                    <ClearMarked />
+                <div className="drawer_content">
                     <Search />
+                </div>
+                <div className="drawer_content">
+                    <ClearMarked />
                 </div>
             </div>
         </div>

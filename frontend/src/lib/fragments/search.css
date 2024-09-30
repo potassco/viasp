@@ -1,15 +1,11 @@
 /* ===== SEARCH BOX ===== */
 .search {
-    bottom: 0;
-    left: 0;
-    z-index: 18;
     display: flex;
     justify-content: end;
-    padding-top: 0.25ex;
 }
 
 .search_content {
-    position: relaitve;
+    width: 100%;
     border-radius: 0.7em;
 }
 
@@ -30,13 +26,17 @@
     justify-content: center;
     align-items: center;
     position: absolute;
-    margin-top: 1.25ex; /* equal to search_input top padding+ search top padding */
+    margin-top: 1ex; /* equal to search_input top padding+ search top padding */
 }
 
 .search_input {
     width: 100%;
     border-radius: 0.7em;
     padding: 1ex;
+}
+
+.search_input:focus {
+    outline: none;
 }
 
 .search_row {
@@ -46,14 +46,17 @@
 }
 
 .search_result_list {
-    position: flex;
+    position: absolute;
+    z-index: 30;
     list-style: none;
+    right: 0;
+    left: 0;
     margin-top: 0;
     margin-left: 0;
     padding-left: 1.2em;
     padding-right: 0.2em;
     margin-bottom: 1px;
-    border-radius: 0 0px 5px 5px;
+    border-radius: 0.7em;
     overflow-x: hidden;
     overflow-y: auto;
     max-height: 5em;

@@ -37,6 +37,7 @@ function NodeContent(props) {
     const [{activeFilters}] = useFilters();
     const {
         highlightedSymbol,
+        searchResultHighlightedSymbol,
         highlightedRule,
         backgroundHighlightColor,
         ruleDotHighlightColor,
@@ -85,9 +86,10 @@ function NodeContent(props) {
                 src.uuid,
                 node.uuid,
                 highlightedSymbol,
+                searchResultHighlightedSymbol,
                 highlightedRule,
                 backgroundHighlightColor,
-                ruleDotHighlightColor
+                ruleDotHighlightColor,
             );
         }
     }

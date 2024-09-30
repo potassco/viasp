@@ -17,7 +17,7 @@ import * as Constants from "../constants";
 const StyledSuggestion = styledComponents.span`
  &:before {
     color: ${props => props.color};
-    background-color: ${props => props.backgroundColor};
+    background: ${props => props.$background};
     position: absolute;
     left: 0;
     content: '${props => props.content}';
@@ -51,7 +51,15 @@ function SuggestionContent(props) {
         suggestionSymbol = ' .';
         display = value.repr;
     }
-    return <StyledSuggestion color={colorPalette.light} content={suggestionSymbol}>{display}</StyledSuggestion>
+    return (
+        <StyledSuggestion
+            color={colorPalette.light}
+            $background={colorPalette.primary}
+            content={suggestionSymbol}
+        >
+            {display}
+        </StyledSuggestion>
+    );
 }
 
 
@@ -78,12 +86,13 @@ export const Suggestion = React.forwardRef((props, ref) => {
     return (
         <li
             className={classes.join(' ')}
-            name={value}
+            name={[value]}
             onClick={() => select(value)}
             style={{
-                backgroundColor: classes.includes('active') 
-                        ? darken(Constants.hoverFactor, colorPalette.primary)
-                        :null}}
+                backgroundColor: classes.includes('active')
+                    ? darken(Constants.hoverFactor, colorPalette.primary)
+                    : null,
+            }}
             ref={ref}
         >
             <SuggestionContent value={value} />
