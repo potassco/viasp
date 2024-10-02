@@ -93,6 +93,7 @@
     display: flex;
     justify-content: center;
     overflow: hidden;
+    max-width: 75%;
 }
 
 .row_container {
