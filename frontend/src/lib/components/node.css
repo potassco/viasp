@@ -13,7 +13,6 @@
     position: relative;
     height: max-content;
     overflow: hidden;
-    max-width: 75%;
 }
 
 .mouse_over_shadow:hover {
