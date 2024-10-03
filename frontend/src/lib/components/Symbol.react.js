@@ -5,103 +5,183 @@ import PropTypes from "prop-types";
 import { SYMBOLIDENTIFIER } from "../types/propTypes";
 import { useHighlightedSymbol } from "../contexts/HighlightedSymbol";
 import { useTransformations } from "../contexts/transformations";
+import {styled, keyframes, css} from 'styled-components';
 
+
+const symbolPulsate = keyframes`
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.7);
+    }
+
+    100% {
+        box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
+    }
+`;
+
+const pulsate = css`
+    animation: ${symbolPulsate} 1s 3;
+`;
+
+const SymbolElement = styled.span`
+    margin: 1px 1px;
+    display: flex;
+    border-radius: 7pt;
+    background: ${(props) => props.$backgroundColorStyle};
+    padding: 1pt 2pt;
+    min-height: 0;
+    width: fit-content;
+    width: -moz-fit-content;
+    ${(props) => (props.$pulsate ? pulsate : '')};
+`;
 
 export function Symbol(props) {
     const { symbolIdentifier, isSubnode, handleClick } = props;
+    const symbolIdentifierRef = React.useRef(symbolIdentifier.uuid);
     const [isHovered, setIsHovered] = useState(false);
-    const {state: {highlightedAtoms: activeHighlights}} = useTransformations();
+    const {state: {highlightedAtoms: activeHighlights, searchResultHighlightedSymbol}} = useTransformations();
+
+    React.useEffect(() => {
+        if (searchResultHighlightedSymbol) {
+            console.log("asdf", {searchResultHighlightedSymbol})
+        }
+    }, [searchResultHighlightedSymbol])
+
+    const [isMarked, setIsMarked] = useState(false);
+    const [backgroundColorStyle, setBackgroundColorStyle] = useState('transparent');
+    const [isPulsating, setIsPulsating] = useState(false);
 
     let atomString = make_atoms_string(symbolIdentifier.symbol)
     const suffix = `_${isSubnode ? "sub" : "main"}`
-    let classNames = "symbol";
-    let style = null;
+
     const {
-        highlightedSymbol: compareHighlightedSymbol,
+        highlightedSymbol: compareReasonHighlightedSymbol,
         searchResultHighlightedSymbol: compareSearchResultHighlightedSymbol,
         getNextHoverColor
     } = useHighlightedSymbol();
 
-    const combinedIndices = compareHighlightedSymbol
-        .flatMap((item, index) =>
-            [item.tgt, item.src].includes(symbolIdentifier.uuid) ? index : []
-        )
-        .filter((value, index, self) => self.indexOf(value) === index)
-    const moreindices = compareSearchResultHighlightedSymbol
+
+
+    React.useEffect(() => {
+        if (isHovered) {
+            return
+        }
+        const symbolid = symbolIdentifierRef.current;
+        const searchResultHighlightIndices =
+            compareSearchResultHighlightedSymbol
                 .flatMap((item, index) =>
-                    [item.symbol_id].includes(symbolIdentifier.uuid) ? index : []
+                    [item.symbol_id].includes(symbolid) ? index : []
                 )
-                .filter((value, index, self) => self.indexOf(value) === index)
-    
-    if (make_atoms_string(activeHighlights).includes(make_atoms_string(symbolIdentifier))) {
-        classNames += ' highlight_symbol';
-    }
-    if (moreindices.length > 0) {
-        classNames += ' mark_symbol';
-        const uniqueColors = [
-            ...new Set(
-                moreindices
-                    .map(
-                        (index) =>
-                            compareSearchResultHighlightedSymbol[index].color
-                    )
-                    .reverse()
-            ),
-        ];
+                .filter((value, index, self) => self.indexOf(value) === index);
+        
+        if (searchResultHighlightIndices.length > 0) {
+            setIsMarked(true);
+            setIsPulsating(searchResultHighlightIndices.some((index) => compareSearchResultHighlightedSymbol[index].recent));
+            const uniqueColors = [
+                ...new Set(
+                    searchResultHighlightIndices
+                        .map(
+                            (index) =>
+                                compareSearchResultHighlightedSymbol[index].color
+                        )
+                        .reverse()
+                ),
+            ];
 
-        const gradientStops = uniqueColors
-            .map((color, index, array) => {
-                const start = (index / array.length) * 100;
-                const end = ((index + 1) / array.length) * 100;
-                return `${color} ${start}%, ${color} ${end}%`;
-            })
-            .join(', ');
-        style = {
-            background: `linear-gradient(-45deg, ${gradientStops})`,
-        };
-    }
-    if (combinedIndices.length > 0) {
-        classNames += ' mark_symbol';
-        const uniqueColors = [
-            ...new Set(
-                combinedIndices.map(
-                    (index) => compareHighlightedSymbol[index].color
-                ).reverse()
-            ),
-        ];
+            const gradientStops = uniqueColors
+                .map((color, index, array) => {
+                    const start = (index / array.length) * 100;
+                    const end = ((index + 1) / array.length) * 100;
+                    return `${color} ${start}%, ${color} ${end}%`;
+                })
+                .join(', ');
+            setBackgroundColorStyle(`linear-gradient(-45deg, ${gradientStops})`);
+        }
+        else {
+            setIsMarked(false);
+            setIsPulsating(false);
+            setBackgroundColorStyle('transparent');
+        }
+    }, [isHovered, compareSearchResultHighlightedSymbol]);
 
-        const gradientStops = uniqueColors
-            .map((color, index, array) => {
-                const start = (index / array.length) * 100;
-                const end = ((index + 1) / array.length) * 100;
-                return `${color} ${start}%, ${color} ${end}%`;
-            })
-            .join(', ');
-        style = {background: `linear-gradient(-45deg, ${gradientStops})`};
-    }
+    React.useEffect(() => {
+        if (isHovered) {
+            return
+        }
+        const symbolid = symbolIdentifierRef.current;
+        const reasonHighlightIndices = compareReasonHighlightedSymbol
+            .flatMap((item, index) =>
+                [item.tgt, item.src].includes(symbolid) ? index : []
+            )
+            .filter((value, index, self) => self.indexOf(value) === index);
+
+        if (reasonHighlightIndices.length > 0) {
+            setIsMarked(true);
+            const uniqueColors = [
+                ...new Set(
+                    reasonHighlightIndices.map(
+                        (index) => compareReasonHighlightedSymbol[index].color
+                    ).reverse()
+                ),
+            ];
+
+            const gradientStops = uniqueColors
+                .map((color, index, array) => {
+                    const start = (index / array.length) * 100;
+                    const end = ((index + 1) / array.length) * 100;
+                    return `${color} ${start}%, ${color} ${end}%`;
+                })
+                .join(', ');
+            setBackgroundColorStyle(`linear-gradient(-45deg, ${gradientStops})`);
+        }
+        else {
+            setIsMarked(false);
+            setBackgroundColorStyle('transparent');
+        }
+    }, [isHovered, compareReasonHighlightedSymbol]);
 
     atomString = atomString.length === 0 ? "" : atomString;
 
-    if (symbolIdentifier.has_reason && isHovered) {
-        style = getNextHoverColor(
-            compareHighlightedSymbol,
-            compareSearchResultHighlightedSymbol,
-            symbolIdentifier.uuid
-        );
-    }
+    const [previousBackgroundColorStyle, setPreviousBackgroundColorStyle] = useState('transparent');
+    const handleMouseEnter = React.useCallback(() => {
+        setIsHovered(true);
+        if (symbolIdentifier.has_reason) {
+            setBackgroundColorStyle((prev) => {
+                setPreviousBackgroundColorStyle(prev);
+                return getNextHoverColor(
+                compareReasonHighlightedSymbol,
+                compareSearchResultHighlightedSymbol,
+                symbolIdentifierRef.current
+                ).backgroundColor
+            });
+        }
+    }, [compareReasonHighlightedSymbol, compareSearchResultHighlightedSymbol, getNextHoverColor, symbolIdentifier.has_reason]);
 
-    const handleMouseEnter = () => setIsHovered(true);
-    const handleMouseLeave = () => setIsHovered(false);
+    const handleMouseLeave = React.useCallback(() => {
+        setIsHovered(false);
+        setBackgroundColorStyle(previousBackgroundColorStyle);
+    }, [previousBackgroundColorStyle, setBackgroundColorStyle]);
 
-    return (<span 
-            className={classNames} 
-            id={symbolIdentifier.uuid + suffix} 
-            style={style} 
-            onClick={(e) => handleClick(e, symbolIdentifier)} 
-            onMouseEnter={handleMouseEnter} 
-            onMouseLeave={handleMouseLeave}>
-                {atomString}
-            </span>);
+
+
+
+
+
+    // const handleMouseEnter = () => setIsHovered(true);
+    // const handleMouseLeave = () => setIsHovered(false);
+
+    return (
+        <SymbolElement
+            id={symbolIdentifier.uuid + suffix}
+            $marked={isMarked}
+            $pulsate={isPulsating}
+            $backgroundColorStyle={backgroundColorStyle}
+            onClick={(e) => handleClick(e, symbolIdentifier)}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+        >
+            {atomString}
+        </SymbolElement>
+    );
 }
 
 Symbol.propTypes = {

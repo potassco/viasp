@@ -315,7 +315,6 @@ export const HighlightedSymbolProvider = ({ children }) => {
             } else {
                 symbolColor.splice(index, 1);
             }
-            console.log(symbolColor.map((item) => JSON.parse(item)));
             setSearchResultHighlightedSymbol(symbolColor.map(
                 (item) => JSON.parse(item)
             ));

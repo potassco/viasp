@@ -7,7 +7,14 @@ import {useHighlightedNode} from "../contexts/HighlightedNode";
 import {useSettings} from "../contexts/Settings";
 import {addSignature, clear, useFilters} from "../contexts/Filters";
 import {NODE, SIGNATURE, SYMBOL, TRANSFORMATION} from "../types/propTypes";
-import {showOnlyTransformation, useTransformations, addAtom, removeAtom} from "../contexts/transformations";
+import {
+    showOnlyTransformation,
+    useTransformations,
+    addAtom,
+    removeAtom,
+    addSearchResultHighlightedSymbol,
+    removeSearchResultHighlightedSymbol,
+} from '../contexts/transformations';
 import {useColorPalette} from "../contexts/ColorPalette";
 import { useShownDetail } from "../contexts/ShownDetail";
 import { make_atoms_string } from '../utils';
@@ -113,7 +120,7 @@ export function Search() {
     const [, setHighlightedNode] = useHighlightedNode();
     const setHighlightedNodeRef = React.useRef(setHighlightedNode)
     const [, dispatch] = useFilters();
-    const {dispatch: dispatchT} = useTransformations()
+    const {dispatch: dispatchT, state: {searchResultHighlightedSymbols}} = useTransformations()
     const {backendURL} = useSettings();
     const colorPalette = useColorPalette();
     const { setShownDetail } = useShownDetail();
@@ -192,6 +199,7 @@ export function Search() {
                 compareHighlightedSymbol,
                 compareSearchResultHighlightedSymbol,
             );
+            dispatchT(addSearchResultHighlightedSymbol(selection));
         }
     }
 

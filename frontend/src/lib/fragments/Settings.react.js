@@ -15,9 +15,13 @@ function makeClassNameFromMarkedSymbol(highlightedSymbol) {
 }
 
 function ClearMarked() {
-    const {highlightedSymbol, clearHighlightedSymbol} = useHighlightedSymbol();
+    const {highlightedSymbol, searchResultHighlightedSymbol, clearHighlightedSymbol} = useHighlightedSymbol();
     const colorPalette = useColorPalette();
-    const className = makeClassNameFromMarkedSymbol(highlightedSymbol)
+    const [classNames, setClassNames] = useState('');
+
+    React.useEffect(() => {
+        setClassNames(makeClassNameFromMarkedSymbol(highlightedSymbol));
+    }, [highlightedSymbol, setClassNames]);
     const [isHovered, setIsHovered] = useState(false);
     const [isClicked, setIsClicked] = useState(false);
 
@@ -44,7 +48,7 @@ function ClearMarked() {
         <div className="clear_marked">
             <span
                 onClick={() => clearHighlightedSymbol()}
-                className={className}
+                className={classNames}
                 style={style}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}

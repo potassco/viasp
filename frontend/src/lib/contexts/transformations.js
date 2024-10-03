@@ -97,6 +97,7 @@ const initialState = {
     clingraphGraphics: [],
     shownRecursion: [],
     highlightedAtoms: [],
+    searchResultHighlightedSymbols: [],
 };
 
 /**
@@ -191,6 +192,18 @@ const SET_CLINGRAPH_SHOW_MINI = 'APP/CLINGRAPH/OVERFLOWH/SETSHOWMINI';
 const setClingraphGraphics = (g) => ({type: SET_CLINGRAPH_GRAPHICS, g});
 const clearClingraphGraphics = () => ({type: CLEAR_CLINGRAPH_GRAHICS});
 const setClingraphShowMini = (uuid, v) => ({type: SET_CLINGRAPH_SHOW_MINI, uuid, v});
+/**
+ * Manage Highlighted Symbols from Search
+ * */
+const ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SEARCH/SYMBOL/ADD';
+const REMOVE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SEARCH/SYMBOL/REMOVE';
+const NEXT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SEARCH/SYMBOL/NEXT';
+const PREV_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SEARCH/SYMBOL/PREV';
+const addSearchResultHighlightedSymbol = (s) => ({type: ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s});
+const removeSearchResultHighlightedSymbol = (s) => ({type: REMOVE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s});
+const nextSearchResultHighlightedSymbol = () => ({type: NEXT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL});
+const prevSearchResultHighlightedSymbol = () => ({type: PREV_SEARCH_RESULT_HIGHLIGHTED_SYMBOL});
+
 
 const TransformationContext = React.createContext();
 
@@ -613,6 +626,25 @@ const transformationReducer = (state = initialState, action) => {
             ),
         };
     }
+    if (action.type === ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL) {
+        return {
+            ...state,
+            searchResultHighlightedSymbols: state.searchResultHighlightedSymbols.concat({
+                ...action.s,
+                selected: 0,
+                recent: true,
+            }),
+        };
+    }
+    if (action.type === REMOVE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL) {
+        return {
+            ...state,
+            searchResultHighlightedSymbols: state.searchResultHighlightedSymbols.filter(
+                (symbol) => symbol !== action.s
+            ),
+        };
+    }
+
     return {...state};
 };
 
@@ -769,4 +801,6 @@ export {
     checkTransformationExpandableCollapsible,
     addAtom,
     removeAtom,
+    addSearchResultHighlightedSymbol,
+    removeSearchResultHighlightedSymbol,
 };
