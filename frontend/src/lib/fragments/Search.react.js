@@ -10,8 +10,6 @@ import {NODE, SIGNATURE, SYMBOL, TRANSFORMATION} from "../types/propTypes";
 import {
     showOnlyTransformation,
     useTransformations,
-    addAtom,
-    removeAtom,
     addSearchResultHighlightedSymbol,
     removeSearchResultHighlightedSymbol,
 } from '../contexts/transformations';
@@ -86,9 +84,7 @@ function ActiveHighlight(props) {
     const {atom} = props;
     const {dispatch} = useTransformations();
     const colorPalette = useColorPalette();
-    function onClose() {
-        dispatch(removeAtom(atom))
-    }
+    function onClose() {}
     return (
         <li
             style={{
@@ -189,9 +185,6 @@ export function Search() {
         if (selection._type === "Transformation") {
             dispatchT(showOnlyTransformation(selection));
         }
-        if (selection._type === "Function") {
-            dispatchT(addAtom(selection));
-        }
         if (selection._type === 'SearchResultSymbolWrapper') {
             setSearchResultSymbolHighlight(
                 selection.includes[0].symbol_uuid,
@@ -199,7 +192,7 @@ export function Search() {
                 compareHighlightedSymbol,
                 compareSearchResultHighlightedSymbol,
             );
-            dispatchT(addSearchResultHighlightedSymbol(selection));
+            dispatchT(addSearchResultHighlightedSymbol(selection, colorPalette.explanationHighlights));
         }
     }
 

@@ -4,6 +4,10 @@ import { useSettings } from "./Settings";
 import { useColorPalette } from "../contexts/ColorPalette";
 import { useMessages, showError } from "./UserMessages";
 import * as Constants from "../constants";
+import {
+    useTransformations,
+    toggleExplanationHighlightedSymbol,
+} from './transformations';
 
 function fetchReasonOf(backendURL, sourceId, nodeId) {
     return fetch(`${backendURL("graph/reason")}`, {
@@ -42,6 +46,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
     const [ruleDotHighlightColor, setRuleDotHighlightColor] =
         React.useState({});
     const colorPalette = useColorPalette();
+    const {dispatch: dispatchT} = useTransformations();
     const colorArray = colorPalette.explanationHighlights;
     const [, message_dispatch] = useMessages();
     const messageDispatchRef = React.useRef(message_dispatch);

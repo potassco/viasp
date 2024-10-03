@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { make_atoms_string } from "../utils/index";
+import { make_atoms_string, getNextHoverColor } from "../utils/index";
 import './symbol.css';
 import PropTypes from "prop-types";
 import { SYMBOLIDENTIFIER } from "../types/propTypes";
-import { useHighlightedSymbol } from "../contexts/HighlightedSymbol";
 import { useTransformations } from "../contexts/transformations";
 import {styled, keyframes, css} from 'styled-components';
+import { useColorPalette } from "../contexts/ColorPalette";
 
 
 const symbolPulsate = keyframes`
@@ -38,14 +38,14 @@ export function Symbol(props) {
     const { symbolIdentifier, isSubnode, handleClick } = props;
     const symbolIdentifierRef = React.useRef(symbolIdentifier.uuid);
     const [isHovered, setIsHovered] = useState(false);
-    const {state: {highlightedAtoms: activeHighlights, searchResultHighlightedSymbol}} = useTransformations();
-
-    React.useEffect(() => {
-        if (searchResultHighlightedSymbol) {
-            console.log("asdf", {searchResultHighlightedSymbol})
-        }
-    }, [searchResultHighlightedSymbol])
-
+    const colorPalette = useColorPalette();
+    const {
+        state: {
+            explanationHighlightedSymbols,
+            searchResultHighlightedSymbols
+        },
+    } = useTransformations();
+    
     const [isMarked, setIsMarked] = useState(false);
     const [backgroundColorStyle, setBackgroundColorStyle] = useState('transparent');
     const [isPulsating, setIsPulsating] = useState(false);
@@ -53,35 +53,27 @@ export function Symbol(props) {
     let atomString = make_atoms_string(symbolIdentifier.symbol)
     const suffix = `_${isSubnode ? "sub" : "main"}`
 
-    const {
-        highlightedSymbol: compareReasonHighlightedSymbol,
-        searchResultHighlightedSymbol: compareSearchResultHighlightedSymbol,
-        getNextHoverColor
-    } = useHighlightedSymbol();
-
-
-
     React.useEffect(() => {
         if (isHovered) {
             return
         }
         const symbolid = symbolIdentifierRef.current;
         const searchResultHighlightIndices =
-            compareSearchResultHighlightedSymbol
+            searchResultHighlightedSymbols
                 .flatMap((item, index) =>
-                    [item.symbol_id].includes(symbolid) ? index : []
+                    [item.includes[item.selected].symbol_uuid].includes(symbolid) ? index : []
                 )
                 .filter((value, index, self) => self.indexOf(value) === index);
         
         if (searchResultHighlightIndices.length > 0) {
             setIsMarked(true);
-            setIsPulsating(searchResultHighlightIndices.some((index) => compareSearchResultHighlightedSymbol[index].recent));
+            setIsPulsating(searchResultHighlightIndices.some((index) => searchResultHighlightedSymbols[index].recent));
             const uniqueColors = [
                 ...new Set(
                     searchResultHighlightIndices
                         .map(
                             (index) =>
-                                compareSearchResultHighlightedSymbol[index].color
+                                searchResultHighlightedSymbols[index].color
                         )
                         .reverse()
                 ),
@@ -101,14 +93,14 @@ export function Symbol(props) {
             setIsPulsating(false);
             setBackgroundColorStyle('transparent');
         }
-    }, [isHovered, compareSearchResultHighlightedSymbol]);
+    }, [isHovered, searchResultHighlightedSymbols]);
 
     React.useEffect(() => {
         if (isHovered) {
             return
         }
         const symbolid = symbolIdentifierRef.current;
-        const reasonHighlightIndices = compareReasonHighlightedSymbol
+        const reasonHighlightIndices = explanationHighlightedSymbols
             .flatMap((item, index) =>
                 [item.tgt, item.src].includes(symbolid) ? index : []
             )
@@ -119,7 +111,7 @@ export function Symbol(props) {
             const uniqueColors = [
                 ...new Set(
                     reasonHighlightIndices.map(
-                        (index) => compareReasonHighlightedSymbol[index].color
+                        (index) => explanationHighlightedSymbols[index].color
                     ).reverse()
                 ),
             ];
@@ -137,7 +129,7 @@ export function Symbol(props) {
             setIsMarked(false);
             setBackgroundColorStyle('transparent');
         }
-    }, [isHovered, compareReasonHighlightedSymbol]);
+    }, [isHovered, explanationHighlightedSymbols]);
 
     atomString = atomString.length === 0 ? "" : atomString;
 
@@ -148,13 +140,14 @@ export function Symbol(props) {
             setBackgroundColorStyle((prev) => {
                 setPreviousBackgroundColorStyle(prev);
                 return getNextHoverColor(
-                compareReasonHighlightedSymbol,
-                compareSearchResultHighlightedSymbol,
-                symbolIdentifierRef.current
-                ).backgroundColor
+                explanationHighlightedSymbols,
+                searchResultHighlightedSymbols,
+                symbolIdentifierRef.current,
+                colorPalette.explanationHighlights
+                )
             });
         }
-    }, [compareReasonHighlightedSymbol, compareSearchResultHighlightedSymbol, getNextHoverColor, symbolIdentifier.has_reason]);
+    }, [explanationHighlightedSymbols, searchResultHighlightedSymbols, colorPalette.explanationHighlights, symbolIdentifier.has_reason]);
 
     const handleMouseLeave = React.useCallback(() => {
         setIsHovered(false);

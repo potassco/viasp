@@ -5,10 +5,14 @@ import { useAnimationUpdater } from "../contexts/AnimationUpdater";
 import PropTypes from 'prop-types'
 import { v4 as uuidv4 } from 'uuid';
 import debounce from "lodash/debounce";
+import { useTransformations } from "../contexts/transformations";
 
 
 export function Arrows() {
-    const {highlightedSymbol} = useHighlightedSymbol();
+    const {
+        state: {explanationHighlightedSymbols: highlightedSymbol},
+    } = useTransformations();
+
     const [arrows, setArrows] = React.useState([]);
     const {animationState} = useAnimationUpdater();
 

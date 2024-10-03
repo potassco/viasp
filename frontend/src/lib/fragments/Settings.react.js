@@ -2,6 +2,10 @@ import React, {useState} from "react";
 import PropTypes from "prop-types";
 import {useColorPalette} from "../contexts/ColorPalette";
 import {useHighlightedSymbol} from "../contexts/HighlightedSymbol";
+import {
+    useTransformations,
+    clearExplanationHighlightedSymbol,
+} from '../contexts/transformations';
 import './settings.css'
 import { darken } from 'polished';
 import { Search } from "./Search.react";
@@ -18,6 +22,7 @@ function ClearMarked() {
     const {highlightedSymbol, searchResultHighlightedSymbol, clearHighlightedSymbol} = useHighlightedSymbol();
     const colorPalette = useColorPalette();
     const [classNames, setClassNames] = useState('');
+    const {dispatch: dispatchT} = useTransformations();
 
     React.useEffect(() => {
         setClassNames(makeClassNameFromMarkedSymbol(highlightedSymbol));
@@ -47,14 +52,14 @@ function ClearMarked() {
     return (
         <div className="clear_marked">
             <span
-                onClick={() => clearHighlightedSymbol()}
+                onClick={() => dispatchT(clearExplanationHighlightedSymbol())}
                 className={classNames}
                 style={style}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}
-                >
+            >
                 clear
             </span>
         </div>

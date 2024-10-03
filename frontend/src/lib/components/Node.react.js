@@ -6,7 +6,15 @@ import {hideNode, showNode, useShownNodes} from '../contexts/ShownNodes';
 import {useColorPalette} from '../contexts/ColorPalette';
 import {useHighlightedNode} from '../contexts/HighlightedNode';
 import {useHighlightedSymbol} from '../contexts/HighlightedSymbol';
-import {toggleShownRecursion, useTransformations, setNodeIsCollapsibleV, setNodeShowMini, setNodeIsExpandableV, checkTransformationExpandableCollapsible} from '../contexts/transformations';
+import {
+    toggleShownRecursion,
+    useTransformations,
+    setNodeIsCollapsibleV,
+    setNodeShowMini,
+    setNodeIsExpandableV,
+    checkTransformationExpandableCollapsible,
+    toggleExplanationHighlightedSymbol,
+} from '../contexts/transformations';
 import {useSettings} from '../contexts/Settings';
 import {useShownDetail} from '../contexts/ShownDetail';
 import {NODE} from '../types/propTypes';
@@ -19,6 +27,7 @@ import {findChildByClass} from '../utils';
 import debounce from 'lodash.debounce';
 import * as Constants from '../constants';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
+import { useMessages, showError } from "../contexts/UserMessages";
 
 function any(iterable) {
     for (let index = 0; index < iterable.length; index++) {
@@ -27,6 +36,21 @@ function any(iterable) {
         }
     }
     return false;
+}
+
+function fetchReasonOf(backendURL, sourceId, nodeId) {
+    return fetch(`${backendURL('graph/reason')}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({sourceid: sourceId, nodeid: nodeId}),
+    }).then((r) => {
+        if (!r.ok) {
+            throw new Error(`${r.status} ${r.statusText}`);
+        }
+        return r.json();
+    });
 }
 
 function NodeContent(props) {
@@ -44,6 +68,9 @@ function NodeContent(props) {
         toggleReasonOf,
     } = useHighlightedSymbol();
     const {dispatch: dispatchTransformation} = useTransformations();
+    const {backendURL} = useSettings();
+    const [, messageDispatch] = useMessages();
+
 
     let contentToShow;
     if (state.show_all) {
@@ -91,6 +118,16 @@ function NodeContent(props) {
                 backgroundHighlightColor,
                 ruleDotHighlightColor,
             );
+            fetchReasonOf(backendURL, src.uuid, node.uuid)
+                .then((result) => {
+                    if (result.symbols.every((tgt) => tgt !== null)) {
+                        dispatchTransformation(
+                            toggleExplanationHighlightedSymbol(result.symbols, colorPalette.explanationHighlights));
+                        }
+                })
+                .catch((error) => {
+                    messageDispatch(showError(`Failed to get reason: ${error}`));
+                });
         }
     }
 

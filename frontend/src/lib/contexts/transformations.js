@@ -2,7 +2,7 @@ import React from 'react';
 import {showError, useMessages} from './UserMessages';
 import {useSettings} from './Settings';
 import PropTypes from 'prop-types';
-import {make_default_nodes, make_default_clingraph_nodes} from '../utils/index';
+import {make_default_nodes, make_default_clingraph_nodes, getNextColor} from '../utils/index';
 
 function postCurrentSort(backendURL, oldIndex, newIndex) {
     return fetch(`${backendURL('graph/sorts')}`, {
@@ -96,7 +96,8 @@ const initialState = {
     transformationNodesMap: null,
     clingraphGraphics: [],
     shownRecursion: [],
-    highlightedAtoms: [],
+    explanationHighlightedSymbols: [],
+    explanationHighlightedRules: [],
     searchResultHighlightedSymbols: [],
 };
 
@@ -163,13 +164,6 @@ const CLEAR_SHOWN_RECURSION = 'APP/TRANSFORMATIONS/RECURSION/CLEAR';
 const toggleShownRecursion = (n) => ({type: TOGGLE_SHOWN_RECURSION, n});
 const clearShownRecursion = () => ({type: CLEAR_SHOWN_RECURSION});
 /**
- * Manage Highlighted Atoms from Filter
- */
-const ADD_ATOM = 'APP/TRANSFORMATIONS/ATOM/ADD';
-const REMOVE_ATOM = 'APP/TRANSFORMATIONS/ATOM/REMOVE';
-const addAtom = (a) => ({type: ADD_ATOM, a});
-const removeAtom = (a) => ({type: REMOVE_ATOM, a});
-/**
  * Manage Node Expansion (vertical overflow)
  * */
 const SET_NODE_IS_EXPANDABLE_V = 'APP/NODE/OVERFLOWV/SETEXPANDABLE';
@@ -193,13 +187,20 @@ const setClingraphGraphics = (g) => ({type: SET_CLINGRAPH_GRAPHICS, g});
 const clearClingraphGraphics = () => ({type: CLEAR_CLINGRAPH_GRAHICS});
 const setClingraphShowMini = (uuid, v) => ({type: SET_CLINGRAPH_SHOW_MINI, uuid, v});
 /**
+ * Manage Highlighted Symbols from Explanation
+ * */
+const TOGGLE_EXPLANATION_OF_SYMBOL = 'APP/SYMBOL/EXPLANATION/TOGGLE';
+const CLEAR_EXPLANATIONS = 'APP/SYMBOL/EXPLANATION/CLEAR';
+const toggleExplanationHighlightedSymbol = (arrows, colors) => ({type: TOGGLE_EXPLANATION_OF_SYMBOL, arrows, colors});
+const clearExplanationHighlightedSymbol = () => ({type: CLEAR_EXPLANATIONS});
+/**
  * Manage Highlighted Symbols from Search
  * */
-const ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SEARCH/SYMBOL/ADD';
-const REMOVE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SEARCH/SYMBOL/REMOVE';
-const NEXT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SEARCH/SYMBOL/NEXT';
-const PREV_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SEARCH/SYMBOL/PREV';
-const addSearchResultHighlightedSymbol = (s) => ({type: ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s});
+const ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/ADD';
+const REMOVE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/REMOVE';
+const NEXT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/NEXT';
+const PREV_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/PREV';
+const addSearchResultHighlightedSymbol = (s, colors) => ({type: ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s, colors});
 const removeSearchResultHighlightedSymbol = (s) => ({type: REMOVE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s});
 const nextSearchResultHighlightedSymbol = () => ({type: NEXT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL});
 const prevSearchResultHighlightedSymbol = () => ({type: PREV_SEARCH_RESULT_HIGHLIGHTED_SYMBOL});
@@ -612,27 +613,57 @@ const transformationReducer = (state = initialState, action) => {
             shownRecursion: [],
         };
     }
-    if (action.type === ADD_ATOM) {
+    if (action.type === TOGGLE_EXPLANATION_OF_SYMBOL) {
+        const nextColor = getNextColor(
+            state.explanationHighlightedSymbols,
+            state.searchResultHighlightedSymbols,
+            action.colors
+        );
+        const updatedSymbols = action.arrows.reduce((acc, arrow) => {
+            const index = acc.findIndex(
+                (symbol) => symbol.src === arrow.src && symbol.tgt === arrow.tgt
+            );
+
+            if (index !== -1) {
+                return acc.filter(
+                    (symbol) => symbol.src !== arrow.src || symbol.tgt !== arrow.tgt
+                );
+            } 
+            return [
+                ...acc,
+                {
+                    src: arrow.src,
+                    tgt: arrow.tgt,
+                    color: nextColor,
+                },
+            ];
+        }, state.explanationHighlightedSymbols);
         return {
             ...state,
-            highlightedAtoms: state.highlightedAtoms.concat(action.a),
-        };
+            explanationHighlightedSymbols: updatedSymbols,
+        }
     }
-    if (action.type === REMOVE_ATOM) {
+    if (action.type === CLEAR_EXPLANATIONS) {
         return {
             ...state,
-            highlightedAtoms: state.highlightedAtoms.filter(
-                (atom) => atom !== action.a
-            ),
+            explanationHighlightedSymbols: [],
+            explanationHighlightedRules: [],
         };
     }
     if (action.type === ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL) {
+        const nextColor = getNextColor(
+            state.explanationHighlightedSymbols,
+            state.searchResultHighlightedSymbols,
+            action.colors
+        );
         return {
             ...state,
             searchResultHighlightedSymbols: state.searchResultHighlightedSymbols.concat({
                 ...action.s,
-                selected: 0,
+                color: nextColor,
                 recent: true,
+                selected: 0,
+                scrollable: action.s.includes.length > 1,
             }),
         };
     }
@@ -640,7 +671,7 @@ const transformationReducer = (state = initialState, action) => {
         return {
             ...state,
             searchResultHighlightedSymbols: state.searchResultHighlightedSymbols.filter(
-                (symbol) => symbol !== action.s
+                (symbol) => symbol.repr !== action.s.repr
             ),
         };
     }
@@ -799,8 +830,8 @@ export {
     setNodeShowMini,
     setClingraphShowMini,
     checkTransformationExpandableCollapsible,
-    addAtom,
-    removeAtom,
     addSearchResultHighlightedSymbol,
     removeSearchResultHighlightedSymbol,
+    clearExplanationHighlightedSymbol,
+    toggleExplanationHighlightedSymbol,
 };
