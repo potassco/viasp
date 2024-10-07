@@ -1,5 +1,4 @@
 import React from "react";
-import { useHighlightedSymbol } from "../contexts/HighlightedSymbol";
 import Xarrow from "react-xarrows";
 import { useAnimationUpdater } from "../contexts/AnimationUpdater";
 import PropTypes from 'prop-types'
@@ -10,14 +9,14 @@ import { useTransformations } from "../contexts/transformations";
 
 export function Arrows() {
     const {
-        state: {explanationHighlightedSymbols: highlightedSymbol},
+        state: {explanationHighlightedSymbols},
     } = useTransformations();
 
     const [arrows, setArrows] = React.useState([]);
     const {animationState} = useAnimationUpdater();
 
     const calculateArrows = React.useCallback(() => {
-        return highlightedSymbol
+        return explanationHighlightedSymbols
             .map((arrow) => {
                 const suffix1 = `_${
                     document.getElementById(arrow.src + '_main')
@@ -57,7 +56,7 @@ export function Arrows() {
                     />
                 );
             });
-    }, [highlightedSymbol]);
+    }, [explanationHighlightedSymbols]);
 
     const debouncedCalculateArrows = React.useMemo(
         () => debounce(() => setArrows(calculateArrows()), 10),
@@ -66,7 +65,7 @@ export function Arrows() {
 
     React.useEffect(() => {
         debouncedCalculateArrows();
-    }, [animationState, highlightedSymbol, debouncedCalculateArrows]);
+    }, [animationState, explanationHighlightedSymbols, debouncedCalculateArrows]);
 
     return (
         <div className="arrows_container">

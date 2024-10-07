@@ -96,6 +96,7 @@ const initialState = {
     transformationNodesMap: null,
     clingraphGraphics: [],
     shownRecursion: [],
+    allHighlightedSymbols: [],
     explanationHighlightedSymbols: [],
     explanationHighlightedRules: [],
     searchResultHighlightedSymbols: [],
@@ -189,10 +190,69 @@ const setClingraphShowMini = (uuid, v) => ({type: SET_CLINGRAPH_SHOW_MINI, uuid,
 /**
  * Manage Highlighted Symbols from Explanation
  * */
+const ADD_EXPLANATION_OF_SYMBOL = 'APP/SYMBOL/EXPLANATION/ADD';
+const REMOVE_EXPLANATION_OF_SYMBOL = 'APP/SYMBOL/EXPLANATION/REMOVE';
 const TOGGLE_EXPLANATION_OF_SYMBOL = 'APP/SYMBOL/EXPLANATION/TOGGLE';
 const CLEAR_EXPLANATIONS = 'APP/SYMBOL/EXPLANATION/CLEAR';
-const toggleExplanationHighlightedSymbol = (arrows, colors) => ({type: TOGGLE_EXPLANATION_OF_SYMBOL, arrows, colors});
+const addExplanationHighlightedSymbol = (
+    arrows,
+    rule_hash,
+    source_symbol_id,
+    colors
+) => ({
+    type: ADD_EXPLANATION_OF_SYMBOL,
+    arrows,
+    rule_hash,
+    source_symbol_id,
+    colors,
+});
+const removeExplanationHighlightedSymbol = (
+    arrows,
+    rule_hash,
+    source_symbol_id,
+) => ({
+    type: REMOVE_EXPLANATION_OF_SYMBOL,
+    arrows,
+    rule_hash,
+    source_symbol_id,
+});
+const toggleExplanationHighlightedSymbol = (
+    arrows,
+    rule_hash,
+    source_symbol_id,
+    colors
+) => ({
+    type: TOGGLE_EXPLANATION_OF_SYMBOL,
+    arrows,
+    rule_hash,
+    source_symbol_id,
+    colors,
+});
 const clearExplanationHighlightedSymbol = () => ({type: CLEAR_EXPLANATIONS});
+/**
+ * Manage Highlighted Rules from Explanation
+ */
+const REMOVE_HIGHLIGHT_EXPLANATION_RULE_INTERNAL = 'APP/RULE/EXPLANATION/REMOVE/INTERNAL';
+const UNMARK_FOR_INSERTION_EXPLANATION_RULE = 'APP/RULE/EXPLANATION/UNMARKFORINSERTION';
+const MARK_FOR_DELETION_EXPLANATION_RULE = 'APP/RULE/EXPLANATION/MARKFORDELETION';
+const removeHighlightExplanationRule = (hash, source_symbol_id) => ({
+    type: REMOVE_HIGHLIGHT_EXPLANATION_RULE_INTERNAL,
+    hash,
+    source_symbol_id,
+});
+const unmarkInsertedSymbolHighlightDot = (hash, color, ruleDotHighlightColor) => ({
+    type: UNMARK_FOR_INSERTION_EXPLANATION_RULE,
+    hash,
+    color,
+    ruleDotHighlightColor,
+});
+const removeDeletedSymbolHighlightDot = (hash, color, ruleDotHighlightColor) => ({
+    type: MARK_FOR_DELETION_EXPLANATION_RULE,
+    hash,
+    color,
+    ruleDotHighlightColor,
+});
+
 /**
  * Manage Highlighted Symbols from Search
  * */
@@ -613,22 +673,128 @@ const transformationReducer = (state = initialState, action) => {
             shownRecursion: [],
         };
     }
+    if (action.type === ADD_EXPLANATION_OF_SYMBOL) {
+        const nextColor = getNextColor(
+            state.explanationHighlightedSymbols,
+            state.searchResultHighlightedSymbols,
+            action.colors
+        );
+        /* ADD SYMBOL HIGHLIGHT */
+        const updatedExplanationHighlightedSymbols = state.explanationHighlightedSymbols.concat(
+            action.arrows.map((arrow) => ({
+                src: arrow.src,
+                tgt: arrow.tgt,
+                color: nextColor,
+            }))
+        );
+
+        const updatedAllHighlightedSymbols =
+            updatedExplanationHighlightedSymbols
+                .map((item) => item.src)
+                .concat(
+                    updatedExplanationHighlightedSymbols.map((item) => item.tgt)
+                )
+                .concat(
+                    state.allHighlightedSymbols
+                );
+
+        /* ADD RULE HIGHLIGHT */
+        const new_rule_highlight = {
+            rule_hash: action.rule_hash,
+            color: nextColor,
+            shown: true,
+            source_id: action.source_symbol_id,
+        };
+        const newRuleHighlight = state.explanationHighlightedRules.concat([new_rule_highlight])
+
+        return {
+            ...state,
+            allHighlightedSymbols: updatedAllHighlightedSymbols,
+            explanationHighlightedSymbols: updatedExplanationHighlightedSymbols,
+            explanationHighlightedRules: newRuleHighlight,
+        };
+    }
+    if (action.type === REMOVE_EXPLANATION_OF_SYMBOL) {
+        /* REMOVE SYMBOL HIGHLIGHT */
+        const updatedExplanationHighlightedSymbols = action.arrows.reduce(
+            (acc, arrow) => {
+                const index = acc.findIndex(
+                    (symbol) =>
+                        symbol.src === arrow.src && symbol.tgt === arrow.tgt
+                );
+
+                if (index !== -1) {
+                    return acc.filter(
+                        (symbol) =>
+                            symbol.src !== arrow.src || symbol.tgt !== arrow.tgt
+                    );
+                }
+                return acc;
+            },
+            state.explanationHighlightedSymbols
+        );
+
+        const updatedAllHighlightedSymbols =
+            updatedExplanationHighlightedSymbols
+                .map((item) => item.src)
+                .concat(
+                    updatedExplanationHighlightedSymbols.map(
+                        (item) => item.tgt
+                    )
+                )
+                .concat(state.allHighlightedSymbols);
+
+        /* MARK FOR REMOVAL RULE HIGHLIGHT */
+        const newRuleHighlight = state.explanationHighlightedRules.map(
+            (rule) => {
+                if (
+                    rule.rule_hash === action.rule_hash &&
+                    rule.source_id === action.source_id
+                ) {
+                    return {
+                        ...rule,
+                        shown: false,
+                    };
+                }
+                return rule;
+            }
+        );
+
+        return {
+            ...state,
+            allHighlightedSymbols: updatedAllHighlightedSymbols,
+            explanationHighlightedSymbols:
+                updatedExplanationHighlightedSymbols,
+            explanationHighlightedRules: newRuleHighlight,
+        };
+    }
+    if (action.type === REMOVE_HIGHLIGHT_EXPLANATION_RULE_INTERNAL) {
+        const newRuleHighlight = state.explanationHighlightedRules.filter(
+            (rule) => (rule.rule_hash === action.rule_hash && rule.source_id === action.source_id));
+
+        return {
+            ...state,
+            explanationHighlightedRules: newRuleHighlight,
+        };
+    }
     if (action.type === TOGGLE_EXPLANATION_OF_SYMBOL) {
         const nextColor = getNextColor(
             state.explanationHighlightedSymbols,
             state.searchResultHighlightedSymbols,
             action.colors
         );
-        const updatedSymbols = action.arrows.reduce((acc, arrow) => {
+        /* TOGGLE SYMBOL HIGHLIGHT */
+        const updatedExplanationHighlightedSymbols = action.arrows.reduce((acc, arrow) => {
             const index = acc.findIndex(
                 (symbol) => symbol.src === arrow.src && symbol.tgt === arrow.tgt
             );
 
             if (index !== -1) {
                 return acc.filter(
-                    (symbol) => symbol.src !== arrow.src || symbol.tgt !== arrow.tgt
+                    (symbol) =>
+                        symbol.src !== arrow.src || symbol.tgt !== arrow.tgt
                 );
-            } 
+            }
             return [
                 ...acc,
                 {
@@ -638,14 +804,58 @@ const transformationReducer = (state = initialState, action) => {
                 },
             ];
         }, state.explanationHighlightedSymbols);
+
+        const updatedAllHighlightedSymbols =
+            updatedExplanationHighlightedSymbols
+                .map((item) => item.src)
+                .concat(
+                    updatedExplanationHighlightedSymbols.map((item) => item.tgt)
+                )
+                .concat(
+                    state.searchResultHighlightedSymbols.map(
+                        (item) => item.includes[item.selected].symbol_uuid
+                    )
+                );
+
+        /* TOGGLE RULE HIGHLIGHT */
+        const new_rule_highlight = {
+            rule_hash: action.rule_hash,
+            color: nextColor,
+            markedForInsertion: true,
+            markedForDeletion: false,
+            shown: true,
+            source_id: action.source_symbol_id,
+        };
+        const ruleHighlightExists = state.explanationHighlightedRules.some(rule =>
+            rule.rule_hash === new_rule_highlight.rule_hash &&
+            rule.source_id === new_rule_highlight.source_id
+        );
+        const newRuleHighlight = ruleHighlightExists 
+            ? state.explanationHighlightedRules.map(rule => {
+                if (rule.rule_hash === new_rule_highlight.rule_hash && rule.source_id === new_rule_highlight.source_id) {
+                    return {
+                        ...rule,
+                        shown: false,
+                    };
+                }
+                return rule;
+            }) 
+            : state.explanationHighlightedRules.concat(new_rule_highlight);
+        
+
         return {
             ...state,
-            explanationHighlightedSymbols: updatedSymbols,
-        }
+            allHighlightedSymbols: updatedAllHighlightedSymbols,
+            explanationHighlightedSymbols: updatedExplanationHighlightedSymbols,
+            explanationHighlightedRules: newRuleHighlight,
+        };
     }
     if (action.type === CLEAR_EXPLANATIONS) {
         return {
             ...state,
+            allHighlightedSymbols: state.searchResultHighlightedSymbols.map(
+                        (item) => item.includes[item.selected].symbol_uuid
+                    ),
             explanationHighlightedSymbols: [],
             explanationHighlightedRules: [],
         };
@@ -656,28 +866,64 @@ const transformationReducer = (state = initialState, action) => {
             state.searchResultHighlightedSymbols,
             action.colors
         );
-        return {
-            ...state,
-            searchResultHighlightedSymbols: state.searchResultHighlightedSymbols.concat({
+        const updatedSearchResultHighlightedSymbols = state.searchResultHighlightedSymbols.concat({
                 ...action.s,
                 color: nextColor,
                 recent: true,
                 selected: 0,
                 scrollable: action.s.includes.length > 1,
-            }),
+            });
+        const updatedAllHighlightedSymbols = state.explanationHighlightedSymbols
+            .map((item) => item.src)
+            .concat(state.explanationHighlightedSymbols.map((item) => item.tgt))
+            .concat(
+                updatedSearchResultHighlightedSymbols.map(
+                    (item) => item.includes[item.selected].symbol_uuid
+                )
+            );
+        return {
+            ...state,
+            allHighlightedSymbols: updatedAllHighlightedSymbols,
+            searchResultHighlightedSymbols: updatedSearchResultHighlightedSymbols
         };
     }
     if (action.type === REMOVE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL) {
+        const updatedSearchResultHighlightedSymbols = state.searchResultHighlightedSymbols.filter(
+                (symbol) => symbol.repr !== action.s.repr
+            );
+        const updatedAllHighlightedSymbols = state.explanationHighlightedSymbols
+            .map((item) => item.src)
+            .concat(state.explanationHighlightedSymbols.map((item) => item.tgt))
+            .concat(
+                updatedSearchResultHighlightedSymbols.map(
+                    (item) => item.includes[item.selected].symbol_uuid
+                )
+            );
         return {
             ...state,
-            searchResultHighlightedSymbols: state.searchResultHighlightedSymbols.filter(
-                (symbol) => symbol.repr !== action.s.repr
-            ),
+            allHighlightedSymbols: updatedAllHighlightedSymbols,
+            searchResultHighlightedSymbols: updatedSearchResultHighlightedSymbols
         };
     }
-
+    if (action.type === UNMARK_FOR_INSERTION_EXPLANATION_RULE) {
+        return {
+            ...state,
+            explanationHighlightedRules: state.explanationHighlightedRules.map(rule => {
+                if (rule.rule_hash === action.hash && rule.color === action.color) {
+                    return {
+                        ...rule,
+                        markedForInsertion: false,
+                    };
+                }
+                return rule;
+            }),
+        };
+    }
     return {...state};
 };
+
+
+
 
 const TransformationProvider = ({children}) => {
     const [, message_dispatch] = useMessages();
@@ -686,6 +932,7 @@ const TransformationProvider = ({children}) => {
         transformationReducer,
         initialState
     );
+
     const backendUrlRef = React.useRef(backendURL);
     const messageDispatchRef = React.useRef(message_dispatch);
 
@@ -800,7 +1047,12 @@ const TransformationProvider = ({children}) => {
 
     return (
         <TransformationContext.Provider
-            value={{state, dispatch, setSortAndFetchGraph, reloadEdges}}
+            value={{
+                state,
+                dispatch,
+                setSortAndFetchGraph,
+                reloadEdges,
+            }}
         >
             {children}
         </TransformationContext.Provider>
@@ -833,5 +1085,10 @@ export {
     addSearchResultHighlightedSymbol,
     removeSearchResultHighlightedSymbol,
     clearExplanationHighlightedSymbol,
+    addExplanationHighlightedSymbol,
+    removeExplanationHighlightedSymbol,
+    removeHighlightExplanationRule,
     toggleExplanationHighlightedSymbol,
+    unmarkInsertedSymbolHighlightDot,
+    removeDeletedSymbolHighlightDot,
 };

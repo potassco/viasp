@@ -51,7 +51,7 @@ import debounce from 'lodash.debounce';
 function GraphContainer(props) {
     const {notifyDash, scrollContainer, transform} = props;
     const {
-        state: {transformations, clingraphGraphics, transformationDropIndices},
+        state: {transformations, clingraphGraphics, transformationDropIndices, explanationHighlightedSymbols},
         dispatch: dispatchTransformation,
         setSortAndFetchGraph,
     } = useTransformations();
@@ -71,7 +71,7 @@ function GraphContainer(props) {
     const graphContainerRef = React.useRef(null);
     return (
         <div className="graph_container" ref={graphContainerRef}>
-            <Facts transform={transform}/>
+            <Facts transform={transform} />
             <Suspense fallback={<div>Loading...</div>}>
                 <Settings />
             </Suspense>
@@ -87,8 +87,8 @@ function GraphContainer(props) {
                 unsetZIndex={true}
                 commonProps={{transform}}
             />
-            {clingraphUsed ? <Boxrow transform={transform}/> : null}
-            {highlightedSymbol.length === 0 ? null : <Arrows />}
+            {clingraphUsed ? <Boxrow transform={transform} /> : null}
+            {explanationHighlightedSymbols.length === 0 ? null : <Arrows />}
             {transformations.length === 0 ? null : <Edges />}
         </div>
     );

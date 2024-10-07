@@ -19,14 +19,15 @@ function makeClassNameFromMarkedSymbol(highlightedSymbol) {
 }
 
 function ClearMarked() {
-    const {highlightedSymbol, searchResultHighlightedSymbol, clearHighlightedSymbol} = useHighlightedSymbol();
     const colorPalette = useColorPalette();
     const [classNames, setClassNames] = useState('');
-    const {dispatch: dispatchT} = useTransformations();
+    const {dispatch: dispatchT, state: {explanationHighlightedSymbols}} = useTransformations();
 
     React.useEffect(() => {
-        setClassNames(makeClassNameFromMarkedSymbol(highlightedSymbol));
-    }, [highlightedSymbol, setClassNames]);
+        setClassNames(
+            makeClassNameFromMarkedSymbol(explanationHighlightedSymbols)
+        );
+    }, [explanationHighlightedSymbols, setClassNames]);
     const [isHovered, setIsHovered] = useState(false);
     const [isClicked, setIsClicked] = useState(false);
 
