@@ -15,6 +15,7 @@ import {
     addExplanationHighlightedSymbol,
     removeExplanationHighlightedSymbol,
     removeHighlightExplanationRule,
+    removeExplanationRuleBackgroundHighlight,
 } from '../contexts/transformations';
 import {useSettings} from '../contexts/Settings';
 import {useShownDetail} from '../contexts/ShownDetail';
@@ -24,7 +25,7 @@ import AnimateHeight from 'react-animate-height';
 import {useAnimationUpdater} from '../contexts/AnimationUpdater';
 import {IconWrapper} from '../LazyLoader';
 import useResizeObserver from '@react-hook/resize-observer';
-import {findChildByClass, getNextColor} from '../utils';
+import {findChildByClass} from '../utils';
 import debounce from 'lodash.debounce';
 import * as Constants from '../constants';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
@@ -67,7 +68,26 @@ function middlewareRemoveExplanationHighlightedSymbol(dispatch, action) {
                 action.source_symbol_id
             )
         );
-    }, 3000);
+    }, Constants.ruleHighlightFadeDuration);
+}
+
+function middlewareAddExplanationHighlightedSymbol(dispatch, action) {
+    dispatch(
+        addExplanationHighlightedSymbol(
+            action.arrows,
+            action.rule_hash,
+            action.source_symbol_id,
+            action.colors
+        )
+    );
+    setTimeout(() => {
+        dispatch(
+            removeExplanationRuleBackgroundHighlight(
+                action.rule_hash,
+                action.source_symbol_id
+            )
+        );
+    }, Constants.ruleHighlightDuration);
 }
 
 function NodeContent(props) {
@@ -131,31 +151,22 @@ function NodeContent(props) {
                                 return !existingArrows.includes(JSON.stringify(arrow))
                                 }
                         )) {
-                            // console.log("adding")
-                            dispatchT(
-                                addExplanationHighlightedSymbol(
-                                    result.symbols,
-                                    result.rule,
-                                    src.uuid,
-                                    colorPalette.explanationHighlights
-                                )
+                            middlewareAddExplanationHighlightedSymbol(
+                                dispatchT, {
+                                    arrows: result.symbols,
+                                    rule_hash: result.rule,
+                                    source_symbol_id: src.uuid,
+                                    colors: colorPalette.explanationHighlights
+                                }
                             )
                         }
                         else {
-                            console.log("removing")
                             middlewareRemoveExplanationHighlightedSymbol(
                                 dispatchT, {
                                     arrows: result.symbols,
                                     rule_hash: result.rule,
                                     source_symbol_id: src.uuid
                                 })
-                            // dispatchT(
-                            //     removeExplanationHighlightedSymbol(
-                            //         result.symbols,
-                            //         result.rule,
-                            //         src.uuid,
-                            //     )
-                            // )
                         }
                     }
                 })

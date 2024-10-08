@@ -4,7 +4,7 @@ import {RULEWRAPPER} from '../types/propTypes';
 import * as Constants from '../constants';
 import {useColorPalette} from '../contexts/ColorPalette';
 import {Transition} from 'react-transition-group';
-import { useTransformations, unmarkInsertedSymbolHighlightDot, removeDeletedSymbolHighlightDot } from '../contexts/transformations';
+import { useTransformations } from '../contexts/transformations';
 import {styled, keyframes, css} from 'styled-components';
 
 
@@ -96,10 +96,10 @@ const highlightAnimation = keyframes`
     0% {
         background-color: transparent;
     }
-    10% {
+    20% {
         background-color: var(--highlight-color);
     }
-    90% {
+    80% {
         background-color: var(--highlight-color);
     }
     100% {
@@ -128,7 +128,7 @@ function Rule(props) {
         ruleWrapper: {hash, rule},
         multipleRules,
     } = props;
-    const {dispatch: dispatchT, state: {explanationHighlightedRules}} = useTransformations();
+    const {state: {explanationHighlightedRules}} = useTransformations();
     const [thisRuleExplanationHighlights, setThisRuleExplanationHighlights] = React.useState([]);
 
     React.useEffect(() => {
@@ -139,30 +139,17 @@ function Rule(props) {
         }
     }, [explanationHighlightedRules, hash, setThisRuleExplanationHighlights]);
 
-    React.useEffect(() => {
-        if (thisRuleExplanationHighlights.length > 0) {
-            // console.log({thisRuleExplanationHighlights});
-        }
-    }, [thisRuleExplanationHighlights]);
-
     const [highlightColor, setHighlightColor] = React.useState(null);
     React.useEffect(() => {
         if (thisRuleExplanationHighlights.length > 0) {
-            const latestHighlight =
-                thisRuleExplanationHighlights[
-                    thisRuleExplanationHighlights.length - 1
-                ];
-            setHighlightColor(latestHighlight.color);
-            const timer = setTimeout(() => setHighlightColor(null), Constants.ruleHighlightDuration);
-            return () => {
-                setHighlightColor(null);
-                clearTimeout(timer);
-            };
+            const latestHighlight = thisRuleExplanationHighlights
+                .map((rh) => rh.ruleBackgroundHighlight)
+                .filter((h) => h !== 'transparent')
+                .pop();
+            setHighlightColor(latestHighlight);
         }
         return () => {};
     }, [thisRuleExplanationHighlights]);
-
-    
 
     return (
         <div
@@ -174,7 +161,6 @@ function Rule(props) {
             }}
         >
             <RuleTextDiv
-                // key={rule}
                 className="rule_text"
                 highlight={highlightColor}
                 dangerouslySetInnerHTML={{
@@ -187,76 +173,6 @@ function Rule(props) {
             <RuleHighlightDotContainer hash={hash} thisRuleExplanationHighlights={thisRuleExplanationHighlights} />
         </div>
     );
-    // return (
-    //     <div
-    //         key={hash}
-    //         className={`rule ${hash}`}
-    //         style={{
-    //             position: 'relative',
-    //             width: 'fit-content',
-    //         }}
-    //     >
-    //         <div
-    //             key={rule}
-    //             className="rule_text"
-    //             style={{
-    //                 backgroundColor:
-    //                     multipleRules &&
-    //                     thisRuleExplanationHighlights[
-    //                         thisRuleExplanationHighlights.length - 1
-    //                     ]?.markedForInsertion
-    //                         ? thisRuleExplanationHighlights[
-    //                               thisRuleExplanationHighlights.length - 1
-    //                           ]?.color
-    //                         : 'transparent',
-    //             }}
-    //             dangerouslySetInnerHTML={{
-    //                 __html: rule
-    //                     .replace(/</g, '&lt;')
-    //                     .replace(/>/g, '&gt;')
-    //                     .replace(/\n/g, '<br>'),
-    //             }}
-    //         />
-    //         {!thisRuleExplanationHighlights || !multipleRules
-    //             ? null
-    //             : thisRuleExplanationHighlights.map((hc, i) => 
-    //                       <span
-    //                           key={`${hash}_${hc.color}_${i}`}
-    //                           className={`rule_highlight_dot 
-    //                             ${hc.markedForInsertion ? 'fade-in' : ''}
-    //                             ${hc.markedForDeletion ? 'fade-out' : ''}
-    //                         `}
-    //                           style={{
-    //                               backgroundColor: hc.color,
-    //                               marginLeft: `${
-    //                                   Constants.hSpacing +
-    //                                   i * Constants.hSpacing
-    //                               }px`,
-    //                               animationDuration: `${Constants.ruleHighlightFadeDuration}ms`,
-    //                           }}
-    //                             onAnimationEnd={(e) => {
-    //                                 if (e.target.className.includes('fade-out')) {
-    //                                     removeDeletedSymbolHighlightDot(
-    //                                         hash,
-    //                                         hc.color,
-    //                                         ruleDotHighlightColor
-    //                                     );
-    //                                     dispatchT(
-
-    //                                     )
-    //                                 }
-    //                                 if (e.target.className.includes('fade-in')) {
-    //                                     dispatchT(unmarkInsertedSymbolHighlightDot(
-    //                                           hash,
-    //                                           hc.color,
-    //                                           ruleDotHighlightColor
-    //                                     ));
-    //                                 }
-    //                             }}
-    //                       />
-    //               )}
-    //     </div>
-    // );
 }
 
 Rule.propTypes = {

@@ -235,9 +235,10 @@ const clearExplanationHighlightedSymbol = () => ({type: CLEAR_EXPLANATIONS});
 const REMOVE_HIGHLIGHT_EXPLANATION_RULE_INTERNAL = 'APP/RULE/EXPLANATION/REMOVE/INTERNAL';
 const UNMARK_FOR_INSERTION_EXPLANATION_RULE = 'APP/RULE/EXPLANATION/UNMARKFORINSERTION';
 const MARK_FOR_DELETION_EXPLANATION_RULE = 'APP/RULE/EXPLANATION/MARKFORDELETION';
-const removeHighlightExplanationRule = (hash, source_symbol_id) => ({
+const REMOVE_RULE_BACKGROUND_HIGHLIGHT = 'APP/RULE/EXPLANATION/RULEBACKGROUND/REMOVE';
+const removeHighlightExplanationRule = (rule_hash, source_symbol_id) => ({
     type: REMOVE_HIGHLIGHT_EXPLANATION_RULE_INTERNAL,
-    hash,
+    rule_hash,
     source_symbol_id,
 });
 const unmarkInsertedSymbolHighlightDot = (hash, color, ruleDotHighlightColor) => ({
@@ -251,6 +252,11 @@ const removeDeletedSymbolHighlightDot = (hash, color, ruleDotHighlightColor) => 
     hash,
     color,
     ruleDotHighlightColor,
+});
+const removeExplanationRuleBackgroundHighlight = (rule_hash, source_symbol_id) => ({
+    type: REMOVE_RULE_BACKGROUND_HIGHLIGHT,
+    rule_hash,
+    source_symbol_id,
 });
 
 /**
@@ -704,8 +710,17 @@ const transformationReducer = (state = initialState, action) => {
             color: nextColor,
             shown: true,
             source_id: action.source_symbol_id,
+            ruleBackgroundHighlight: nextColor,
         };
-        const newRuleHighlight = state.explanationHighlightedRules.concat([new_rule_highlight])
+        const newRuleHighlight = state.explanationHighlightedRules.map((rule) => {
+                if (rule.rule_hash === action.rule_hash && rule.ruleBackgroundHighlight !== 'transparent') {
+                    return {
+                        ...rule,
+                        ruleBackgroundHighlight: 'transparent'
+                }}
+                return rule
+            });
+        newRuleHighlight.push(new_rule_highlight);
 
         return {
             ...state,
@@ -749,11 +764,12 @@ const transformationReducer = (state = initialState, action) => {
             (rule) => {
                 if (
                     rule.rule_hash === action.rule_hash &&
-                    rule.source_id === action.source_id
+                    rule.source_id === action.source_symbol_id
                 ) {
                     return {
                         ...rule,
                         shown: false,
+                        ruleBackgroundHighlight: 'transparent',
                     };
                 }
                 return rule;
@@ -770,7 +786,29 @@ const transformationReducer = (state = initialState, action) => {
     }
     if (action.type === REMOVE_HIGHLIGHT_EXPLANATION_RULE_INTERNAL) {
         const newRuleHighlight = state.explanationHighlightedRules.filter(
-            (rule) => (rule.rule_hash === action.rule_hash && rule.source_id === action.source_id));
+            (rule) => !(rule.rule_hash === action.rule_hash && rule.source_id === action.source_symbol_id));
+
+        return {
+            ...state,
+            explanationHighlightedRules: newRuleHighlight,
+        };
+    }
+    if (action.type === REMOVE_RULE_BACKGROUND_HIGHLIGHT) {
+        /* MARK FOR REMOVAL RULE HIGHLIGHT */
+        const newRuleHighlight = state.explanationHighlightedRules.map(
+            (rule) => {
+                if (
+                    rule.rule_hash === action.rule_hash &&
+                    rule.source_id === action.source_symbol_id
+                ) {
+                    return {
+                        ...rule,
+                        ruleBackgroundHighlight: 'transparent',
+                    };
+                }
+                return rule;
+            }
+        );
 
         return {
             ...state,
@@ -1091,4 +1129,5 @@ export {
     toggleExplanationHighlightedSymbol,
     unmarkInsertedSymbolHighlightDot,
     removeDeletedSymbolHighlightDot,
+    removeExplanationRuleBackgroundHighlight,
 };
