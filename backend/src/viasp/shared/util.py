@@ -221,8 +221,6 @@ def get_lp_files(files, stdin, stdin_is_json=False):
     lp_files = []
 
     for f in files:
-        if ".lp" not in f[1]:
-            continue
         lp_files.append(f)
     if lp_files == []:
         if stdin == "" or stdin_is_json:
