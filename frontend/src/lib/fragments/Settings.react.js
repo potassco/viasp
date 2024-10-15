@@ -1,14 +1,15 @@
 import React, {useState} from "react";
 import PropTypes from "prop-types";
 import {useColorPalette} from "../contexts/ColorPalette";
-import {useHighlightedSymbol} from "../contexts/HighlightedSymbol";
 import {
     useTransformations,
     clearExplanationHighlightedSymbol,
+    clearSearchResultHighlightedSymbol,
 } from '../contexts/transformations';
 import './settings.css'
 import { darken } from 'polished';
 import { Search } from "./Search.react";
+import { styled } from 'styled-components';
 
 
 function makeClassNameFromMarkedSymbol(highlightedSymbol) {
@@ -35,7 +36,7 @@ function ClearMarked() {
     const style = {
         background: colorPalette.primary,
         color: colorPalette.light,
-        padding: "12px",
+        padding: "1em 1.5em",
     };
 
     if (isHovered) {
@@ -50,10 +51,15 @@ function ClearMarked() {
     const handleMouseDown = () => setIsClicked(true);
     const handleMouseUp = () => setIsClicked(false);
 
+    function onClick() {
+        dispatchT(clearExplanationHighlightedSymbol());
+        dispatchT(clearSearchResultHighlightedSymbol());
+    }
+
     return (
         <div className="clear_marked">
             <span
-                onClick={() => dispatchT(clearExplanationHighlightedSymbol())}
+                onClick={onClick}
                 className={classNames}
                 style={style}
                 onMouseEnter={handleMouseEnter}

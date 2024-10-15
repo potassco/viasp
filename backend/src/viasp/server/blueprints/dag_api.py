@@ -14,7 +14,7 @@ from sqlalchemy import select
 from ...asp.reify import ProgramAnalyzer, reify_list
 from ...asp.justify import build_graph
 from ...shared.defaults import STATIC_PATH
-from ...shared.model import Transformation, Node, Signature
+from ...shared.model import SearchResultSymbolWrapper, Transformation, Node, Signature
 from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations, pairwise
 from ...shared.io import StableModel
 from ...shared.simple_logging import error
@@ -605,34 +605,22 @@ def get_atoms_from_nodes(nodes: List[Node]):
 def get_all_symbols_in_graph(encoding_id, current_graph_hash):
     db_graph_node_uuids = db_session.execute(
         select(GraphNodes.node_uuid).filter_by(
-            encoding_id=encoding_id, graph_hash=current_graph_hash)).scalars().all()
+            encoding_id=encoding_id,
+            graph_hash=current_graph_hash,
+            recursive_supernode_uuid=None)).scalars().all()
     db_graph_symbols = db_session.execute(
         select(GraphSymbols).filter(GraphSymbols.node.in_(db_graph_node_uuids))).scalars().all()
     return db_graph_symbols
 
 def search_term_in_symbols(query, db_graph_symbols):
     all_filtered_symbols = list(filter(lambda x: query in x.symbol, db_graph_symbols))
+    all_filtered_symbols.reverse()
     symbols_results = []
     for symbol in all_filtered_symbols:
-        existing_atom_result = next((s for s in symbols_results if s["repr"] == symbol.symbol), None)
-        if existing_atom_result:
-            existing_atom_result["includes"].append({
-                "_type": "SearchResultIncludeAtom",
-                "symbol_uuid": symbol.symbol_uuid,
-                "node_uuid": symbol.node
-            })
+        if symbol.symbol not in symbols_results:
+            symbols_results.append(SearchResultSymbolWrapper(symbol.symbol, [symbol.symbol_uuid]))
         else:
-            symbols_results.append({
-                "_type":
-                "SearchResultSymbolWrapper",
-                "repr":
-                symbol.symbol,
-                "includes": [{
-                    "_type": "SearchResultIncludeAtom",
-                    "symbol_uuid": symbol.symbol_uuid,
-                    "node_uuid": symbol.node
-                }]
-            })
+            symbols_results[symbols_results.index(symbol.symbol)].includes.append(symbol.symbol_uuid)
     return symbols_results
 
 
@@ -650,8 +638,6 @@ def search():
 
         query = request.args["q"]
         query = query.replace(" ", "")
-        result = []
-
         # signatures = get_all_signatures(graph)
         # for signature in signatures:
         #     if query in signature.name \
@@ -671,9 +657,8 @@ def search():
 
         db_graph_symbols = get_all_symbols_in_graph(encoding_id, current_graph_hash)
         results = search_term_in_symbols(query, db_graph_symbols)
-        results.sort(key=lambda x: x["repr"])
+        results.sort()
         return jsonify(results)
-        # get all atoms in the current graph
 
     return jsonify([])
 

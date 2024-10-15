@@ -2,11 +2,9 @@ from copy import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from inspect import Signature as inspect_Signature
-from re import U
 from typing import Any, Sequence, Dict, Union, FrozenSet, Collection, List, Tuple
 from types import MappingProxyType
 from uuid import UUID, uuid4
-import networkx as nx
 
 from clingo import Symbol, ModelType
 from clingo.ast import AST, Transformer
@@ -202,6 +200,24 @@ class StableModel:
         return symbols
 
 
+
+@dataclass
+class SearchResultSymbolWrapper:
+    repr: str 
+    includes: List[str]
+
+    def __eq__(self, o):
+        if not isinstance(o, type(self)):
+            if isinstance(o, str):
+                return self.repr == o
+            return False
+        return self.repr == o.repr and self.includes == o.includes
+    
+    def __lt__(self, other):
+        if not isinstance(other, SearchResultSymbolWrapper):
+            return NotImplemented
+        return self.repr < other.repr
+    
 class FailedReason(Enum):
     WARNING = "WARNING"
     FAILURE = "FAILURE"

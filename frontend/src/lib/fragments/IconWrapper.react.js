@@ -6,6 +6,7 @@ import dragHandleRounded from '@iconify/icons-material-symbols/drag-handle-round
 import arrowDownSLine from '@iconify/icons-ri/arrow-down-s-line';
 import closeLine from '@iconify/icons-ri/close-line';
 import search from '@iconify/icons-ri/search-line';
+import IcRoundNavigateNext from '@iconify/icons-ic/round-navigate-next';
 
 export default function IconWrapper(props) {
     const {icon, ...rest} = props;
@@ -23,6 +24,9 @@ export default function IconWrapper(props) {
     }
     if (icon === 'close') {
         return <Icon icon={closeLine} {...rest} />;
+    }
+    if (icon === 'navigateNext') {
+        return <Icon icon={IcRoundNavigateNext} {...rest} />;
     }
     return <Icon {...props} />;
 }

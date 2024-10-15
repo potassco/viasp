@@ -26,7 +26,7 @@ from clingo import Model as clingo_Model, ModelType, Symbol, Application
 from clingo.ast import AST, ASTType
 
 from .interfaces import ViaspClient
-from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer
+from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper
 from ..server.models import GraphEdges
 
 class DataclassJSONProvider(JSONProvider):
@@ -66,6 +66,8 @@ def object_hook(obj):
         return Transformation(**obj)
     elif t == "RuleContainer":
         return RuleContainer(str_=obj["str_"], hash=obj["hash"])
+    elif t == "SearchResultSymbolWrapper":
+        return SearchResultSymbolWrapper(**obj)
     elif t == "Signature":
         return Signature(**obj)
     elif t == "Graph":
@@ -123,6 +125,8 @@ def dataclass_to_dict(o):
         }
     elif isinstance(o, RuleContainer):
         return {"_type": "RuleContainer", "ast": o.ast, "str_": o.str_, "hash": o.hash}
+    elif isinstance(o, SearchResultSymbolWrapper):
+        return {"_type": "SearchResultSymbolWrapper", "repr": o.repr, "includes": o.includes}
     elif isinstance(o, StableModel):
         return {"_type": "StableModel", "cost": o.cost, "optimality_proven": o.optimality_proven, "type": o.type,
                 "atoms": o.atoms, "terms": o.terms, "shown": o.shown, "theory": o.theory}

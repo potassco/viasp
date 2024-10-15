@@ -168,3 +168,4 @@ class AnalyzerConstants(Base):
     __table_args__ = (UniqueConstraint('encoding_id',
                                        'constant',
                                        name='_encoding_constant_uc'), )
+

@@ -109,18 +109,18 @@ const highlightAnimation = keyframes`
 
 const RuleTextDiv = styled.div`
     white-space: pre-wrap;
-    padding: 4px 0;
+    padding: 0.3em 0;
     position: relative;
     width: fit-content;
     border-radius: 7px;
     transition: background-color 1s ease;
-    ${({highlight}) =>
-        highlight
-        ? css`
-            animation: ${highlightAnimation} 3s ease;
-            --highlight-color: ${highlight};
-        `
-        : ''}
+    ${(props) =>
+        props.$highlight
+            ? css`
+                  animation: ${highlightAnimation} 3s ease;
+                  --highlight-color: ${props.$highlight};
+              `
+            : ''}
 `;
 
 function Rule(props) {
@@ -141,7 +141,7 @@ function Rule(props) {
 
     const [highlightColor, setHighlightColor] = React.useState(null);
     React.useEffect(() => {
-        if (thisRuleExplanationHighlights.length > 0) {
+        if (multipleRules && thisRuleExplanationHighlights.length > 0) {
             const latestHighlight = thisRuleExplanationHighlights
                 .map((rh) => rh.ruleBackgroundHighlight)
                 .filter((h) => h !== 'transparent')
@@ -149,7 +149,7 @@ function Rule(props) {
             setHighlightColor(latestHighlight);
         }
         return () => {};
-    }, [thisRuleExplanationHighlights]);
+    }, [thisRuleExplanationHighlights, multipleRules]);
 
     return (
         <div
@@ -161,8 +161,8 @@ function Rule(props) {
             }}
         >
             <RuleTextDiv
-                className="rule_text"
-                highlight={highlightColor}
+                className="rule_text txt-elem"
+                $highlight={highlightColor}
                 dangerouslySetInnerHTML={{
                     __html: rule
                         .replace(/</g, '&lt;')
@@ -170,7 +170,14 @@ function Rule(props) {
                         .replace(/\n/g, '<br>'),
                 }}
             />
-            <RuleHighlightDotContainer hash={hash} thisRuleExplanationHighlights={thisRuleExplanationHighlights} />
+            {multipleRules ? (
+                <RuleHighlightDotContainer
+                    hash={hash}
+                    thisRuleExplanationHighlights={
+                        thisRuleExplanationHighlights
+                    }
+                />
+            ) : null}
         </div>
     );
 }
@@ -198,7 +205,7 @@ export function RowHeader(props) {
                     <Rule
                         key={rw.hash}
                         ruleWrapper={rw}
-                        multipleRules={true} //{ruleWrappers.length > 1}
+                        multipleRules={ruleWrappers.length > 1}
                     />
                 );
             })}

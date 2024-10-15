@@ -97,13 +97,12 @@ export const MAPZOOMSTATE = PropTypes.exact({
     scale: PropTypes.number,
     translation: PropTypes.shape({ x: PropTypes.number, y: PropTypes.number }),
 })
-export const SEARCHRESULTINCLUDE = PropTypes.exact({
-    _type: PropTypes.oneOf(['SearchResultIncludeAtom']),
-    node_uuid: PropTypes.string,
-    symbol_uuid: PropTypes.string,
-})
 export const SEARCHRESULTSYMBOLWRAPPER = PropTypes.exact({
     _type: PropTypes.oneOf(['SearchResultSymbolWrapper']),
     repr: PropTypes.string,
-    includes: PropTypes.arrayOf(SEARCHRESULTINCLUDE),
+    includes: PropTypes.arrayOf(PropTypes.string),
+    color: PropTypes.string,
+    recent: PropTypes.bool,
+    selected: PropTypes.number,
+    scrollable: PropTypes.bool,
 });

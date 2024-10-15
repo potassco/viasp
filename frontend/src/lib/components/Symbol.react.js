@@ -14,15 +14,15 @@ const symbolPulsate = keyframes`
     }
 
     100% {
-        box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
+        box-shadow: 0 0 0 20px rgba(0, 0, 0, 0);
     }
 `;
 
 const pulsate = css`
-    animation: ${symbolPulsate} 1s 3;
+    animation: ${symbolPulsate} 1s infinite;
 `;
 
-const SymbolElement = styled.span`
+const SymbolElementSpan = styled.span`
     margin: 1px 1px;
     display: flex;
     border-radius: 7pt;
@@ -46,7 +46,6 @@ export function Symbol(props) {
         },
     } = useTransformations();
     
-    const [isMarked, setIsMarked] = useState(false);
     const [backgroundColorStyle, setBackgroundColorStyle] = useState('transparent');
     const [isPulsating, setIsPulsating] = useState(false);
 
@@ -55,20 +54,33 @@ export function Symbol(props) {
 
     React.useEffect(() => {
         if (isHovered) {
-            return
+            return;
         }
         const symbolid = symbolIdentifierRef.current;
-        const searchResultHighlightIndices =
-            searchResultHighlightedSymbols
-                .flatMap((item, index) =>
-                    [item.includes[item.selected].symbol_uuid].includes(symbolid) ? index : []
-                )
-                .filter((value, index, self) => self.indexOf(value) === index);
+        const searchResultHighlightIndices = searchResultHighlightedSymbols
+            .flatMap((item, index) =>
+                [item.includes[item.selected]].includes(symbolid)
+                    ? index
+                    : []
+            )
+            .filter((value, index, self) => self.indexOf(value) === index);
+        const reasonHighlightIndices = explanationHighlightedSymbols
+            .flatMap((item, index) =>
+                [item.tgt, item.src].includes(symbolid) ? index : []
+            )
+            .filter(
+                (value, index, self) =>
+                    self.indexOf(value) === index
+            );
         
-        if (searchResultHighlightIndices.length > 0) {
-            setIsMarked(true);
-            setIsPulsating(searchResultHighlightIndices.some((index) => searchResultHighlightedSymbols[index].recent));
-            const uniqueColors = [
+
+        setIsPulsating(
+            searchResultHighlightIndices.some(
+                (index) => searchResultHighlightedSymbols[index].recent
+            )
+        );
+        if (searchResultHighlightIndices.length > 0 || reasonHighlightIndices.length > 0) {
+            const searchResultUniqueColors = [
                 ...new Set(
                     searchResultHighlightIndices
                         .map(
@@ -78,58 +90,35 @@ export function Symbol(props) {
                         .reverse()
                 ),
             ];
-
-            const gradientStops = uniqueColors
-                .map((color, index, array) => {
-                    const start = (index / array.length) * 100;
-                    const end = ((index + 1) / array.length) * 100;
-                    return `${color} ${start}%, ${color} ${end}%`;
-                })
-                .join(', ');
-            setBackgroundColorStyle(`linear-gradient(-45deg, ${gradientStops})`);
-        }
-        else {
-            setIsMarked(false);
-            setIsPulsating(false);
-            setBackgroundColorStyle('transparent');
-        }
-    }, [isHovered, searchResultHighlightedSymbols]);
-
-    React.useEffect(() => {
-        if (isHovered) {
-            return
-        }
-        const symbolid = symbolIdentifierRef.current;
-        const reasonHighlightIndices = explanationHighlightedSymbols
-            .flatMap((item, index) =>
-                [item.tgt, item.src].includes(symbolid) ? index : []
-            )
-            .filter((value, index, self) => self.indexOf(value) === index);
-
-        if (reasonHighlightIndices.length > 0) {
-            setIsMarked(true);
-            const uniqueColors = [
+            const reasonUniqueColors = [
                 ...new Set(
-                    reasonHighlightIndices.map(
-                        (index) => explanationHighlightedSymbols[index].color
-                    ).reverse()
+                    reasonHighlightIndices
+                        .map(
+                            (index) =>
+                                explanationHighlightedSymbols[index].color
+                        )
+                        .reverse()
                 ),
             ];
 
-            const gradientStops = uniqueColors
+            const gradientStops = searchResultUniqueColors.concat(reasonUniqueColors)
                 .map((color, index, array) => {
                     const start = (index / array.length) * 100;
                     const end = ((index + 1) / array.length) * 100;
                     return `${color} ${start}%, ${color} ${end}%`;
                 })
                 .join(', ');
-            setBackgroundColorStyle(`linear-gradient(-45deg, ${gradientStops})`);
-        }
-        else {
-            setIsMarked(false);
+            setBackgroundColorStyle(
+                `linear-gradient(-45deg, ${gradientStops})`
+            );
+        } else {
             setBackgroundColorStyle('transparent');
         }
-    }, [isHovered, explanationHighlightedSymbols]);
+    }, [
+        isHovered,
+        searchResultHighlightedSymbols,
+        explanationHighlightedSymbols,
+    ]);
 
     atomString = atomString.length === 0 ? "" : atomString;
 
@@ -163,9 +152,8 @@ export function Symbol(props) {
     // const handleMouseLeave = () => setIsHovered(false);
 
     return (
-        <SymbolElement
+        <SymbolElementSpan
             id={symbolIdentifier.uuid + suffix}
-            $marked={isMarked}
             $pulsate={isPulsating}
             $backgroundColorStyle={backgroundColorStyle}
             onClick={(e) => handleClick(e, symbolIdentifier)}
@@ -173,7 +161,7 @@ export function Symbol(props) {
             onMouseLeave={handleMouseLeave}
         >
             {atomString}
-        </SymbolElement>
+        </SymbolElementSpan>
     );
 }
 

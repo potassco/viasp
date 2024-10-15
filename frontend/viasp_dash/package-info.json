@@ -36,6 +36,7 @@
     "@babel/preset-env": "^7.23.2",
     "@babel/preset-react": "^7.23.3",
     "@iconify/icons-emojione-monotone": "^1.2.4",
+    "@iconify/icons-ic": "^1.2.13",
     "@iconify/icons-material-symbols": "^1.2.58",
     "@iconify/icons-ri": "^1.2.10",
     "@iconify/react": "^4.1.1",

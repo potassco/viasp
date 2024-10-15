@@ -6,34 +6,46 @@ import PropTypes from "prop-types";
 import {useHighlightedNode} from "../contexts/HighlightedNode";
 import {useSettings} from "../contexts/Settings";
 import {addSignature, clear, useFilters} from "../contexts/Filters";
-import {NODE, SIGNATURE, SYMBOL, TRANSFORMATION} from "../types/propTypes";
+import {
+    NODE,
+    SIGNATURE,
+    SEARCHRESULTSYMBOLWRAPPER,
+    TRANSFORMATION,
+} from '../types/propTypes';
 import {
     showOnlyTransformation,
     useTransformations,
     addSearchResultHighlightedSymbol,
     removeSearchResultHighlightedSymbol,
+    rotateSearchResultHighlightedSymbol,
+    unsetRecentSearchResultHighlightedSymbol
 } from '../contexts/transformations';
 import {useColorPalette} from "../contexts/ColorPalette";
 import { useShownDetail } from "../contexts/ShownDetail";
-import { make_atoms_string } from '../utils';
-import { useHighlightedSymbol } from '../contexts/HighlightedSymbol';
-import {darken} from 'polished';
 import IconWrapper from './IconWrapper.react';
+import {styled} from 'styled-components';
 
 
 function ActiveFilters() {
     const [{activeFilters},] = useFilters();
-    const {state: {highlightedAtoms: activeHighlights}} = useTransformations();
+    const {state: {searchResultHighlightedSymbols}} = useTransformations();
     return (
         <ul className="active_filters_list">
-            {activeFilters.length === 0 ? null :
-                activeFilters.map((filter, index) => {
-                return <ActiveFilter key={index} filter={filter} />;
-            })}
-            {activeHighlights.length === 0 ? null :
-                activeHighlights.map((atom, index) => {
-                    return <ActiveHighlight key={index} atom={atom} />;
-                })}
+            {activeFilters.length === 0
+                ? null
+                : activeFilters.map((filter, index) => {
+                      return <ActiveFilter key={index} filter={filter} />;
+                  })}
+            {searchResultHighlightedSymbols.length === 0
+                ? null
+                : searchResultHighlightedSymbols.map((searchResult, index) => {
+                      return (
+                          <ActiveHighlight
+                              key={index}
+                              searchResult={searchResult}
+                          />
+                      );
+                  })}
         </ul>
     );
 
@@ -42,7 +54,16 @@ function ActiveFilters() {
 function CloseButton(props) {
     const {onClose} = props;
     const colorPalette = useColorPalette();
-    return <span style={{color: colorPalette.light}} className='close' onClick={onClose}>X</span>
+                                
+    return (
+        <IconWrapper
+            icon="close"
+            height="15px"
+            color={colorPalette.light}
+            className="close"
+            onClick={onClose}
+        />
+    );
 }
 
 CloseButton.propTypes = {
@@ -52,11 +73,62 @@ CloseButton.propTypes = {
     onClose: PropTypes.func
 }
 
+function NextButton(props) {
+    const {onForward, disabled} = props;
+    const colorPalette = useColorPalette();
+
+    return (
+        <IconWrapper
+            icon="navigateNext"
+            height="15px"
+            color={disabled ? colorPalette.dark : colorPalette.light}
+            onClick={disabled ? null : onForward}
+        />
+    );
+}
+
+NextButton.propTypes = {
+    /**
+     * The function to call when the forward button is clicked.
+     * */
+    onForward: PropTypes.func,
+    /**
+     * Whether the forward button is disabled.
+     * */
+    disabled: PropTypes.bool,
+}
+
+function PrevButton(props) {
+    const {onBackward, disabled} = props;
+    const colorPalette = useColorPalette();
+
+    return (
+        <IconWrapper
+            icon="navigateNext"
+            height="15px"
+            flip="horizontal"
+            color={disabled ? colorPalette.dark : colorPalette.light}
+            onClick={disabled ? null : onBackward}
+        />
+    );
+}
+
+PrevButton.propTypes = {
+    /**
+     * The function to call when the backward button is clicked.
+     * */
+    onBackward: PropTypes.func,
+    /**
+     * Whether the backward button is disabled.
+     * */
+    disabled: PropTypes.bool,
+}
+
 function ActiveFilter(props) {
     const {filter} = props;
     const [, dispatch] = useFilters();
     const colorPalette = useColorPalette();
-    const classes = ["filter", "search_row"]
+    const classes = ["filter", "search_row", "txt-elem"];
     if (filter._type === "Transformation") {
         classes.push("search_rule")
     }
@@ -80,35 +152,108 @@ ActiveFilter.propTypes = {
     filter: PropTypes.oneOfType([TRANSFORMATION, NODE, SIGNATURE])
 }
 
+const HighlightRowLi = styled.li`
+    background-color: ${(props) => props.$colorPalette.primary};
+    color: ${(props) => props.$colorPalette.light};
+    cursor: pointer;
+    border-radius: 0.4em;
+    left: 0;
+    padding-left: 0.8em;
+    list-style-type: none;
+`;
+
+const FilterHighlightContentDiv = styled.div`
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.2em;
+    align-items: center;
+    height: 100%;
+`;
+
+const AtomStringSpan = styled.span`
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
 function ActiveHighlight(props) {
-    const {atom} = props;
-    const {dispatch} = useTransformations();
+    const {searchResult} = props;
+    const {dispatch: dispatchT} = useTransformations();
     const colorPalette = useColorPalette();
-    function onClose() {}
+
+    function onClose() {
+        dispatchT(removeSearchResultHighlightedSymbol(searchResult));
+    }
+
+    const [timeoutId, setTimeoutId] = React.useState(null);
+    function onRotate(direction) {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+        dispatchT(rotateSearchResultHighlightedSymbol(searchResult, direction));
+        const newTimeoutId = setTimeout(() => {
+            dispatchT(unsetRecentSearchResultHighlightedSymbol(searchResult));
+        }, Constants.searchResultHighlightDuration);
+        setTimeoutId(newTimeoutId);
+    }
+
     return (
-        <li
-            style={{
-                backgroundColor: colorPalette.primary,
-                color: colorPalette.light,
-            }}
-            className="filter search_row"
-            key={atom}
+        <HighlightRowLi
+            className="txt-elem"
+            key={searchResult}
+            $colorPalette={colorPalette}
         >
-            <div className="filter_highlight_content">
-                <span className="atom_string">{make_atoms_string(atom)}</span>
+            <FilterHighlightContentDiv className="filter-highlight-content">
+                <AtomStringSpan>{searchResult.repr}</AtomStringSpan>
+                <PrevButton
+                    onBackward={() => {
+                        onRotate(-1);
+                    }}
+                    disabled={searchResult.selected < 1}
+                />
+                <NextButton
+                    onForward={() => {
+                        onRotate(+1);
+                    }}
+                    disabled={
+                        searchResult.selected + 1 >=
+                        searchResult.includes.length
+                    }
+                />
                 <CloseButton onClose={onClose} />
-            </div>
-        </li>
+            </FilterHighlightContentDiv>
+        </HighlightRowLi>
     );
 }
 
 ActiveHighlight.propTypes = {
-    atom: SYMBOL
+    searchResult: SEARCHRESULTSYMBOLWRAPPER,
+};
+
+function middlewareAddSearchResultHighlightedSymbol(dispatchT, searchResult, color) {
+    dispatchT(addSearchResultHighlightedSymbol(searchResult, color));
+
+    setTimeout(() => {
+        dispatchT(unsetRecentSearchResultHighlightedSymbol(searchResult));
+    }, Constants.searchResultHighlightDuration);
 }
 
+const SearchInput = styled.input`
+    background-color: ${(props) => props.$colorPalette.primary};
+    color: ${(props) => props.$colorPalette.light};
+    width: 100%;
+    border-radius: 0.4em;
+    padding: 0.7em 0.4em 0.7em 0.8em;
+    border: 0px;
+
+    &:focus {
+        outline: none;
+    }
+`;
 
 export function Search() {
-    const [searchActivated, setSearchActivated] = React.useState(true);
     const [activeSuggestion, setActiveSuggestion] = React.useState(0);
     const [filteredSuggestions, setFilteredSuggestions] = React.useState([]);
     const [showSuggestions, setShowSuggestions] = React.useState(false);
@@ -116,42 +261,20 @@ export function Search() {
     const [, setHighlightedNode] = useHighlightedNode();
     const setHighlightedNodeRef = React.useRef(setHighlightedNode)
     const [, dispatch] = useFilters();
-    const {dispatch: dispatchT, state: {searchResultHighlightedSymbols}} = useTransformations()
+    const {
+        dispatch: dispatchT,
+        state: {searchResultHighlightedSymbols},
+    } = useTransformations();
     const {backendURL} = useSettings();
     const colorPalette = useColorPalette();
     const { setShownDetail } = useShownDetail();
     const suggestionRefs = React.useRef([]);
-    const {state: {shownRecursion}} =  useTransformations();
-    const {
-        highlightedSymbol: compareHighlightedSymbol,
-        searchResultHighlightedSymbol: compareSearchResultHighlightedSymbol,
-        highlightedRule: compareHighlightedRule,
-        backgroundHighlightColor: compareBackgroundHighlightColor,
-        ruleDotHighlightColor: compareRuleDotHighlightColor,
-        toggleReasonOf,
-        setSearchResultSymbolHighlight,
-    } = useHighlightedSymbol();
 
-    const [isHovered, setIsHovered] = React.useState(false);
-    const [isClicked, setIsClicked] = React.useState(false);
 
     const style = {
         background: colorPalette.primary,
         color: colorPalette.light,
     };
-
-    if (isHovered) {
-        style.background = darken(Constants.hoverFactor, style.background);
-    }
-    if (isClicked) {
-        style.background = colorPalette.infoBackground;
-    }
-
-    const handleMouseEnter = () => setIsHovered(true);
-    const handleMouseLeave = () => setIsHovered(false);
-    const handleMouseDown = () => setIsClicked(true);
-    const handleMouseUp = () => setIsClicked(false);
-
 
     let suggestionsListComponent;
     React.useEffect(() => {
@@ -169,7 +292,11 @@ export function Search() {
         .then(r => r.json())
         .then(data => {
             setActiveSuggestion(0)
-            setFilteredSuggestions(data)
+            const activeSearchResultHighlights = new Set(searchResultHighlightedSymbols.map(s => s.repr));
+            const filtered = data.filter(
+                (s) => !activeSearchResultHighlights.has(s.repr)
+            );
+            setFilteredSuggestions(filtered)
             setShowSuggestions(true)
             })
     }
@@ -186,13 +313,7 @@ export function Search() {
             dispatchT(showOnlyTransformation(selection));
         }
         if (selection._type === 'SearchResultSymbolWrapper') {
-            setSearchResultSymbolHighlight(
-                selection.includes[0].symbol_uuid,
-                selection.includes[0].node_uuid,
-                compareHighlightedSymbol,
-                compareSearchResultHighlightedSymbol,
-            );
-            dispatchT(addSearchResultHighlightedSymbol(selection, colorPalette.explanationHighlights));
+            middlewareAddSearchResultHighlightedSymbol(dispatchT, selection, colorPalette.explanationHighlights);
         }
     }
 
@@ -267,52 +388,21 @@ export function Search() {
     }
     return (
         <div className="search">
-            {!searchActivated ? (
-                <span
-                    onClick={() => setSearchActivated(!searchActivated)}
-                    className="search_content open_search_input_btn txt-elem noselect toggle_part unselected"
-                    style={style}
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
-                    onMouseDown={handleMouseDown}
-                    onMouseUp={handleMouseUp}
-                >
-                    <Suspense fallback={<div>...</div>}>
-                        <IconWrapper icon="search" height="20px" />
-                    </Suspense>
-                </span>
-            ) : (
-                <div className="search_content">
-                    <div className="search_input_container">
-                        <input
-                            className="search_input txt-elem"
-                            type="text"
-                            onChange={onChange}
-                            onKeyDown={onKeyDown}
-                            value={userInput}
-                            style={{backgroundColor: colorPalette.primary, border: '0px', color: colorPalette.light}}
-                            placeholder='query'
-                        />
-                        <span
-                            className="clear_search_input_btn"
-                            onClick={() => {
-                                setSearchActivated(true);
-                                setUserInput('');
-                                setActiveSuggestion(0);
-                            }}
-                            style={{
-                                color: colorPalette.dark,
-                            }}
-                        >
-                            <Suspense fallback={<div>x</div>}>
-                                <IconWrapper icon="close" height="15px" />
-                            </Suspense>
-                        </span>
-                    </div>
-                    {/* <ActiveFilters /> */}
-                    {suggestionsListComponent}
+            <div className="search_content">
+                <div className="search_input_container">
+                    <SearchInput
+                        className="txt-elem"
+                        onChange={onChange}
+                        onKeyDown={onKeyDown}
+                        value={userInput}
+                        $colorPalette={colorPalette}
+                        placeholder="query"
+                        type="text"
+                    />
                 </div>
-            )}
+                <ActiveFilters />
+                {suggestionsListComponent}
+            </div>
         </div>
     );
 }

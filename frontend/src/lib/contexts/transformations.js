@@ -264,12 +264,19 @@ const removeExplanationRuleBackgroundHighlight = (rule_hash, source_symbol_id) =
  * */
 const ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/ADD';
 const REMOVE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/REMOVE';
-const NEXT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/NEXT';
-const PREV_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/PREV';
+const ROTATE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/ROTATE';
+const UNSET_RECENT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/UNSETRECENT';
+const SET_RECENT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/SETRECENT';
+const CLEAR_SEARCH_RESULT_HIGHLIGHTED_SYMBOLS = 'APP/SYMBOL/SEARCH/CLEAR';
 const addSearchResultHighlightedSymbol = (s, colors) => ({type: ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s, colors});
 const removeSearchResultHighlightedSymbol = (s) => ({type: REMOVE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s});
-const nextSearchResultHighlightedSymbol = () => ({type: NEXT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL});
-const prevSearchResultHighlightedSymbol = () => ({type: PREV_SEARCH_RESULT_HIGHLIGHTED_SYMBOL});
+const rotateSearchResultHighlightedSymbol = (symbol, direction) => ({
+    type: ROTATE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL,
+    symbol,
+    direction,
+});
+const unsetRecentSearchResultHighlightedSymbol = (s) => ({type: UNSET_RECENT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s});
+const clearSearchResultHighlightedSymbol = () => ({type: CLEAR_SEARCH_RESULT_HIGHLIGHTED_SYMBOLS});
 
 
 const TransformationContext = React.createContext();
@@ -943,6 +950,66 @@ const transformationReducer = (state = initialState, action) => {
             searchResultHighlightedSymbols: updatedSearchResultHighlightedSymbols
         };
     }
+    if (action.type === ROTATE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL) {
+        const updatedSearchResultHighlightedSymbols = state.searchResultHighlightedSymbols.map((s) => {
+            if (s.repr === action.symbol.repr) {
+                return {
+                    ...s,
+                    selected: s.selected + action.direction,
+                    recent: true,
+                };
+            }
+            return s;
+        });
+        const updatedAllHighlightedSymbols = state.explanationHighlightedSymbols
+            .map((item) => item.src)
+            .concat(state.explanationHighlightedSymbols.map((item) => item.tgt))
+            .concat(
+                updatedSearchResultHighlightedSymbols.map(
+                    (item) => item.includes[item.selected].symbol_uuid
+                )
+            );
+        
+        return {
+            ...state,
+            allHighlightedSymbols: updatedAllHighlightedSymbols,
+            searchResultHighlightedSymbols: updatedSearchResultHighlightedSymbols
+        };
+    }
+    if (action.type === SET_RECENT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL) {
+        return {
+            ...state,
+            searchResultHighlightedSymbols: state.searchResultHighlightedSymbols.map((s) => {
+                if (s.repr === action.s.repr) {
+                    return {
+                        ...s,
+                        recent: true,
+                    };
+                }
+                return s;
+            }),
+        };
+    }
+    if (action.type === UNSET_RECENT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL) {
+        return {
+            ...state,
+            searchResultHighlightedSymbols: state.searchResultHighlightedSymbols.map((s) => {
+                if (s.repr === action.s.repr) {
+                    return {
+                        ...s,
+                        recent: false,
+                    };
+                }
+                return s;
+            }),
+        };
+    }
+    if (action.type === CLEAR_SEARCH_RESULT_HIGHLIGHTED_SYMBOLS) {
+        return {
+            ...state,
+            searchResultHighlightedSymbols: [],
+        };
+    }
     if (action.type === UNMARK_FOR_INSERTION_EXPLANATION_RULE) {
         return {
             ...state,
@@ -1121,8 +1188,11 @@ export {
     setClingraphShowMini,
     checkTransformationExpandableCollapsible,
     addSearchResultHighlightedSymbol,
+    unsetRecentSearchResultHighlightedSymbol,
     removeSearchResultHighlightedSymbol,
+    rotateSearchResultHighlightedSymbol,
     clearExplanationHighlightedSymbol,
+    clearSearchResultHighlightedSymbol,
     addExplanationHighlightedSymbol,
     removeExplanationHighlightedSymbol,
     removeHighlightExplanationRule,
