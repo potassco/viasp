@@ -98,6 +98,7 @@ class MyArgumentParser(argparse.ArgumentParser):
 # class ViaspArgumentParser
 #
 
+
 class ViaspArgumentParser:
 
     clingo_help = textwrap.dedent("""
@@ -126,13 +127,14 @@ class ViaspArgumentParser:
 
     def __add_file(self, files, file):
         abs_file = os.path.abspath(file) if file != "-" else "-"
-        contents = open(abs_file, "r")
+        contents = open(abs_file) if abs_file != "-" else sys.stdin
+
         if abs_file in [i[1] for i in files]:
             self.__file_warnings.append(file)
         else:
             files.append((file, abs_file, contents))
         if not self.__first_file:
-            self.__first_file = file
+            self.__first_file = file if file != "-" else "stdin"
 
     def __do_constants(self, alist):
         try:
@@ -155,7 +157,8 @@ class ViaspArgumentParser:
             parts = opt_mode.split(',')
             mode = parts[0]
             if mode not in ['opt', 'enum', 'optN', 'ignore']:
-                raise argparse.ArgumentTypeError(f"Invalid value for opt-mode: {mode}")
+                raise argparse.ArgumentTypeError(
+                    f"Invalid value for opt-mode: {mode}")
             bounds = parts[1:]
             return (mode, bounds)
         except Exception as e:
@@ -170,59 +173,59 @@ class ViaspArgumentParser:
         cmd_parser = MyArgumentParser(
             usage=self.usage,
             epilog=_epilog,
-            formatter_class=
-            argparse.RawTextHelpFormatter,
+            formatter_class=argparse.RawTextHelpFormatter,
             add_help=False,
             prog="viasp")
         self.__cmd_parser = cmd_parser
 
         # Positional arguments
         self.__cmd_parser.add_argument('files',
-                help=textwrap.dedent("""\
+                                       help=textwrap.dedent("""\
             : Files containing ASP encodings
               Optionally, a single JSON file defining the answer set(s) in clingo's 
               `--outf=2` format"""),
-            nargs='*')
+                                       nargs='*')
         self.__cmd_parser.add_argument('stdin',
-                help=textwrap.dedent("""\
-            : Standard input in form of an ASP encoding or JSON in clingo's `--outf=2` format"""),
-            nargs='?',
-            default=sys.stdin)
+                                       help=textwrap.dedent("""\
+            : Standard input in form of an ASP encoding or JSON in clingo's `--outf=2` format"""
+                                                            ),
+                                       nargs='?',
+                                       default=sys.stdin)
         # Basic Options
         basic = cmd_parser.add_argument_group('Basic Options')
         basic.add_argument('--help',
-            '-h',
-            action='help',
-            help=': Print help and exit')
+                           '-h',
+                           action='help',
+                           help=': Print help and exit')
         basic.add_argument('--clingo-help',
-            help=HELP_CLINGO_HELP,
-            type=int,
-            dest='clingo_help',
-            metavar='<m>',
-            default=0,
-            choices=[0, 1, 2, 3])
+                           help=HELP_CLINGO_HELP,
+                           type=int,
+                           dest='clingo_help',
+                           metavar='<m>',
+                           default=0,
+                           choices=[0, 1, 2, 3])
         basic.add_argument('--version',
-            '-v',
-            dest='version',
-            action='store_true',
-            help=': Print version information and exit')
+                           '-v',
+                           dest='version',
+                           action='store_true',
+                           help=': Print version information and exit')
         basic.add_argument('--host',
-            metavar='<host>',
-            type=str,
-            help=': The host for the backend and frontend',
-            default=DEFAULT_BACKEND_HOST)
+                           metavar='<host>',
+                           type=str,
+                           help=': The host for the backend and frontend',
+                           default=DEFAULT_BACKEND_HOST)
         basic.add_argument('-p',
-            '--port',
-            metavar='<port>',
-            type=int,
-            help=': The port for the backend',
-            default=DEFAULT_BACKEND_PORT)
+                           '--port',
+                           metavar='<port>',
+                           type=int,
+                           help=': The port for the backend',
+                           default=DEFAULT_BACKEND_PORT)
         basic.add_argument('-f',
-            '--frontend-port',
-            metavar='<port>',
-            type=int,
-            help=': The port for the frontend',
-            default=DEFAULT_FRONTEND_PORT)
+                           '--frontend-port',
+                           metavar='<port>',
+                           type=int,
+                           help=': The port for the frontend',
+                           default=DEFAULT_FRONTEND_PORT)
         basic.add_argument(
             '--color',
             choices=['blue', 'yellow', 'orange', 'green', 'red', 'purple'],
@@ -230,87 +233,83 @@ class ViaspArgumentParser:
             help=': The primary color',
             default=DEFAULT_COLOR)
 
-
         # Solving Options
         solving = cmd_parser.add_argument_group('Solving Options')
         solving.add_argument('-c',
-            '--const',
-            dest='constants',
-            action="append",
-            help=argparse.SUPPRESS,
-            default=[])
+                             '--const',
+                             dest='constants',
+                             action="append",
+                             help=argparse.SUPPRESS,
+                             default=[])
         solving.add_argument('--opt-mode',
-            type=self.__do_opt_mode,
-            help=argparse.SUPPRESS)
+                             type=self.__do_opt_mode,
+                             help=argparse.SUPPRESS)
         solving.add_argument('--models',
-            '-n',
-            help=": Compute at most <n> models (0 for all)",
-            type=int,
-            dest='max_models',
-            metavar='<n>')
+                             '-n',
+                             help=": Compute at most <n> models (0 for all)",
+                             type=int,
+                             dest='max_models',
+                             metavar='<n>')
         solving.add_argument('--select-model',
-            help = textwrap.dedent("""\
+                             help=textwrap.dedent("""\
             : Select only one of the models when using a json input
               Defined by an index for accessing the models, starting in index 0
               Can appear multiple times to select multiple models"""),
-            metavar='<index>',
-            type=int,
-            action='append',
-            nargs='?')
-
+                             metavar='<index>',
+                             type=int,
+                             action='append',
+                             nargs='?')
 
         clingraph_group = cmd_parser.add_argument_group(
-            'Clingraph Options', 'If included, a Clingraph visualization will be made.')
+            'Clingraph Options',
+            'If included, a Clingraph visualization will be made.')
         clingraph_group.add_argument(
             '--viz-encoding',
             metavar='<path>',
             type=str,
             help=': Path to the visualization encoding',
             default=None)
-        clingraph_group.add_argument('--engine',
+        clingraph_group.add_argument(
+            '--engine',
             type=str,
             metavar='<ENGINE>',
-            help=': The visualization engine (refer to clingraph documentation)',
+            help=
+            ': The visualization engine (refer to clingraph documentation)',
             default="dot")
         clingraph_group.add_argument(
             '--graphviz-type',
             type=str,
             metavar='<type>',
-            help=
-            ': The graph type (refer to clingraph documentation)',
+            help=': The graph type (refer to clingraph documentation)',
             default="graph")
 
-        relaxer_group = cmd_parser.add_argument_group(
-            'Relaxation Options',
-            RELAXER_GROUP_HELP
-        )
-        relaxer_group.add_argument(
-            '--print-relax',
-            action='store_true',
-            help=PRINT_RELAX_HELP)
-        relaxer_group.add_argument(
-            '-r',
-            '--relax',
-            action='store_true',
-            help=USE_RELAX_HELP)
+        relaxer_group = cmd_parser.add_argument_group('Relaxation Options',
+                                                      RELAXER_GROUP_HELP)
+        relaxer_group.add_argument('--print-relax',
+                                   action='store_true',
+                                   help=PRINT_RELAX_HELP)
+        relaxer_group.add_argument('-r',
+                                   '--relax',
+                                   action='store_true',
+                                   help=USE_RELAX_HELP)
         relaxer_group.add_argument('--head-name',
-            type=str,
-            metavar='<name>',
-            help=': The name of the head predicate',
-            default="unsat")
+                                   type=str,
+                                   metavar='<name>',
+                                   help=': The name of the head predicate',
+                                   default="unsat")
         relaxer_group.add_argument(
             '--no-collect-variables',
             action='store_true',
             default=False,
             help=
-            ': Do not collect variables from body as a tuple in the head literal')
+            ': Do not collect variables from body as a tuple in the head literal'
+        )
         relaxer_group.add_argument(
             '--relaxer-opt-mode',
             metavar='<mode>',
             type=self.__do_opt_mode,
             help=': Clingo optimization mode for the relaxed program',
         )
-
 
         options, unknown = cmd_parser.parse_known_args(args=args)
         options = vars(options)
@@ -348,7 +347,8 @@ class ViaspArgumentParser:
         # handle clingraph
         options['clingraph_files'] = []
         if options['viz_encoding']:
-            self.__add_file(options['clingraph_files'], options.pop('viz_encoding'))
+            self.__add_file(options['clingraph_files'],
+                            options.pop('viz_encoding'))
 
         # handle opt mode and set max_models accordingly
         options['original_max_models'] = options['max_models']
@@ -360,11 +360,12 @@ class ViaspArgumentParser:
             if options['max_models'] == None:
                 options['max_models'] = 0
 
-        options['opt_mode_str'] = f"--opt-mode={opt_mode}" + (f",{','.join(bounds)}"
-                                                   if len(bounds) > 0 else "")
-        relaxer_opt_mode, relaxer_bounds = options.get("relaxer_opt_mode") or ('opt', [])
-        options['relaxer_opt_mode_str'] = f"--opt-mode={relaxer_opt_mode}" + (f",{','.join(relaxer_bounds)}"
-                                                    if len(relaxer_bounds) > 0 else "")
+        options['opt_mode_str'] = f"--opt-mode={opt_mode}" + (
+            f",{','.join(bounds)}" if len(bounds) > 0 else "")
+        relaxer_opt_mode, relaxer_bounds = options.get("relaxer_opt_mode") or (
+            'opt', [])
+        options['relaxer_opt_mode_str'] = f"--opt-mode={relaxer_opt_mode}" + (
+            f",{','.join(relaxer_bounds)}" if len(relaxer_bounds) > 0 else "")
         if options['max_models'] == None:
             options['max_models'] = 1
 

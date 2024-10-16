@@ -167,7 +167,7 @@ def parse_clingo_json(json_str):
             output_str = " ".join([f"{v}" for v in w["Value"]])
             costs = w.get("Costs", [])
             models_prgs.append({"facts": facts_str, "representation": output_str, "number": i+1, "cost": costs})
-        
+
         optimum = []
         if "Costs" in j["Models"]:
             optimum = j['Models']['Costs']
@@ -234,7 +234,7 @@ def get_lp_files(files, stdin, stdin_is_json=False):
 def get_optimal_models(models: Dict) -> Dict:
     if len(models) == 0:
         return {}
-    number_of_opt_vars = len(next(iter(models.values()))) 
+    number_of_opt_vars = len(next(iter(models.values())))
     for i in range(number_of_opt_vars):
         values_at_index_i = list(map(lambda opt_value_list: opt_value_list[i], models.values()))
         minimum_at_index_i = min(values_at_index_i)
@@ -244,7 +244,7 @@ def get_optimal_models(models: Dict) -> Dict:
         for model, model_opt_value in models.items():
             if model_opt_value[i] != minimum_at_index_i:
                 to_be_removed.append(model)
-        
+
         for model in to_be_removed:
             models.pop(model, None)
     return models
@@ -273,7 +273,7 @@ class SolveHandle:
     def __exit__(self, exc_type, exc_val, exc_tb):
         # Tear down resources here
         pass
-    
+
     def opt(self):
         return self.data["optimum"]
 
