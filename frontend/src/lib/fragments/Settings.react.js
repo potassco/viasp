@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React from "react";
 import PropTypes from "prop-types";
 import {useColorPalette} from "../contexts/ColorPalette";
 import {
@@ -9,67 +9,59 @@ import {
 import './settings.css'
 import { darken } from 'polished';
 import { Search } from "./Search.react";
-import { styled } from 'styled-components';
+import { styled } from "styled-components";
+import * as Constants from "../constants";
 
+const ClearMarkedDiv = styled.div`
+    display: flex;
+    justify-content: end;
+`;
 
-function makeClassNameFromMarkedSymbol(highlightedSymbol) {
-    const className = `txt-elem noselect toggle_part unselected ${
-        highlightedSymbol.length === 0 ? 'fadeOut' : 'fadeIn'
-    }`;
-    return className;
-}
+const ClearMarkedSpan = styled.span`
+    background: ${({$colorPalette}) => $colorPalette.primary};
+    color: ${({$colorPalette}) => $colorPalette.light};
+    padding: 1em 1.5em;
+    transition: opacity 0.8s;
+    font-family: monospace;
+    border-radius: 0.7em;
+    z-index: 20;
+    cursor: pointer;
+    opacity: ${({$highlightedSymbol}) =>
+        $highlightedSymbol.length === 0 ? 0 : 1};
+
+    &:hover {
+        background: ${({$colorPalette}) =>
+            darken(Constants.hoverColorDarkenFactor, $colorPalette.primary)};
+    }
+
+    &:active {
+        background: ${({$colorPalette}) => $colorPalette.infoBackground};
+    }
+`;
 
 function ClearMarked() {
     const colorPalette = useColorPalette();
-    const [classNames, setClassNames] = useState('');
-    const {dispatch: dispatchT, state: {explanationHighlightedSymbols}} = useTransformations();
+    const {
+        dispatch: dispatchT,
+        state: {allHighlightedSymbols},
+    } = useTransformations();
 
-    React.useEffect(() => {
-        setClassNames(
-            makeClassNameFromMarkedSymbol(explanationHighlightedSymbols)
-        );
-    }, [explanationHighlightedSymbols, setClassNames]);
-    const [isHovered, setIsHovered] = useState(false);
-    const [isClicked, setIsClicked] = useState(false);
-
-    const hoverFactor = 0.08;
-    const style = {
-        background: colorPalette.primary,
-        color: colorPalette.light,
-        padding: "1em 1.5em",
-    };
-
-    if (isHovered) {
-        style.background = darken(hoverFactor, style.background);
-    }
-    if (isClicked) {
-        style.background = colorPalette.infoBackground;
-    }
-
-    const handleMouseEnter = () => setIsHovered(true);
-    const handleMouseLeave = () => setIsHovered(false);
-    const handleMouseDown = () => setIsClicked(true);
-    const handleMouseUp = () => setIsClicked(false);
 
     function onClick() {
         dispatchT(clearExplanationHighlightedSymbol());
         dispatchT(clearSearchResultHighlightedSymbol());
     }
-
     return (
-        <div className="clear_marked">
-            <span
+        <ClearMarkedDiv className="clear_marked">
+            <ClearMarkedSpan
+                className="txt-elem noselect unselected"
                 onClick={onClick}
-                className={classNames}
-                style={style}
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
-                onMouseDown={handleMouseDown}
-                onMouseUp={handleMouseUp}
+                $colorPalette={colorPalette}
+                $highlightedSymbol={allHighlightedSymbols}
             >
                 clear
-            </span>
-        </div>
+            </ClearMarkedSpan>
+        </ClearMarkedDiv>
     );
 }
 

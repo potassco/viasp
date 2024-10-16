@@ -51,12 +51,6 @@
     padding-bottom: 0.1em;
 }
 
-.toggle_part {
-    font-family: monospace;
-    border-radius: 0.7em;
-    cursor: pointer;
-}
-
 .clear_marked {
     display: flex;
     justify-content: end;

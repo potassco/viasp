@@ -271,11 +271,6 @@ export function Search() {
     const suggestionRefs = React.useRef([]);
 
 
-    const style = {
-        background: colorPalette.primary,
-        color: colorPalette.light,
-    };
-
     let suggestionsListComponent;
     React.useEffect(() => {
         const highlighted = filteredSuggestions[activeSuggestion]
@@ -317,8 +312,8 @@ export function Search() {
         }
     }
 
-    function select(transformation) {
-        handleSelection(transformation)
+    function select(searchResultSuggestion) {
+        handleSelection(searchResultSuggestion);
         reset()
     }
 
@@ -348,6 +343,10 @@ export function Search() {
         }
     }
 
+    const handleMouseOver = (index) => {
+        setActiveSuggestion(index);
+    };
+
     React.useEffect(() => {
         if (suggestionRefs.current[activeSuggestion]) {
             suggestionRefs.current[activeSuggestion].scrollIntoView({
@@ -376,6 +375,9 @@ export function Search() {
                                 select={select}
                                 ref={(el) =>
                                     (suggestionRefs.current[index] = el)
+                                }
+                                mouseHoverCallback={() =>
+                                    handleMouseOver(index)
                                 }
                             />
                         );

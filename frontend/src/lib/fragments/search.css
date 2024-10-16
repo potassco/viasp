@@ -29,7 +29,7 @@
     border-radius: 0.7em;
     overflow-x: hidden;
     overflow-y: auto;
-    max-height: 5em;
+    max-height: 8em;
 }
 
 .active_filters_list {

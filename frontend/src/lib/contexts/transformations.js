@@ -193,7 +193,7 @@ const setClingraphShowMini = (uuid, v) => ({type: SET_CLINGRAPH_SHOW_MINI, uuid,
 const ADD_EXPLANATION_OF_SYMBOL = 'APP/SYMBOL/EXPLANATION/ADD';
 const REMOVE_EXPLANATION_OF_SYMBOL = 'APP/SYMBOL/EXPLANATION/REMOVE';
 const TOGGLE_EXPLANATION_OF_SYMBOL = 'APP/SYMBOL/EXPLANATION/TOGGLE';
-const CLEAR_EXPLANATIONS = 'APP/SYMBOL/EXPLANATION/CLEAR';
+const CLEAR_EXPLANATION_HIGHLIGHTED_SYMBOLS = 'APP/SYMBOL/EXPLANATION/CLEAR';
 const addExplanationHighlightedSymbol = (
     arrows,
     rule_hash,
@@ -228,7 +228,7 @@ const toggleExplanationHighlightedSymbol = (
     source_symbol_id,
     colors,
 });
-const clearExplanationHighlightedSymbol = () => ({type: CLEAR_EXPLANATIONS});
+const clearExplanationHighlightedSymbol = () => ({type: CLEAR_EXPLANATION_HIGHLIGHTED_SYMBOLS});
 /**
  * Manage Highlighted Rules from Explanation
  */
@@ -895,7 +895,7 @@ const transformationReducer = (state = initialState, action) => {
             explanationHighlightedRules: newRuleHighlight,
         };
     }
-    if (action.type === CLEAR_EXPLANATIONS) {
+    if (action.type === CLEAR_EXPLANATION_HIGHLIGHTED_SYMBOLS) {
         return {
             ...state,
             allHighlightedSymbols: state.searchResultHighlightedSymbols.map(
@@ -1008,6 +1008,11 @@ const transformationReducer = (state = initialState, action) => {
         return {
             ...state,
             searchResultHighlightedSymbols: [],
+            allHighlightedSymbols: state.explanationHighlightedSymbols
+                .map((item) => item.src)
+                .concat(
+                    state.explanationHighlightedSymbols.map((item) => item.tgt)
+                ),
         };
     }
     if (action.type === UNMARK_FOR_INSERTION_EXPLANATION_RULE) {

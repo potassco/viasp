@@ -12,16 +12,6 @@ import {darken} from 'polished';
 import * as Constants from "../constants";
 
 
-const StyledSuggestion = styledComponents.span`
- &:before {
-    color: ${props => props.color};
-    background: ${props => props.$background};
-    position: absolute;
-    left: 0;
-    content: '${props => props.content}';
-};
-`
-
 function SuggestionContent(props) {
     const {value} = props;
     let display = "UNKNOWN FILTER"
@@ -31,9 +21,9 @@ function SuggestionContent(props) {
     }
 
     return (
-        <StyledSuggestion className="txt-elem">
+        <span className="txt-elem">
             {display}
-        </StyledSuggestion>
+        </span>
     );
 }
 
@@ -50,8 +40,17 @@ SuggestionContent.propTypes = {
     ]),
 };
 
+const SearchRowLi = styledComponents.li`
+    background-color: ${(props) => props.$backgroundColor};
+    margin-bottom: 0.2em;
+
+    &.active {
+        background-color: ${(props) => darken(Constants.hoverColorDarkenFactor, props.$backgroundColor)};
+    }
+`;
+
 export const Suggestion = React.forwardRef((props, ref) => {
-    const {value, active, select} = props;
+    const {value, active, select, mouseHoverCallback} = props;
     const colorPalette = useColorPalette();
 
     const classes = ['search_row'];
@@ -59,19 +58,16 @@ export const Suggestion = React.forwardRef((props, ref) => {
         classes.push('active');
     }
     return (
-        <li
+        <SearchRowLi
             className={classes.join(' ')}
             name={[value]}
-            onClick={() => select(value)}
-            style={{
-                backgroundColor: classes.includes('active')
-                    ? darken(Constants.hoverFactor, colorPalette.primary)
-                    : null,
-            }}
+            $backgroundColor={colorPalette.primary}
             ref={ref}
+            onMouseEnter={mouseHoverCallback}
+            onClick={() => select(value)}
         >
             <SuggestionContent value={value} />
-        </li>
+        </SearchRowLi>
     );
 });
 
@@ -93,4 +89,8 @@ Suggestion.propTypes = {
      *  onClick Callback
      */
     select: PropTypes.func,
+    /**
+     *  onMouseHover Callback
+     */
+    mouseHoverCallback: PropTypes.func,
 };

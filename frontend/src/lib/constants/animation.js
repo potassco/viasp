@@ -6,3 +6,4 @@ export const detailOpenShiftThreshold = 0.05;
 export const detailOpenWidthRatio = getDetailOpenWidthRatio();
 export const rowAnimationIntervalInMs = 30;
 export const rowAnimationPickupThreshold = 0.01;
+export const hoverColorDarkenFactor = 0.08;
