@@ -24,7 +24,7 @@ import networkx as nx
 #     clingo_model_type_stable_model
 from clingo import Model as clingo_Model, ModelType, Symbol, Application
 from clingo.ast import AST, ASTType
-
+from flask.json.tag import TaggedJSONSerializer
 from .interfaces import ViaspClient
 from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper
 from ..server.models import GraphEdges
@@ -40,7 +40,10 @@ def model_to_json(model: Union[clingo_Model, Collection[clingo_Model]], *args, *
     return json.dumps(model, *args, cls=DataclassJSONEncoder, **kwargs)
 
 
+tagged_serializer = TaggedJSONSerializer()
 def object_hook(obj):
+    obj = tagged_serializer.untag(obj)
+
     if '_type' not in obj:
         return obj
     t = obj['_type']
@@ -87,9 +90,14 @@ def object_hook(obj):
     return obj
 
 
+
+
 class DataclassJSONDecoder(JSONDecoder):
     def __init__(self, *args, **kwargs):
-        JSONDecoder.__init__(self, object_hook=object_hook, *args, **kwargs)
+        kwargs['object_hook'] = object_hook
+        super().__init__(*args, **kwargs)
+
+
 
 
 def dataclass_to_dict(o):
@@ -195,6 +203,8 @@ def encode_object(o):
         return str(o)
     elif isinstance(o, Iterable):
         return list(o)
+    else:
+        return tagged_serializer.tag(o)
 
 
 

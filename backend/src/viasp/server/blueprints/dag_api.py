@@ -12,7 +12,7 @@ from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy import select
 
 from ...asp.reify import ProgramAnalyzer, reify_list
-from ...asp.justify import build_graph
+from ...asp.justify import build_graph, search_nonground_term_in_symbols
 from ...shared.defaults import STATIC_PATH
 from ...shared.model import SearchResultSymbolWrapper, Transformation, Node, Signature
 from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations, pairwise
@@ -612,7 +612,7 @@ def get_all_symbols_in_graph(encoding_id, current_graph_hash):
         select(GraphSymbols).filter(GraphSymbols.node.in_(db_graph_node_uuids))).scalars().all()
     return db_graph_symbols
 
-def search_term_in_symbols(query, db_graph_symbols):
+def search_ground_term_in_symbols(query, db_graph_symbols):
     all_filtered_symbols = list(filter(lambda x: query in x.symbol, db_graph_symbols))
     all_filtered_symbols.reverse()
     symbols_results = []
@@ -656,7 +656,9 @@ def search():
         #         result.append(transformation)
 
         db_graph_symbols = get_all_symbols_in_graph(encoding_id, current_graph_hash)
-        results = search_term_in_symbols(query, db_graph_symbols)
+        results = search_ground_term_in_symbols(query, db_graph_symbols)
+        if len(results) == 0:
+            results = search_nonground_term_in_symbols(query, db_graph_symbols)
         results.sort()
         return jsonify(results)
 

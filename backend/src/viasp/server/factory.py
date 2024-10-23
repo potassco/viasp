@@ -1,7 +1,7 @@
 from flask import Flask
 from werkzeug.utils import find_modules, import_string
 from flask_cors import CORS
-
+import secrets
 
 from ..shared.io import DataclassJSONProvider
 from .database import init_db, db_session
@@ -23,6 +23,8 @@ def create_app():
     init_db()
     register_blueprints(app)
     CORS(app, resources={r"/*": {"origins": "*"}}, max_age=3600)
+    app.config['SECRET_KEY'] = secrets.token_hex(16)
+
 
     @app.teardown_appcontext
     def shutdown_session(exception=None):

@@ -44,4 +44,6 @@ def get_or_create_encoding_id() -> str:
     #     session['encoding_id'] = uuid4().hex
     # print(f"Returing encoding id {session['encoding_id']}", flush=True)
     # return session['encoding_id']
+    # if 'encoding_id' in session:
+    #     return session['encoding_id']
     return "0"

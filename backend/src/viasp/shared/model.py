@@ -205,13 +205,14 @@ class StableModel:
 class SearchResultSymbolWrapper:
     repr: str 
     includes: List[str]
+    awaitingInput: bool = False
 
     def __eq__(self, o):
         if not isinstance(o, type(self)):
             if isinstance(o, str):
                 return self.repr == o
             return False
-        return self.repr == o.repr and self.includes == o.includes
+        return self.repr == o.repr and self.includes == o.includes and self.awaitingInput == o.awaitingInput
     
     def __lt__(self, other):
         if not isinstance(other, SearchResultSymbolWrapper):

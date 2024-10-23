@@ -20,6 +20,7 @@ from viasp.shared.model import ClingoMethodCall, Node, SymbolIdentifier, Transfo
 from viasp.server.database import db_session as Session, get_or_create_encoding_id, Base, engine
 from viasp.server.models import CurrentGraphs, Encodings, Recursions, DependencyGraphs, Models
 from viasp.shared.defaults import CLINGRAPH_PATH, GRAPH_PATH, PROGRAM_STORAGE_PATH, STDIN_TMP_STORAGE_PATH
+import secrets
 
 def create_app_with_registered_blueprints(*bps) -> Flask:
     app = Flask(__name__)
@@ -27,6 +28,7 @@ def create_app_with_registered_blueprints(*bps) -> Flask:
         app.register_blueprint(bp)
 
     app.json = DataclassJSONProvider(app)
+    app.config['SECRET_KEY'] = secrets.token_hex(16)
     return app
 
 

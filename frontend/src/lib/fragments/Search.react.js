@@ -1,4 +1,4 @@
-import React, {Suspense} from 'react';
+import React from 'react';
 import "./search.css";
 import * as Constants from "../constants";
 import {Suggestion} from "./SearchResult.react";
@@ -24,7 +24,7 @@ import {useColorPalette} from "../contexts/ColorPalette";
 import { useShownDetail } from "../contexts/ShownDetail";
 import IconWrapper from './IconWrapper.react';
 import {styled} from 'styled-components';
-
+import PulseLoader from 'react-spinners/PulseLoader';
 
 function ActiveFilters() {
     const [{activeFilters},] = useFilters();
@@ -258,8 +258,6 @@ export function Search() {
     const [filteredSuggestions, setFilteredSuggestions] = React.useState([]);
     const [showSuggestions, setShowSuggestions] = React.useState(false);
     const [userInput, setUserInput] = React.useState("");
-    const [, setHighlightedNode] = useHighlightedNode();
-    const setHighlightedNodeRef = React.useRef(setHighlightedNode)
     const [, dispatch] = useFilters();
     const {
         dispatch: dispatchT,
@@ -272,13 +270,6 @@ export function Search() {
 
 
     let suggestionsListComponent;
-    React.useEffect(() => {
-        const highlighted = filteredSuggestions[activeSuggestion]
-
-        if (highlighted && highlighted._type === "Node") {
-            setHighlightedNodeRef.current(highlighted.uuid);
-        }
-    }, [activeSuggestion, filteredSuggestions])
 
     function onChange(e) {
         const userInput = e.currentTarget.value;
@@ -295,6 +286,20 @@ export function Search() {
             setShowSuggestions(true)
             })
     }
+
+    const [awaitingInput, setAwaitingInput] = React.useState(false);
+    React.useEffect(() => {
+        console.log('have filtered suggestions', {
+            userInput,
+            userInputLength: userInput.length,
+        });
+        if (userInput.length >= 1 && filteredSuggestions.length === 0) {
+            console.log("awaiting input")
+            setAwaitingInput(true);
+        } else {
+            setAwaitingInput(false);
+        }
+    }, [userInput, filteredSuggestions]);
 
 
     function handleSelection(selection) {
@@ -328,10 +333,9 @@ export function Search() {
     function onKeyDown(e) {
         if (e.keyCode === Constants.KEY_ENTER) {
             select(filteredSuggestions[activeSuggestion])
-            setHighlightedNode(null);
         } else if (e.keyCode === Constants.KEY_UP) {
             e.preventDefault()
-            if (activeSuggestion === 0) {
+            if (activeSuggestion === -1) {
                 return;
             }
             setActiveSuggestion(activeSuggestion - 1);
@@ -400,6 +404,16 @@ export function Search() {
                         $colorPalette={colorPalette}
                         placeholder="query"
                         type="text"
+                    />
+                    <PulseLoader
+                        color={colorPalette.light}
+                        loading={awaitingInput}
+                        cssOverride={{
+                            position: 'absolute',
+                            marginRight: '0.2em',
+                        }}
+                        size={'0.25em'}
+                        speedMultiplier={Constants.awaitingInputSpinnerSpeed}
                     />
                 </div>
                 <ActiveFilters />
