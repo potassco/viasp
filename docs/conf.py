@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'viASP'
-copyright = '2023, Stephan Zwicknagl, Luis Glaser'
+copyright = '2024, Stephan Zwicknagl, Luis Glaser'
 author = 'Stephan Zwicknagl, Luis Glaser'
 
 # -- Path setup --------------------------------------------------------------
