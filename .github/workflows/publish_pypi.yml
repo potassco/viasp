@@ -28,6 +28,7 @@ jobs:
           path: dist
           commit: ${{ github.sha }}
           name: backend-${{ github.sha }}
+          workflow_conclusion: ""
       - name: Publish on PyPi
         if: ${{ github.event.inputs.backend == 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -47,6 +48,7 @@ jobs:
           path: dist
           commit: ${{ github.sha }}
           name: frontend-${{ github.sha }}
+          workflow_conclusion: ""
       - name: Publish on PyPi
         if: ${{ github.event.inputs.frontend == 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
