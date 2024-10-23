@@ -30,12 +30,12 @@ URL = 'https://github.com/potassco/viasp'
 EMAIL = 'Luis.Glaser@uni-potsdam.de'
 AUTHOR = 'Luis Glaser'
 REQUIRES_PYTHON = '>=3.8.0'
-VERSION = '2.0.0rc1'
+VERSION = '2.0.0rc2'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'viasp-backend',
-    'viasp-dash',
+    'viasp-backend==2.0.0rc2',
+    'viasp-dash==2.0.0rc2',
     'jupyter-server-proxy',
     'clingraph',
     'graphviz',
