@@ -159,13 +159,14 @@ function MainWindow(props) {
 
     React.useEffect(() => {
         const handleKeyDown = (event) => {
-            if (event.key === 'Control') {
+            console.log(event.key);
+            if (event.key === Constants.ZOOMTOGGLEBUTTON) {
                 setCtrlPressed(true);
             }
         };
 
         const handleKeyUp = (event) => {
-            if (event.key === 'Control') {
+            if (event.key === Constants.ZOOMTOGGLEBUTTON) {
                 setCtrlPressed(false);
             }
         };

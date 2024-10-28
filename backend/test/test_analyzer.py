@@ -96,6 +96,19 @@ def test_show_statement_with_terms_analyzed_correctly(app_context, db_session):
     assert next(iter(result[0].rules.str_)) == "#show b : a."
 
 
+def test_show_statement_with_string_analyzed_correctly(app_context, db_session):
+    program = 'a. #show "SUCCESS" : a.'
+    db_session.add(Encodings(id=get_or_create_encoding_id(), program=program))
+    db_session.commit()
+
+    transformer = ProgramAnalyzer()
+    result = transformer.sort_program(program)
+    assert transformer.get_filtered(
+    ) == [], "Show Term should not be filtered out."
+    assert transformer.will_work(), "Program with ShowTerm should work."
+    assert next(iter(result[0].rules.str_)) == '#show "SUCCESS" : a.'
+
+
 def test_defined_statement_analyzed_correctly(app_context, db_session):
     program = "#defined a/1."
     expected = "#defined a/1."

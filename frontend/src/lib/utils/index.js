@@ -15,6 +15,10 @@ export function make_atoms_string(atoms) {
             return make_atoms_string(atoms.symbol);
         case 'String':
             return `"${atoms.string}"`;
+        case 'Infimum':
+            return `#inf`;
+        case 'Supremum':
+            return `#sup`;
         default:
             throw new TypeError(`Unimplemented type ${atoms._type}`);
     }

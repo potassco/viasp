@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple, Iterable, Set, Collection, Any, Union, Seq
 import clingo
 import networkx as nx
 from clingo import ast, Symbol, Number
+from clingo.symbol import SymbolType
 from clingo.ast import (
     Transformer,
     parse_string,
@@ -13,7 +14,7 @@ from clingo.ast import (
     SymbolicAtom as astSymbolicAtom
 )
 from viasp.server.database import get_or_create_encoding_id
-from viasp.shared.util import hash_transformation_rules, hash_string 
+from viasp.shared.util import hash_transformation_rules, hash_string
 
 from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, topological_sort, filter_body_aggregates
 from ..asp.utils import merge_cycles, remove_loops
@@ -29,9 +30,23 @@ from ..shared.simple_logging import error
 def is_fact(rule, dependencies):
     return len(rule.body) == 0 and not len(dependencies)
 
+def make_signature_from_symbolic_term(term) -> Optional[Tuple[str, int]]:
+    symbol = term.symbol
+    if symbol.type == SymbolType.Function:
+        return symbol.name, 0
+    elif symbol.type == SymbolType.Number:
+        return symbol.number, 0
+    elif symbol.type == SymbolType.String:
+        return symbol.string, 0
+    elif symbol.type == SymbolType.Infimum:
+        return "#inf", 0
+    elif symbol.type == SymbolType.Supremum:
+        return "#sup", 0
+    raise ValueError(f"Could not make signature of {term}.")
+
 def make_signature_from_terms(term) -> Optional[Tuple[str, int]]:
     if term.ast_type == ASTType.SymbolicTerm:
-        return term.symbol.name, 0
+        return make_signature_from_symbolic_term(term)
     elif term.ast_type == ASTType.Variable:
         return (term.name, 0)
     elif term.ast_type == ASTType.UnaryOperation:

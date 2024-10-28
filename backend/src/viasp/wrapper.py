@@ -64,7 +64,6 @@ class ShowConnector:
             default=True (collect variables from body as a tuple in the head literal)
         """
         self._database.set_target_stable_model(self._marked)
-        self._database._reconstruct()
         kwargs = {"head_name": head_name, "collect_variables": collect_variables}
         return self._database.relax_constraints(**kwargs)
 
@@ -81,7 +80,6 @@ class ShowConnector:
             default=True (collect variables from body as a tuple in the head literal)
         """
         self._database.set_target_stable_model(self._marked)
-        self._database._reconstruct()
         kwargs = {"head_name": head_name, "collect_variables": collect_variables}
 
         relaxed_prg = self._database.relax_constraints(**kwargs)

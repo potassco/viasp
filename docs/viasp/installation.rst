@@ -2,21 +2,8 @@
 Installation
 ============
 
-Installing with conda 
-=====================
-
-The conda viasp package can be found `here <https://anaconda.org/stephanzwicknagl/viasp>`__.
-
-.. code-block:: bash
-
-    $ conda install viasp -c potassco -c conda-forge -c stephanzwicknagl
-
-
-.. warning:: 
-    To support the use of clingraph in viASP, install `graphviz <https://www.graphviz.org/download/>`__  (version 2.50 or greater) manually.
-
 Installing with pip 
-===================
+=====================
 
 The python viasp package can be found `here <https://pypi.org/project/viasp/>`__.
 

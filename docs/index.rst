@@ -10,6 +10,8 @@ viASP can be used via the command line or its Python API.
    comment viASP uses the clingo python API, a Flask server and a Dash frontend to generate the visualizations.
 
 .. image:: ./img/header.png
+   :width: 100%
+   :alt: viASP header
 
 Explore ASP programs and their answer sets with viASP:
 
@@ -18,7 +20,7 @@ Explore ASP programs and their answer sets with viASP:
 * Inspect iterations of recursive rules
 * Relax and visualize unsatisfiable programs
 * Reorder rules
-* Zoom in and out with Ctrl + mouse wheel
+* Zoom in and out with Shift + mouse wheel
 
 .. toctree::
    :maxdepth: 2
