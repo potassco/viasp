@@ -205,14 +205,16 @@ class StableModel:
 class SearchResultSymbolWrapper:
     repr: str 
     includes: List[str]
-    awaitingInput: bool = False
+    is_autocomplete: bool = True
+    awaiting_input: bool = True
+    hide_in_suggestions: bool = False
 
     def __eq__(self, o):
         if not isinstance(o, type(self)):
             if isinstance(o, str):
                 return self.repr == o
             return False
-        return self.repr == o.repr and self.includes == o.includes and self.awaitingInput == o.awaitingInput
+        return self.repr == o.repr and self.includes == o.includes and self.is_autocomplete == o.is_autocomplete and self.awaiting_input == o.awaiting_input
     
     def __lt__(self, other):
         if not isinstance(other, SearchResultSymbolWrapper):

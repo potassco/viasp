@@ -2,6 +2,7 @@ import pytest
 from viasp.shared.model import SearchResultSymbolWrapper
 from helper import get_clingo_stable_models
 import uuid
+from urllib.parse import quote_plus
 
 program_simple = "a(1..2). {b(X)} :- a(X). c(X) :- b(X)."
 program_multiple_sorts = "a(1..2). {b(X)} :- a(X). c(X) :- a(X)."
@@ -65,7 +66,7 @@ def test_query_endpoints_methods(client_with_a_graph):
 ])
 def test_ground_atoms_suggestions(unique_session, program, query, expected_length):
     setup_for_query(unique_session, program)
-    res = unique_session.get(f"query?q={query}")
+    res = unique_session.get(f"query?q={quote_plus(query)}")
     assert res.status_code == 200
     assert len(res.json) == expected_length
 
@@ -78,7 +79,7 @@ def test_ground_atoms_suggestions(unique_session, program, query, expected_lengt
 def test_ground_atoms_symbolwrapper(unique_session, program, query,
                                   expected_length):
     setup_for_query(unique_session, program)
-    res = unique_session.get(f"query?q={query}")
+    res = unique_session.get(f"query?q={quote_plus(query)}")
     assert res.status_code == 200
     search_result_symbol_wrapper = res.json[0]
     assert isinstance(search_result_symbol_wrapper, SearchResultSymbolWrapper)
@@ -101,40 +102,14 @@ def test_ground_atoms_symbolwrapper(unique_session, program, query,
 ])
 def test_nonground_atoms_alternative1(unique_session, program, query, expected_length):
     setup_for_query(unique_session, program)
-    res = unique_session.get(f"query?q={query}")
+    res = unique_session.get(f"query?q={quote_plus(query)}")
     assert res.status_code == 200
     assert len(res.json) == expected_length
-
-
-########################################
-### Non-ground search: ALTERNATIVE 2 ###
-########################################
-@pytest.mark.parametrize("program, query, expected_length", [
-    (program_simple, "a(X)", 2),
-    (program_multiple_sorts, "c(X)", 8),
-    (program_recursive, "j(X,Y)", 21),
-    (program_recursive, "j(X,X+1)", 6),
-    (program_recursive, "j(X,X+2)", 5),
-])
-def test_nonground_atoms_alternative2(unique_session, program, query,
-                                      expected_length):
-    setup_for_query(unique_session, program)
-    res = unique_session.get(f"query?q={query}")
-    assert res.status_code == 200
-    assert len(res.json) == 1
-    search_result_symbol_wrapper = res.json[0]
-    assert isinstance(search_result_symbol_wrapper, SearchResultSymbolWrapper)
-    assert isinstance(search_result_symbol_wrapper.repr, str)
-    assert query in search_result_symbol_wrapper.repr
-    assert isinstance(search_result_symbol_wrapper.includes, list)
-    assert isinstance(search_result_symbol_wrapper.includes[0], str)
-    assert len(search_result_symbol_wrapper.includes) == expected_length
-
 
 @pytest.mark.parametrize("program, query, expected", [
     (program_simple, "a", True),
     (program_simple, "a(", True),
-    (program_simple, "a()", True),
+    (program_simple, "a()", False),
     (program_simple, "a(X", True),
     (program_multiple_sorts, "c(X)", False),
     (program_multiple_sorts, "d(X", True),
@@ -143,6 +118,6 @@ def test_nonground_atoms_alternative2(unique_session, program, query,
 ])
 def test_awaiting_input(unique_session, program, query, expected):
     setup_for_query(unique_session, program)
-    res = unique_session.get(f"query?q={query}")
+    res = unique_session.get(f"query?q={quote_plus(query)}")
     assert res.status_code == 200
-    assert len(res.json) == expected
+    assert (res.json[0].awaiting_input) == expected

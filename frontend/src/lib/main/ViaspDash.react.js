@@ -159,7 +159,6 @@ function MainWindow(props) {
 
     React.useEffect(() => {
         const handleKeyDown = (event) => {
-            console.log(event.key);
             if (event.key === Constants.ZOOMTOGGLEBUTTON) {
                 setCtrlPressed(true);
             }

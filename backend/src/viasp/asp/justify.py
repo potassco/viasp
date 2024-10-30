@@ -274,13 +274,18 @@ def get_recursion_subgraph(
 
     return h_syms
 
+def index_of_symbolstr_in_results(results: List[SearchResultSymbolWrapper], symbol_str: str) -> int:
+    for i, result in enumerate(results):
+        if result.repr == symbol_str:
+            return i
+    return -1
+
 def search_nonground_term_in_symbols(query, db_graph_symbols):
     model_atoms: List[str] = []
     symbol_uuid_str: str = "SYMBOLUUID"
-    result = SearchResultSymbolWrapper(query, [], False)
+    results: List[SearchResultSymbolWrapper] = []
     for s in db_graph_symbols:
-        model_atoms.append(
-            f'model({s.symbol}, "{s.symbol_uuid}").')
+        model_atoms.append(f'model({s.symbol}, "{s.symbol_uuid}").')
 
     control = Control()
     query_rule = f'result({query},{symbol_uuid_str}):-model({query},{symbol_uuid_str}).'
@@ -291,7 +296,31 @@ def search_nonground_term_in_symbols(query, db_graph_symbols):
         control.ground([("base", [])])
 
         for x in control.symbolic_atoms.by_signature("result", 2):
-            result.includes.append(str(x.symbol.arguments[1].string))
-    except RuntimeError as e:
-        pass
-    return [result] if result.includes else []
+            index = index_of_symbolstr_in_results(results, str(x.symbol.arguments[0]))
+            if index == -1:
+                results.append(SearchResultSymbolWrapper(
+                    repr = str(x.symbol.arguments[0]),
+                    includes = [str(x.symbol.arguments[1].string)],
+                    is_autocomplete = False,
+                    awaiting_input = False,
+                ))
+            else:
+                results[index].includes.append(str(x.symbol.arguments[1].string))
+
+    except RuntimeError:
+        return [
+            SearchResultSymbolWrapper(
+                repr=query,
+                includes=[],
+                is_autocomplete=False,
+                awaiting_input=True,
+                hide_in_suggestions=True,
+            )
+        ]
+    return results if len(results) else [SearchResultSymbolWrapper(
+        repr = query,
+        includes = [],
+        is_autocomplete = False,
+        awaiting_input = False,
+        hide_in_suggestions=True,
+    )]

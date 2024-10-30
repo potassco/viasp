@@ -3,7 +3,6 @@ import "./search.css";
 import * as Constants from "../constants";
 import {Suggestion} from "./SearchResult.react";
 import PropTypes from "prop-types";
-import {useHighlightedNode} from "../contexts/HighlightedNode";
 import {useSettings} from "../contexts/Settings";
 import {addSignature, clear, useFilters} from "../contexts/Filters";
 import {
@@ -253,9 +252,39 @@ const SearchInput = styled.input`
     }
 `;
 
+const AutocompleteSpan = styled.span`
+    color: ${(props) => props.$colorPalette.light};
+    border-radius: 0;
+    border: 1pt solid ${(props) => props.$colorPalette.dark};
+    padding: 0.2em;
+    position: absolute;
+    z-index: 40;
+`
+
+const ResultsUL = styled.ul`
+    position: absolute;
+    z-index: 30;
+    list-style: none;
+    right: 0;
+    left: 0;
+    margin-top: 0;
+    margin-left: 0;
+    padding-left: 1.2em;
+    padding-right: 0.2em;
+    margin-bottom: 1px;
+    border-radius: 0.7em;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: 8em;
+    background-color: ${(props) => props.$colorPalette.light};
+    color: ${(props) => props.$colorPalette.dark};
+`
+
 export function Search() {
     const [activeSuggestion, setActiveSuggestion] = React.useState(0);
     const [filteredSuggestions, setFilteredSuggestions] = React.useState([]);
+    const [awaitingInput, setAwaitingInput] = React.useState(false);
+    const [showAutocomplete, setShowAutocomplete] = React.useState(true);
     const [showSuggestions, setShowSuggestions] = React.useState(false);
     const [userInput, setUserInput] = React.useState("");
     const [, dispatch] = useFilters();
@@ -274,33 +303,24 @@ export function Search() {
     function onChange(e) {
         const userInput = e.currentTarget.value;
         setUserInput(userInput);
-        fetch(`${backendURL("query")}?q=${userInput}`)
-        .then(r => r.json())
-        .then(data => {
-            setActiveSuggestion(0)
-            const activeSearchResultHighlights = new Set(searchResultHighlightedSymbols.map(s => s.repr));
-            const filtered = data.filter(
-                (s) => !activeSearchResultHighlights.has(s.repr)
-            );
-            setFilteredSuggestions(filtered)
-            setShowSuggestions(true)
-            })
+        fetch(`${backendURL('query')}?q=${encodeURIComponent(userInput)}`)
+            .then((r) => r.json())
+            .then((data) => {
+                setActiveSuggestion(0);
+                const activeSearchResultHighlights = new Set(
+                    searchResultHighlightedSymbols.map((s) => s.repr)
+                );
+                const filtered = data.filter(
+                    (s) => !activeSearchResultHighlights.has(s.repr) 
+                );
+                setShowAutocomplete(filtered.some((s) => s.isAutocomplete));
+                setAwaitingInput(filtered.some(s => s.awaitingInput));
+                setFilteredSuggestions(
+                    filtered.filter((s) => !s.hideInSuggestions)
+                );
+                setShowSuggestions(true);
+            });
     }
-
-    const [awaitingInput, setAwaitingInput] = React.useState(false);
-    React.useEffect(() => {
-        console.log('have filtered suggestions', {
-            userInput,
-            userInputLength: userInput.length,
-        });
-        if (userInput.length >= 1 && filteredSuggestions.length === 0) {
-            console.log("awaiting input")
-            setAwaitingInput(true);
-        } else {
-            setAwaitingInput(false);
-        }
-    }, [userInput, filteredSuggestions]);
-
 
     function handleSelection(selection) {
         if (selection._type === "Signature") {
@@ -362,32 +382,60 @@ export function Search() {
 
     if (showSuggestions && userInput) {
         if (filteredSuggestions.length) {
-            suggestionsListComponent = (
-                <ul
-                    className="search_result_list"
-                    style={{
-                        backgroundColor: colorPalette.primary,
-                        color: colorPalette.light,
-                    }}
-                >
-                    {filteredSuggestions.map((suggestion, index) => {
-                        return (
-                            <Suggestion
-                                active={index === activeSuggestion}
-                                key={index}
-                                value={suggestion}
-                                select={select}
-                                ref={(el) =>
-                                    (suggestionRefs.current[index] = el)
-                                }
-                                mouseHoverCallback={() =>
-                                    handleMouseOver(index)
-                                }
-                            />
-                        );
-                    })}
-                </ul>
-            );
+            if (showAutocomplete) {
+                suggestionsListComponent = (
+                    <ResultsUL $colorPalette={colorPalette}>
+                        {filteredSuggestions.map((suggestion, index) => {
+                            return (
+                                <Suggestion
+                                    active={index === activeSuggestion}
+                                    key={index}
+                                    value={suggestion}
+                                    select={select}
+                                    userInput={userInput}
+e                                    ref={(el) =>
+                                        (suggestionRefs.current[index] = el)
+                                    }
+                                    mouseHoverCallback={() =>
+                                        handleMouseOver(index)
+                                    }
+                                    $backgroundColor={colorPalette.light}
+                                />
+                            );
+                        })}
+                    </ResultsUL>
+                );
+            }
+            else {
+                suggestionsListComponent = (
+                    <ul
+                        className="search_result_list"
+                        style={{
+                            backgroundColor: colorPalette.primary,
+                            color: colorPalette.light,
+                        }}
+                    >
+                        {filteredSuggestions.map((suggestion, index) => {
+                            return (
+                                <Suggestion
+                                    active={index === activeSuggestion}
+                                    key={index}
+                                    value={suggestion}
+                                    select={select}
+                                    userInput={userInput}
+                                    ref={(el) =>
+                                        (suggestionRefs.current[index] = el)
+                                    }
+                                    mouseHoverCallback={() =>
+                                        handleMouseOver(index)
+                                    }
+                                    $backgroundColor={colorPalette.primary}
+                                />
+                            );
+                        })}
+                    </ul>
+                );
+            }
         } else {
             suggestionsListComponent = <div className="no-suggestions" />;
         }

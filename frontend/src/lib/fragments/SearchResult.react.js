@@ -13,10 +13,17 @@ import * as Constants from "../constants";
 
 
 function SuggestionContent(props) {
-    const {value} = props;
+    const {value, userInput} = props;
     let display = "UNKNOWN FILTER"
 
-    if (value._type === 'SearchResultSymbolWrapper') {
+    const index = value.repr.toLowerCase().indexOf(userInput.toLowerCase());
+    if (index !== -1) {
+        display = <>
+            <span>{value.repr.substring(0, index)}</span>
+            <b>{value.repr.substring(index, index + userInput.length)}</b>
+            <span>{value.repr.substring(index + userInput.length)}</span>
+        </>
+    } else {
         display = value.repr;
     }
 
@@ -32,12 +39,11 @@ SuggestionContent.propTypes = {
     /**
      * The Search Result to be displayed, either a Transformation, a Node or a Signature
      */
-    value: PropTypes.oneOfType([
-        SIGNATURE,
-        TRANSFORMATION,
-        NODE,
-        SEARCHRESULTSYMBOLWRAPPER,
-    ]),
+    value: SEARCHRESULTSYMBOLWRAPPER,
+    /**
+     *  The user input
+     */
+    userInput: PropTypes.string,
 };
 
 const SearchRowLi = styledComponents.li`
@@ -50,7 +56,7 @@ const SearchRowLi = styledComponents.li`
 `;
 
 export const Suggestion = React.forwardRef((props, ref) => {
-    const {value, active, select, mouseHoverCallback} = props;
+    const {value, active, select, userInput, mouseHoverCallback, $backgroundColor} = props;
     const colorPalette = useColorPalette();
 
     const classes = ['search_row'];
@@ -61,12 +67,12 @@ export const Suggestion = React.forwardRef((props, ref) => {
         <SearchRowLi
             className={classes.join(' ')}
             name={[value]}
-            $backgroundColor={colorPalette.primary}
+            $backgroundColor={$backgroundColor}
             ref={ref}
             onMouseEnter={mouseHoverCallback}
             onClick={() => select(value)}
         >
-            <SuggestionContent value={value} />
+            <SuggestionContent value={value} userInput={userInput} />
         </SearchRowLi>
     );
 });
@@ -90,7 +96,15 @@ Suggestion.propTypes = {
      */
     select: PropTypes.func,
     /**
+     *  The user input
+     */
+    userInput: PropTypes.string,
+    /**
      *  onMouseHover Callback
      */
     mouseHoverCallback: PropTypes.func,
+    /**
+     *  The background color of the suggestion
+     */
+    $backgroundColor: PropTypes.string,
 };

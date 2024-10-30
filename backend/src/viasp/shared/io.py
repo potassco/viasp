@@ -70,6 +70,9 @@ def object_hook(obj):
     elif t == "RuleContainer":
         return RuleContainer(str_=obj["str_"], hash=obj["hash"])
     elif t == "SearchResultSymbolWrapper":
+        obj['is_autocomplete'] = obj.pop('isAutocomplete', False)
+        obj['awaiting_input'] = obj.pop('awaitingInput', False)
+        obj['hide_in_suggestions'] = obj.pop('hideInSuggestions', False)
         return SearchResultSymbolWrapper(**obj)
     elif t == "Signature":
         return Signature(**obj)
@@ -134,7 +137,14 @@ def dataclass_to_dict(o):
     elif isinstance(o, RuleContainer):
         return {"_type": "RuleContainer", "ast": o.ast, "str_": o.str_, "hash": o.hash}
     elif isinstance(o, SearchResultSymbolWrapper):
-        return {"_type": "SearchResultSymbolWrapper", "repr": o.repr, "includes": o.includes}
+        return {
+            "_type": "SearchResultSymbolWrapper",
+            "repr": o.repr,
+            "includes": o.includes,
+            "isAutocomplete": o.is_autocomplete,
+            "awaitingInput": o.awaiting_input,
+            "hideInSuggestions": o.hide_in_suggestions,
+        }
     elif isinstance(o, StableModel):
         return {"_type": "StableModel", "cost": o.cost, "optimality_proven": o.optimality_proven, "type": o.type,
                 "atoms": o.atoms, "terms": o.terms, "shown": o.shown, "theory": o.theory}
