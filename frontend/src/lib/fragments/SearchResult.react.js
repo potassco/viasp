@@ -6,23 +6,26 @@ import {
     TRANSFORMATION,
     SEARCHRESULTSYMBOLWRAPPER,
 } from '../types/propTypes';
-import { styled as styledComponents } from "styled-components";
+import { styled } from "styled-components";
 import {useColorPalette} from "../contexts/ColorPalette";
 import {darken} from 'polished';
 import * as Constants from "../constants";
+import {NavigationArea} from "./NavigationArea.react";
 
 
 function SuggestionContent(props) {
-    const {value, userInput} = props;
+    const {value, bolden} = props;
     let display = "UNKNOWN FILTER"
 
-    const index = value.repr.toLowerCase().indexOf(userInput.toLowerCase());
+    const index = value.repr.toLowerCase().indexOf(bolden.toLowerCase());
     if (index !== -1) {
-        display = <>
-            <span>{value.repr.substring(0, index)}</span>
-            <b>{value.repr.substring(index, index + userInput.length)}</b>
-            <span>{value.repr.substring(index + userInput.length)}</span>
-        </>
+        display = (
+            <>
+                <span>{value.repr.substring(0, index)}</span>
+                <b>{value.repr.substring(index, index + bolden.length)}</b>
+                <span>{value.repr.substring(index + bolden.length)}</span>
+            </>
+        );
     } else {
         display = value.repr;
     }
@@ -43,12 +46,12 @@ SuggestionContent.propTypes = {
     /**
      *  The user input
      */
-    userInput: PropTypes.string,
+    bolden: PropTypes.string,
 };
 
-const SearchRowLi = styledComponents.li`
+const SearchRowLi = styled.li`
     background-color: ${(props) => props.$backgroundColor};
-    margin-bottom: 0.2em;
+    padding: 0.7em 0;
 
     &.active {
         background-color: ${(props) => darken(Constants.hoverColorDarkenFactor, props.$backgroundColor)};
@@ -56,7 +59,7 @@ const SearchRowLi = styledComponents.li`
 `;
 
 export const Suggestion = React.forwardRef((props, ref) => {
-    const {value, active, select, userInput, mouseHoverCallback, $backgroundColor} = props;
+    const {value, active, select, userInput, mouseHoverCallback, isAutocompleteSuggestion, isSelectedResult} = props;
     const colorPalette = useColorPalette();
 
     const classes = ['search_row'];
@@ -66,13 +69,31 @@ export const Suggestion = React.forwardRef((props, ref) => {
     return (
         <SearchRowLi
             className={classes.join(' ')}
-            name={[value]}
-            $backgroundColor={$backgroundColor}
+            name={value.repr}
+            $backgroundColor={
+                isAutocompleteSuggestion
+                    ? colorPalette.light
+                    : colorPalette.primary
+            }
             ref={ref}
             onMouseEnter={mouseHoverCallback}
-            onClick={() => select(value)}
+            onClick={isSelectedResult ? null : () => select(value)}
         >
-            <SuggestionContent value={value} userInput={userInput} />
+            {!isSelectedResult ? (
+                <SuggestionContent
+                    value={value}
+                    bolden={isAutocompleteSuggestion ? userInput : ''}
+                />
+            ) : (
+                <FilterHighlightContentDiv className="filter-highlight-content">
+                    <SuggestionContent value={value} bolden={''} />
+                    <NavigationArea
+                        visible={true}
+                        searchResult={value}
+                        searchInputAreaRef={null}
+                    />
+                </FilterHighlightContentDiv>
+            )}
         </SearchRowLi>
     );
 });
@@ -104,7 +125,19 @@ Suggestion.propTypes = {
      */
     mouseHoverCallback: PropTypes.func,
     /**
-     *  The background color of the suggestion
+     *  Is autocomplete
      */
-    $backgroundColor: PropTypes.string,
+    isAutocompleteSuggestion: PropTypes.bool,
+    /**
+     *  Is selected result
+     */
+    isSelectedResult: PropTypes.bool,
 };
+
+const FilterHighlightContentDiv = styled.div`
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+    height: 100%;
+`;

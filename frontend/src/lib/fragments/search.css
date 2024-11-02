@@ -4,17 +4,6 @@
     justify-content: end;
 }
 
-.search_content {
-    width: 100%;
-    border-radius: 0.7em;
-}
-
-.search_input_container {
-    justify-content: end;
-    align-items: center;
-    display: flex;
-}
-
 .search_result_list {
     position: absolute;
     z-index: 30;

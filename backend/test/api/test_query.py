@@ -59,16 +59,52 @@ def test_query_endpoints_methods(client_with_a_graph):
     (program_multiple_sorts, "cd", 0),
     (program_multiple_sorts, "c1", 0),
     (program_multiple_sorts, "d", 0),
-    (program_multiple_sorts, "C", 0),
     (program_recursive, "j(1,2)", 1),
     (program_recursive, "1,2", 1),
     (program_recursive, "1, 2", 1),
 ])
-def test_ground_atoms_suggestions(unique_session, program, query, expected_length):
+def test_ground_atoms_suggestions(unique_session, program, query,
+                                  expected_length):
     setup_for_query(unique_session, program)
     res = unique_session.get(f"query?q={quote_plus(query)}")
     assert res.status_code == 200
-    assert len(res.json) == expected_length
+    suggestions = list(filter(lambda x: x.hide_in_suggestions == False, res.json))
+    assert len(suggestions) == expected_length
+
+@pytest.mark.parametrize("program, query, expected_awaiting_input", [
+    (program_simple, "a", True),
+    (program_simple, "d", False),
+    (program_multiple_sorts, "b", True),
+    (program_multiple_sorts, "c()*", True),
+    (program_multiple_sorts, "c1", False),
+    (program_multiple_sorts, "d(X)", False),
+    (program_multiple_sorts, "c(X)", False),
+    (program_multiple_sorts, "c(X))", True),
+])
+def test_ground_atoms_response_awaiting_input(unique_session, program, query,
+                                      expected_awaiting_input):
+    setup_for_query(unique_session, program)
+    res = unique_session.get(f"query?q={quote_plus(query)}")
+    assert res.status_code == 200
+    res = res.json
+    assert res[0].awaiting_input == expected_awaiting_input
+
+
+@pytest.mark.parametrize("program, query, expected_hide_in_suggestions", [
+    (program_simple, "a", False),
+    (program_simple, "a(1)", False),
+    (program_simple, "a(X)", False),
+    (program_simple, "d", True),
+    (program_multiple_sorts, "d(X)", True),
+    (program_multiple_sorts, "c(X))", True),
+])
+def test_ground_atoms_response_hidden(unique_session, program, query,
+                                      expected_hide_in_suggestions):
+    setup_for_query(unique_session, program)
+    res = unique_session.get(f"query?q={quote_plus(query)}")
+    assert res.status_code == 200
+    res = res.json
+    assert res[0].hide_in_suggestions == expected_hide_in_suggestions
 
 
 @pytest.mark.parametrize("program, query, expected_length", [

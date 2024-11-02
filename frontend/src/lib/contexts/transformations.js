@@ -270,12 +270,11 @@ const SET_RECENT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL = 'APP/SYMBOL/SEARCH/SETRECENT
 const CLEAR_SEARCH_RESULT_HIGHLIGHTED_SYMBOLS = 'APP/SYMBOL/SEARCH/CLEAR';
 const addSearchResultHighlightedSymbol = (s, colors) => ({type: ADD_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s, colors});
 const removeSearchResultHighlightedSymbol = (s) => ({type: REMOVE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s});
-const rotateSearchResultHighlightedSymbol = (symbol, direction) => ({
+const rotateSearchResultHighlightedSymbol = (direction) => ({
     type: ROTATE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL,
-    symbol,
     direction,
 });
-const unsetRecentSearchResultHighlightedSymbol = (s) => ({type: UNSET_RECENT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, s});
+const unsetRecentSearchResultHighlightedSymbol = (symbol) => ({type: UNSET_RECENT_SEARCH_RESULT_HIGHLIGHTED_SYMBOL, symbol});
 const clearSearchResultHighlightedSymbol = () => ({type: CLEAR_SEARCH_RESULT_HIGHLIGHTED_SYMBOLS});
 
 
@@ -911,13 +910,13 @@ const transformationReducer = (state = initialState, action) => {
             state.searchResultHighlightedSymbols,
             action.colors
         );
-        const updatedSearchResultHighlightedSymbols = state.searchResultHighlightedSymbols.concat({
-                ...action.s,
-                color: nextColor,
-                recent: true,
-                selected: 0,
-                scrollable: action.s.includes.length > 1,
-            });
+        const updatedSearchResultHighlightedSymbols = [{
+            ...action.s,
+            color: nextColor,
+            recent: true,
+            selected: 0,
+            scrollable: action.s.includes.length > 1,
+        }];
         const updatedAllHighlightedSymbols = state.explanationHighlightedSymbols
             .map((item) => item.src)
             .concat(state.explanationHighlightedSymbols.map((item) => item.tgt))
@@ -952,14 +951,11 @@ const transformationReducer = (state = initialState, action) => {
     }
     if (action.type === ROTATE_SEARCH_RESULT_HIGHLIGHTED_SYMBOL) {
         const updatedSearchResultHighlightedSymbols = state.searchResultHighlightedSymbols.map((s) => {
-            if (s.repr === action.symbol.repr) {
-                return {
-                    ...s,
-                    selected: s.selected + action.direction,
-                    recent: true,
-                };
-            }
-            return s;
+            return {
+                ...s,
+                selected: s.selected + action.direction,
+                recent: true,
+            };
         });
         const updatedAllHighlightedSymbols = state.explanationHighlightedSymbols
             .map((item) => item.src)
@@ -994,7 +990,7 @@ const transformationReducer = (state = initialState, action) => {
         return {
             ...state,
             searchResultHighlightedSymbols: state.searchResultHighlightedSymbols.map((s) => {
-                if (s.repr === action.s.repr) {
+                if (s.repr === action.symbol.repr) {
                     return {
                         ...s,
                         recent: false,

@@ -17,219 +17,15 @@ import {
     addSearchResultHighlightedSymbol,
     removeSearchResultHighlightedSymbol,
     rotateSearchResultHighlightedSymbol,
-    unsetRecentSearchResultHighlightedSymbol
+    unsetRecentSearchResultHighlightedSymbol,
+    clearSearchResultHighlightedSymbol,
 } from '../contexts/transformations';
 import {useColorPalette} from "../contexts/ColorPalette";
 import { useShownDetail } from "../contexts/ShownDetail";
 import IconWrapper from './IconWrapper.react';
 import {styled} from 'styled-components';
 import PulseLoader from 'react-spinners/PulseLoader';
-
-function ActiveFilters() {
-    const [{activeFilters},] = useFilters();
-    const {state: {searchResultHighlightedSymbols}} = useTransformations();
-    return (
-        <ul className="active_filters_list">
-            {activeFilters.length === 0
-                ? null
-                : activeFilters.map((filter, index) => {
-                      return <ActiveFilter key={index} filter={filter} />;
-                  })}
-            {searchResultHighlightedSymbols.length === 0
-                ? null
-                : searchResultHighlightedSymbols.map((searchResult, index) => {
-                      return (
-                          <ActiveHighlight
-                              key={index}
-                              searchResult={searchResult}
-                          />
-                      );
-                  })}
-        </ul>
-    );
-
-}
-
-function CloseButton(props) {
-    const {onClose} = props;
-    const colorPalette = useColorPalette();
-                                
-    return (
-        <IconWrapper
-            icon="close"
-            height="15px"
-            color={colorPalette.light}
-            className="close"
-            onClick={onClose}
-        />
-    );
-}
-
-CloseButton.propTypes = {
-    /**
-     * The function to call when the close button is clicked.
-     */
-    onClose: PropTypes.func
-}
-
-function NextButton(props) {
-    const {onForward, disabled} = props;
-    const colorPalette = useColorPalette();
-
-    return (
-        <IconWrapper
-            icon="navigateNext"
-            height="15px"
-            color={disabled ? colorPalette.dark : colorPalette.light}
-            onClick={disabled ? null : onForward}
-        />
-    );
-}
-
-NextButton.propTypes = {
-    /**
-     * The function to call when the forward button is clicked.
-     * */
-    onForward: PropTypes.func,
-    /**
-     * Whether the forward button is disabled.
-     * */
-    disabled: PropTypes.bool,
-}
-
-function PrevButton(props) {
-    const {onBackward, disabled} = props;
-    const colorPalette = useColorPalette();
-
-    return (
-        <IconWrapper
-            icon="navigateNext"
-            height="15px"
-            flip="horizontal"
-            color={disabled ? colorPalette.dark : colorPalette.light}
-            onClick={disabled ? null : onBackward}
-        />
-    );
-}
-
-PrevButton.propTypes = {
-    /**
-     * The function to call when the backward button is clicked.
-     * */
-    onBackward: PropTypes.func,
-    /**
-     * Whether the backward button is disabled.
-     * */
-    disabled: PropTypes.bool,
-}
-
-function ActiveFilter(props) {
-    const {filter} = props;
-    const [, dispatch] = useFilters();
-    const colorPalette = useColorPalette();
-    const classes = ["filter", "search_row", "txt-elem"];
-    if (filter._type === "Transformation") {
-        classes.push("search_rule")
-    }
-    if (filter._type === "Node") {
-        classes.push("search_node")
-    }
-    if (filter._type === "Signature") {
-        classes.push("search_signature")
-    }
-    function onClose() {
-        dispatch(clear(filter))
-    }
-
-    return <li style={{backgroundColor: colorPalette.primary, color: colorPalette.light}} className={classes.join(" ")}
-               key={filter.name}>{filter.name}/{filter.args}<CloseButton
-        onClose={onClose}/>
-    </li>
-}
-
-ActiveFilter.propTypes = {
-    filter: PropTypes.oneOfType([TRANSFORMATION, NODE, SIGNATURE])
-}
-
-const HighlightRowLi = styled.li`
-    background-color: ${(props) => props.$colorPalette.primary};
-    color: ${(props) => props.$colorPalette.light};
-    cursor: pointer;
-    border-radius: 0.4em;
-    left: 0;
-    padding-left: 0.8em;
-    list-style-type: none;
-`;
-
-const FilterHighlightContentDiv = styled.div`
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    padding: 0.2em;
-    align-items: center;
-    height: 100%;
-`;
-
-const AtomStringSpan = styled.span`
-    flex-grow: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-`;
-
-function ActiveHighlight(props) {
-    const {searchResult} = props;
-    const {dispatch: dispatchT} = useTransformations();
-    const colorPalette = useColorPalette();
-
-    function onClose() {
-        dispatchT(removeSearchResultHighlightedSymbol(searchResult));
-    }
-
-    const [timeoutId, setTimeoutId] = React.useState(null);
-    function onRotate(direction) {
-        if (timeoutId) {
-            clearTimeout(timeoutId);
-        }
-        dispatchT(rotateSearchResultHighlightedSymbol(searchResult, direction));
-        const newTimeoutId = setTimeout(() => {
-            dispatchT(unsetRecentSearchResultHighlightedSymbol(searchResult));
-        }, Constants.searchResultHighlightDuration);
-        setTimeoutId(newTimeoutId);
-    }
-
-    return (
-        <HighlightRowLi
-            className="txt-elem"
-            key={searchResult}
-            $colorPalette={colorPalette}
-        >
-            <FilterHighlightContentDiv className="filter-highlight-content">
-                <AtomStringSpan>{searchResult.repr}</AtomStringSpan>
-                <PrevButton
-                    onBackward={() => {
-                        onRotate(-1);
-                    }}
-                    disabled={searchResult.selected < 1}
-                />
-                <NextButton
-                    onForward={() => {
-                        onRotate(+1);
-                    }}
-                    disabled={
-                        searchResult.selected + 1 >=
-                        searchResult.includes.length
-                    }
-                />
-                <CloseButton onClose={onClose} />
-            </FilterHighlightContentDiv>
-        </HighlightRowLi>
-    );
-}
-
-ActiveHighlight.propTypes = {
-    searchResult: SEARCHRESULTSYMBOLWRAPPER,
-};
+import {NavigationArea, CloseButton} from "./NavigationArea.react";
 
 function middlewareAddSearchResultHighlightedSymbol(dispatchT, searchResult, color) {
     dispatchT(addSearchResultHighlightedSymbol(searchResult, color));
@@ -252,16 +48,7 @@ const SearchInput = styled.input`
     }
 `;
 
-const AutocompleteSpan = styled.span`
-    color: ${(props) => props.$colorPalette.light};
-    border-radius: 0;
-    border: 1pt solid ${(props) => props.$colorPalette.dark};
-    padding: 0.2em;
-    position: absolute;
-    z-index: 40;
-`
-
-const ResultsUL = styled.ul`
+const AutocompleteResultsUL = styled.ul`
     position: absolute;
     z-index: 30;
     list-style: none;
@@ -280,22 +67,38 @@ const ResultsUL = styled.ul`
     color: ${(props) => props.$colorPalette.dark};
 `
 
+const SearchResultsUL = styled(AutocompleteResultsUL)`
+    background-color: ${(props) => props.$colorPalette.primary};
+    color: ${(props) => props.$colorPalette.light};
+`;
+
+const SearchInputContainerDiv = styled.div`
+    justify-content: end;
+    align-items: center;
+    display: flex;
+`;
+
+const SearchContentDiv = styled.div`
+    width: 100%;
+    border-radius: 0.4em;
+    background-color: ${(props) => props.$colorPalette.primary};
+`;
+
 export function Search() {
     const [activeSuggestion, setActiveSuggestion] = React.useState(0);
     const [filteredSuggestions, setFilteredSuggestions] = React.useState([]);
     const [awaitingInput, setAwaitingInput] = React.useState(false);
-    const [showAutocomplete, setShowAutocomplete] = React.useState(true);
+    const [isAutocompleteVisible, setIsAutocompleteVisible] = React.useState(true);
     const [showSuggestions, setShowSuggestions] = React.useState(false);
     const [userInput, setUserInput] = React.useState("");
-    const [, dispatch] = useFilters();
     const {
         dispatch: dispatchT,
         state: {searchResultHighlightedSymbols},
     } = useTransformations();
     const {backendURL} = useSettings();
     const colorPalette = useColorPalette();
-    const { setShownDetail } = useShownDetail();
     const suggestionRefs = React.useRef([]);
+    const searchInputRef = React.useRef(null);
 
 
     let suggestionsListComponent;
@@ -303,56 +106,72 @@ export function Search() {
     function onChange(e) {
         const userInput = e.currentTarget.value;
         setUserInput(userInput);
-        fetch(`${backendURL('query')}?q=${encodeURIComponent(userInput)}`)
-            .then((r) => r.json())
-            .then((data) => {
-                setActiveSuggestion(0);
-                const activeSearchResultHighlights = new Set(
-                    searchResultHighlightedSymbols.map((s) => s.repr)
-                );
-                const filtered = data.filter(
-                    (s) => !activeSearchResultHighlights.has(s.repr) 
-                );
-                setShowAutocomplete(filtered.some((s) => s.isAutocomplete));
-                setAwaitingInput(filtered.some(s => s.awaitingInput));
-                setFilteredSuggestions(
-                    filtered.filter((s) => !s.hideInSuggestions)
-                );
-                setShowSuggestions(true);
-            });
+        if (userInput === "") {
+            setAwaitingInput(false);
+        }
+        else {
+            fetch(`${backendURL('query')}?q=${encodeURIComponent(userInput)}`)
+                .then((r) => r.json())
+                .then((data) => {
+                    const indexOfUserInputInSuggestions = data.findIndex(s => s.repr === userInput);
+                    if (indexOfUserInputInSuggestions !== -1 && !data[indexOfUserInputInSuggestions].hideInSuggestions) {
+                        // exact match
+                        setFilteredSuggestions([]);
+                        selectAutocomplete(data[indexOfUserInputInSuggestions]);
+                    }
+                    else {
+                        // show suggestions
+                        setIsAutocompleteVisible(
+                            data.some((s) => s.isAutocomplete)
+                        );
+                        setAwaitingInput(data.some((s) => s.awaitingInput));
+                        setActiveSuggestion(0);
+                        dispatchT(clearSearchResultHighlightedSymbol());
+                        setFilteredSuggestions(
+                            data.filter((s) => !s.hideInSuggestions)
+                        );
+                        setShowSuggestions(true);
+                    }
+                });
+        }
     }
 
-    function handleSelection(selection) {
-        if (selection._type === "Signature") {
-            dispatch(addSignature(selection));
-        }
-        if (selection._type === "Node") {
-            setShownDetail(selection.uuid);
-        }
-        if (selection._type === "Transformation") {
-            dispatchT(showOnlyTransformation(selection));
-        }
-        if (selection._type === 'SearchResultSymbolWrapper') {
-            middlewareAddSearchResultHighlightedSymbol(dispatchT, selection, colorPalette.explanationHighlights);
-        }
+
+    function selectAutocomplete(searchResultSuggestion) {
+        middlewareAddSearchResultHighlightedSymbol(
+            dispatchT,
+            searchResultSuggestion,
+            colorPalette.explanationHighlights
+        );
+        setUserInput(searchResultSuggestion.repr);
+        setAwaitingInput(false);
+        setShowSuggestions(false);
     }
 
     function select(searchResultSuggestion) {
-        handleSelection(searchResultSuggestion);
-        reset()
+        middlewareAddSearchResultHighlightedSymbol(
+            dispatchT,
+            searchResultSuggestion,
+            colorPalette.explanationHighlights
+        );
     }
-
 
     function reset() {
         setActiveSuggestion(0)
         setFilteredSuggestions([])
         setShowSuggestions(false)
+        dispatchT(clearSearchResultHighlightedSymbol())
         setUserInput("")
     }
 
     function onKeyDown(e) {
         if (e.keyCode === Constants.KEY_ENTER) {
-            select(filteredSuggestions[activeSuggestion])
+            if (isAutocompleteVisible) {
+                selectAutocomplete(filteredSuggestions[activeSuggestion])
+            }
+            else {
+                select(filteredSuggestions[activeSuggestion])
+            }
         } else if (e.keyCode === Constants.KEY_UP) {
             e.preventDefault()
             if (activeSuggestion === -1) {
@@ -382,40 +201,35 @@ export function Search() {
 
     if (showSuggestions && userInput) {
         if (filteredSuggestions.length) {
-            if (showAutocomplete) {
+            if (isAutocompleteVisible) {
                 suggestionsListComponent = (
-                    <ResultsUL $colorPalette={colorPalette}>
+                    <AutocompleteResultsUL $colorPalette={colorPalette}>
                         {filteredSuggestions.map((suggestion, index) => {
                             return (
                                 <Suggestion
                                     active={index === activeSuggestion}
                                     key={index}
                                     value={suggestion}
-                                    select={select}
+                                    select={selectAutocomplete}
                                     userInput={userInput}
-e                                    ref={(el) =>
+                                    ref={(el) =>
                                         (suggestionRefs.current[index] = el)
                                     }
                                     mouseHoverCallback={() =>
                                         handleMouseOver(index)
                                     }
-                                    $backgroundColor={colorPalette.light}
+                                    isAutocompleteSuggestion={true}
                                 />
                             );
                         })}
-                    </ResultsUL>
+                    </AutocompleteResultsUL>
                 );
             }
             else {
                 suggestionsListComponent = (
-                    <ul
-                        className="search_result_list"
-                        style={{
-                            backgroundColor: colorPalette.primary,
-                            color: colorPalette.light,
-                        }}
-                    >
+                    <SearchResultsUL $colorPalette={colorPalette}>
                         {filteredSuggestions.map((suggestion, index) => {
+                            const findIndexOfSelectedInSuggestions = searchResultHighlightedSymbols.findIndex(s => s.repr === suggestion.repr)
                             return (
                                 <Suggestion
                                     active={index === activeSuggestion}
@@ -429,11 +243,15 @@ e                                    ref={(el) =>
                                     mouseHoverCallback={() =>
                                         handleMouseOver(index)
                                     }
-                                    $backgroundColor={colorPalette.primary}
+                                    isAutocompleteSuggestion={false}
+                                    isSelectedResult={
+                                        index ===
+                                        findIndexOfSelectedInSuggestions
+                                    }
                                 />
                             );
                         })}
-                    </ul>
+                    </SearchResultsUL>
                 );
             }
         } else {
@@ -442,10 +260,14 @@ e                                    ref={(el) =>
     }
     return (
         <div className="search">
-            <div className="search_content">
-                <div className="search_input_container">
+            <SearchContentDiv
+                className="search_content"
+                $colorPalette={colorPalette}
+            >
+                <SearchInputContainerDiv className="search_input_container">
                     <SearchInput
                         className="txt-elem"
+                        ref={searchInputRef}
                         onChange={onChange}
                         onKeyDown={onKeyDown}
                         value={userInput}
@@ -463,10 +285,14 @@ e                                    ref={(el) =>
                         size={'0.25em'}
                         speedMultiplier={Constants.awaitingInputSpinnerSpeed}
                     />
-                </div>
-                <ActiveFilters />
+                    <NavigationArea
+                        visible={searchResultHighlightedSymbols.length > 0 && searchResultHighlightedSymbols.some(s => s.isAutocomplete)}
+                        searchResult={searchResultHighlightedSymbols.length ? searchResultHighlightedSymbols[0]:null}
+                        searchInputAreaRef={searchInputRef}
+                    />
+                </SearchInputContainerDiv>
                 {suggestionsListComponent}
-            </div>
+            </SearchContentDiv>
         </div>
     );
 }

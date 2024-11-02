@@ -612,15 +612,19 @@ def get_all_symbols_in_graph(encoding_id, current_graph_hash):
         select(GraphSymbols).filter(GraphSymbols.node.in_(db_graph_node_uuids))).scalars().all()
     return db_graph_symbols
 
+
 def search_ground_term_in_symbols(query, db_graph_symbols):
-    all_filtered_symbols = list(filter(lambda x: query in x.symbol, db_graph_symbols))
+    all_filtered_symbols = list(
+        filter(lambda x: query in x.symbol, db_graph_symbols))
     all_filtered_symbols.reverse()
     symbols_results = []
     for symbol in all_filtered_symbols:
         if symbol.symbol not in symbols_results:
-            symbols_results.append(SearchResultSymbolWrapper(symbol.symbol, [symbol.symbol_uuid]))
+            symbols_results.append(
+                SearchResultSymbolWrapper(symbol.symbol, [symbol.symbol_uuid]))
         else:
-            symbols_results[symbols_results.index(symbol.symbol)].includes.append(symbol.symbol_uuid)
+            symbols_results[symbols_results.index(
+                symbol.symbol)].includes.append(symbol.symbol_uuid)
     return symbols_results
 
 
