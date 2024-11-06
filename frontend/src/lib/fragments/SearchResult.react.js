@@ -1,21 +1,20 @@
-import React from "react";
-import PropTypes from "prop-types";
+import React from 'react';
+import PropTypes from 'prop-types';
 import {
     NODE,
     SIGNATURE,
     TRANSFORMATION,
     SEARCHRESULTSYMBOLWRAPPER,
 } from '../types/propTypes';
-import { styled } from "styled-components";
-import {useColorPalette} from "../contexts/ColorPalette";
+import {styled} from 'styled-components';
+import {useColorPalette} from '../contexts/ColorPalette';
 import {darken} from 'polished';
-import * as Constants from "../constants";
-import {NavigationArea} from "./NavigationArea.react";
-
+import * as Constants from '../constants';
+import {NavigationArea} from './NavigationArea.react';
 
 function SuggestionContent(props) {
     const {value, bolden} = props;
-    let display = "UNKNOWN FILTER"
+    let display = 'UNKNOWN FILTER';
 
     const index = value.repr.toLowerCase().indexOf(bolden.toLowerCase());
     if (index !== -1) {
@@ -30,13 +29,8 @@ function SuggestionContent(props) {
         display = value.repr;
     }
 
-    return (
-        <span className="txt-elem">
-            {display}
-        </span>
-    );
+    return <span className="txt-elem">{display}</span>;
 }
-
 
 SuggestionContent.propTypes = {
     /**
@@ -54,12 +48,29 @@ const SearchRowLi = styled.li`
     padding: 0.7em 0;
 
     &.active {
-        background-color: ${(props) => darken(Constants.hoverColorDarkenFactor, props.$backgroundColor)};
+        background-color: ${(props) =>
+            darken(Constants.hoverColorDarkenFactor, props.$backgroundColor)};
     }
 `;
 
+const ActiveSearchResultDiv = styled.div`
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+    height: 100%;
+`;
+
 export const Suggestion = React.forwardRef((props, ref) => {
-    const {value, active, select, userInput, mouseHoverCallback, isAutocompleteSuggestion, isSelectedResult} = props;
+    const {
+        value,
+        active,
+        select,
+        userInput,
+        mouseHoverCallback,
+        isAutocompleteSuggestion,
+        isSelectedResult,
+    } = props;
     const colorPalette = useColorPalette();
 
     const classes = ['search_row'];
@@ -85,14 +96,15 @@ export const Suggestion = React.forwardRef((props, ref) => {
                     bolden={isAutocompleteSuggestion ? userInput : ''}
                 />
             ) : (
-                <FilterHighlightContentDiv className="filter-highlight-content">
+                <ActiveSearchResultDiv className="active_search_result">
                     <SuggestionContent value={value} bolden={''} />
                     <NavigationArea
+                        className="navigation_area"
                         visible={true}
                         searchResult={value}
                         searchInputAreaRef={null}
                     />
-                </FilterHighlightContentDiv>
+                </ActiveSearchResultDiv>
             )}
         </SearchRowLi>
     );
@@ -133,11 +145,3 @@ Suggestion.propTypes = {
      */
     isSelectedResult: PropTypes.bool,
 };
-
-const FilterHighlightContentDiv = styled.div`
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    align-items: center;
-    height: 100%;
-`;

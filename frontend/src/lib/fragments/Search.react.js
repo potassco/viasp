@@ -1,10 +1,10 @@
 import React from 'react';
-import "./search.css";
-import * as Constants from "../constants";
-import {Suggestion} from "./SearchResult.react";
-import PropTypes from "prop-types";
-import {useSettings} from "../contexts/Settings";
-import {addSignature, clear, useFilters} from "../contexts/Filters";
+import './search.css';
+import * as Constants from '../constants';
+import {Suggestion} from './SearchResult.react';
+import PropTypes from 'prop-types';
+import {useSettings} from '../contexts/Settings';
+import {addSignature, clear, useFilters} from '../contexts/Filters';
 import {
     NODE,
     SIGNATURE,
@@ -20,14 +20,18 @@ import {
     unsetRecentSearchResultHighlightedSymbol,
     clearSearchResultHighlightedSymbol,
 } from '../contexts/transformations';
-import {useColorPalette} from "../contexts/ColorPalette";
-import { useShownDetail } from "../contexts/ShownDetail";
+import {useColorPalette} from '../contexts/ColorPalette';
+import {useShownDetail} from '../contexts/ShownDetail';
 import IconWrapper from './IconWrapper.react';
 import {styled} from 'styled-components';
 import PulseLoader from 'react-spinners/PulseLoader';
-import {NavigationArea, CloseButton} from "./NavigationArea.react";
+import {NavigationArea, CloseButton} from './NavigationArea.react';
 
-function middlewareAddSearchResultHighlightedSymbol(dispatchT, searchResult, color) {
+function middlewareAddSearchResultHighlightedSymbol(
+    dispatchT,
+    searchResult,
+    color
+) {
     dispatchT(addSearchResultHighlightedSymbol(searchResult, color));
 
     setTimeout(() => {
@@ -65,7 +69,7 @@ const AutocompleteResultsUL = styled.ul`
     max-height: 8em;
     background-color: ${(props) => props.$colorPalette.light};
     color: ${(props) => props.$colorPalette.dark};
-`
+`;
 
 const SearchResultsUL = styled(AutocompleteResultsUL)`
     background-color: ${(props) => props.$colorPalette.primary};
@@ -88,9 +92,10 @@ export function Search() {
     const [activeSuggestion, setActiveSuggestion] = React.useState(0);
     const [filteredSuggestions, setFilteredSuggestions] = React.useState([]);
     const [awaitingInput, setAwaitingInput] = React.useState(false);
-    const [isAutocompleteVisible, setIsAutocompleteVisible] = React.useState(true);
+    const [isAutocompleteVisible, setIsAutocompleteVisible] =
+        React.useState(true);
     const [showSuggestions, setShowSuggestions] = React.useState(false);
-    const [userInput, setUserInput] = React.useState("");
+    const [userInput, setUserInput] = React.useState('');
     const {
         dispatch: dispatchT,
         state: {searchResultHighlightedSymbols},
@@ -100,26 +105,28 @@ export function Search() {
     const suggestionRefs = React.useRef([]);
     const searchInputRef = React.useRef(null);
 
-
     let suggestionsListComponent;
 
     function onChange(e) {
         const userInput = e.currentTarget.value;
         setUserInput(userInput);
-        if (userInput === "") {
+        if (userInput === '') {
             setAwaitingInput(false);
-        }
-        else {
+        } else {
             fetch(`${backendURL('query')}?q=${encodeURIComponent(userInput)}`)
                 .then((r) => r.json())
                 .then((data) => {
-                    const indexOfUserInputInSuggestions = data.findIndex(s => s.repr === userInput);
-                    if (indexOfUserInputInSuggestions !== -1 && !data[indexOfUserInputInSuggestions].hideInSuggestions) {
+                    const indexOfUserInputInSuggestions = data.findIndex(
+                        (s) => s.repr === userInput
+                    );
+                    if (
+                        indexOfUserInputInSuggestions !== -1 &&
+                        !data[indexOfUserInputInSuggestions].hideInSuggestions
+                    ) {
                         // exact match
                         setFilteredSuggestions([]);
                         selectAutocomplete(data[indexOfUserInputInSuggestions]);
-                    }
-                    else {
+                    } else {
                         // show suggestions
                         setIsAutocompleteVisible(
                             data.some((s) => s.isAutocomplete)
@@ -135,7 +142,6 @@ export function Search() {
                 });
         }
     }
-
 
     function selectAutocomplete(searchResultSuggestion) {
         middlewareAddSearchResultHighlightedSymbol(
@@ -157,23 +163,22 @@ export function Search() {
     }
 
     function reset() {
-        setActiveSuggestion(0)
-        setFilteredSuggestions([])
-        setShowSuggestions(false)
-        dispatchT(clearSearchResultHighlightedSymbol())
-        setUserInput("")
+        setActiveSuggestion(0);
+        setFilteredSuggestions([]);
+        setShowSuggestions(false);
+        dispatchT(clearSearchResultHighlightedSymbol());
+        setUserInput('');
     }
 
     function onKeyDown(e) {
         if (e.keyCode === Constants.KEY_ENTER) {
             if (isAutocompleteVisible) {
-                selectAutocomplete(filteredSuggestions[activeSuggestion])
-            }
-            else {
-                select(filteredSuggestions[activeSuggestion])
+                selectAutocomplete(filteredSuggestions[activeSuggestion]);
+            } else {
+                select(filteredSuggestions[activeSuggestion]);
             }
         } else if (e.keyCode === Constants.KEY_UP) {
-            e.preventDefault()
+            e.preventDefault();
             if (activeSuggestion === -1) {
                 return;
             }
@@ -224,12 +229,14 @@ export function Search() {
                         })}
                     </AutocompleteResultsUL>
                 );
-            }
-            else {
+            } else {
                 suggestionsListComponent = (
                     <SearchResultsUL $colorPalette={colorPalette}>
                         {filteredSuggestions.map((suggestion, index) => {
-                            const findIndexOfSelectedInSuggestions = searchResultHighlightedSymbols.findIndex(s => s.repr === suggestion.repr)
+                            const findIndexOfSelectedInSuggestions =
+                                searchResultHighlightedSymbols.findIndex(
+                                    (s) => s.repr === suggestion.repr
+                                );
                             return (
                                 <Suggestion
                                     active={index === activeSuggestion}
@@ -245,8 +252,7 @@ export function Search() {
                                     }
                                     isAutocompleteSuggestion={false}
                                     isSelectedResult={
-                                        index ===
-                                        findIndexOfSelectedInSuggestions
+                                        findIndexOfSelectedInSuggestions !== -1
                                     }
                                 />
                             );
@@ -286,8 +292,17 @@ export function Search() {
                         speedMultiplier={Constants.awaitingInputSpinnerSpeed}
                     />
                     <NavigationArea
-                        visible={searchResultHighlightedSymbols.length > 0 && searchResultHighlightedSymbols.some(s => s.isAutocomplete)}
-                        searchResult={searchResultHighlightedSymbols.length ? searchResultHighlightedSymbols[0]:null}
+                        visible={
+                            searchResultHighlightedSymbols.length > 0 &&
+                            searchResultHighlightedSymbols.some(
+                                (s) => s.isAutocomplete
+                            )
+                        }
+                        searchResult={
+                            searchResultHighlightedSymbols.length
+                                ? searchResultHighlightedSymbols[0]
+                                : null
+                        }
                         searchInputAreaRef={searchInputRef}
                     />
                 </SearchInputContainerDiv>
@@ -297,5 +312,4 @@ export function Search() {
     );
 }
 
-
-Search.propTypes = {}
+Search.propTypes = {};

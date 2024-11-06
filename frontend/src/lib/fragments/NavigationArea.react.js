@@ -12,13 +12,11 @@ import {
 import {useColorPalette} from '../contexts/ColorPalette';
 import IconWrapper from './IconWrapper.react';
 
-
 const NavigationAreaDiv = styled.div`
     color: ${(props) => props.$colorPalette.light};
     border-radius: 0.4em;
     display: ${(props) => (props.$visible ? 'flex' : 'none')};
 `;
-
 
 export function CloseButton(props) {
     const {onClose} = props;
@@ -93,7 +91,6 @@ PrevButton.propTypes = {
     disabled: PropTypes.bool,
 };
 
-
 export function NavigationArea(props) {
     const {visible, searchResult, searchInputAreaRef} = props;
     const {dispatch: dispatchT} = useTransformations();
@@ -101,18 +98,20 @@ export function NavigationArea(props) {
     const [timeoutId, setTimeoutId] = React.useState(null);
     const [selected, setSelected] = React.useState(0);
     const [includesLength, setIncludesLength] = React.useState(0);
-    const {state: {searchResultHighlightedSymbols}} = useTransformations();
-
+    const {
+        state: {searchResultHighlightedSymbols},
+    } = useTransformations();
 
     React.useEffect(() => {
         const index = searchResultHighlightedSymbols?.findIndex(
             (symbol) => symbol.repr === searchResult?.repr
-        )
+        );
         if (index !== -1) {
             setSelected(searchResultHighlightedSymbols[index].selected);
-            setIncludesLength(searchResultHighlightedSymbols[index].includes.length);
-        }
-        else {
+            setIncludesLength(
+                searchResultHighlightedSymbols[index].includes.length
+            );
+        } else {
             setSelected(0);
         }
     }, [searchResult, searchResultHighlightedSymbols]);
@@ -156,7 +155,7 @@ export function NavigationArea(props) {
                 }}
                 disabled={selected + 1 >= includesLength}
             />
-            <CloseButton onClose={onClose} />
+            {/* <CloseButton onClose={onClose} /> */}
         </NavigationAreaDiv>
     );
 }
