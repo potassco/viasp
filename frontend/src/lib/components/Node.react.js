@@ -6,13 +6,19 @@ import {hideNode, showNode, useShownNodes} from '../contexts/ShownNodes';
 import {useColorPalette} from '../contexts/ColorPalette';
 import {useHighlightedNode} from '../contexts/HighlightedNode';
 import {useHighlightedSymbol} from '../contexts/HighlightedSymbol';
-import {toggleShownRecursion, useTransformations, setNodeIsCollapsibleV, setNodeShowMini, setNodeIsExpandableV, checkTransformationExpandableCollapsible} from '../contexts/transformations';
+import {
+    toggleShownRecursion,
+    useTransformations,
+    setNodeIsCollapsibleV,
+    setNodeShowMini,
+    setNodeIsExpandableV,
+    checkTransformationExpandableCollapsible,
+} from '../contexts/transformations';
 import {useSettings} from '../contexts/Settings';
 import {useShownDetail} from '../contexts/ShownDetail';
 import {NODE} from '../types/propTypes';
 import {useFilters} from '../contexts/Filters';
 import AnimateHeight from 'react-animate-height';
-import {useAnimationUpdater} from '../contexts/AnimationUpdater';
 import {IconWrapper} from '../LazyLoader';
 import useResizeObserver from '@react-hook/resize-observer';
 import {findChildByClass} from '../utils';
@@ -31,8 +37,7 @@ function any(iterable) {
 
 function NodeContent(props) {
     const {state} = useSettings();
-    const {node, setHeight, parentID, isSubnode, transformationId} =
-        props;
+    const {node, setHeight, parentID, isSubnode, transformationId} = props;
     const colorPalette = useColorPalette();
     const [{activeFilters}] = useFilters();
     const {
@@ -92,34 +97,34 @@ function NodeContent(props) {
         }
     }
 
-    const symbolVisibilityManager = React.useCallback((
-        compareHighlightedSymbol,
-        symbol,
-    ) => {
-        const i = compareHighlightedSymbol
-            .map((item) => item.tgt)
-            .indexOf(symbol.uuid);
-        const j = compareHighlightedSymbol
-            .map((item) => item.src)
-            .indexOf(symbol.uuid);
-        const childElement = document.getElementById(
-            symbol.uuid + `_${isSubnode ? 'sub' : 'main'}`
-        );
-        const parentElement = document.getElementById(parentID);
+    const symbolVisibilityManager = React.useCallback(
+        (compareHighlightedSymbol, symbol) => {
+            const i = compareHighlightedSymbol
+                .map((item) => item.tgt)
+                .indexOf(symbol.uuid);
+            const j = compareHighlightedSymbol
+                .map((item) => item.src)
+                .indexOf(symbol.uuid);
+            const childElement = document.getElementById(
+                symbol.uuid + `_${isSubnode ? 'sub' : 'main'}`
+            );
+            const parentElement = document.getElementById(parentID);
 
-        if (!childElement || !parentElement) {
-            return {fittingHeight: 0, isMarked: i !== -1 || j !== -1};
-        }
-        const childRect = childElement.getBoundingClientRect();
-        const parentRect = parentElement.getBoundingClientRect();
-        const belowLineMargin = 5;
-        return {
-            fittingHeight:
-                childRect.bottom - parentRect.top + belowLineMargin,
-            isMarked: i !== -1 || j !== -1,
-        };
-    }, [isSubnode, parentID]);
-    
+            if (!childElement || !parentElement) {
+                return {fittingHeight: 0, isMarked: i !== -1 || j !== -1};
+            }
+            const childRect = childElement.getBoundingClientRect();
+            const parentRect = parentElement.getBoundingClientRect();
+            const belowLineMargin = 5;
+            return {
+                fittingHeight:
+                    childRect.bottom - parentRect.top + belowLineMargin,
+                isMarked: i !== -1 || j !== -1,
+            };
+        },
+        [isSubnode, parentID]
+    );
+
     const visibilityManager = React.useCallback(() => {
         var allHeights = contentToShow
             .filter((symbol) => symbolShouldBeShown(symbol))
@@ -138,19 +143,24 @@ function NodeContent(props) {
 
         if (node.loading === true) {
             setHeight(Math.min(Constants.standardNodeHeight, maxSymbolHeight));
-            dispatchTransformation(setNodeIsExpandableV(transformationId, node.uuid, false));
+            dispatchTransformation(
+                setNodeIsExpandableV(transformationId, node.uuid, false)
+            );
             return;
         }
         if (node.isExpandVAllTheWay) {
             setHeight(maxSymbolHeight);
-            dispatchTransformation(setNodeIsExpandableV(transformationId, node.uuid, false));
+            dispatchTransformation(
+                setNodeIsExpandableV(transformationId, node.uuid, false)
+            );
         } else {
             // marked node is under the standard height fold
             if (
                 markedItems.length &&
                 any(
                     markedItems.map(
-                        (item) => item.fittingHeight > Constants.standardNodeHeight
+                        (item) =>
+                            item.fittingHeight > Constants.standardNodeHeight
                     )
                 )
             ) {
@@ -158,14 +168,30 @@ function NodeContent(props) {
                     ...markedItems.map((item) => item.fittingHeight)
                 );
                 setHeight(newHeight);
-                dispatchTransformation(setNodeIsExpandableV(transformationId, node.uuid, maxSymbolHeight > newHeight));
+                dispatchTransformation(
+                    setNodeIsExpandableV(
+                        transformationId,
+                        node.uuid,
+                        maxSymbolHeight > newHeight
+                    )
+                );
             } else {
                 // marked node is not under the standard height fold
-                setHeight(Math.min(Constants.standardNodeHeight, maxSymbolHeight));
-                dispatchTransformation(setNodeIsExpandableV(transformationId, node.uuid, maxSymbolHeight > Constants.standardNodeHeight));
+                setHeight(
+                    Math.min(Constants.standardNodeHeight, maxSymbolHeight)
+                );
+                dispatchTransformation(
+                    setNodeIsExpandableV(
+                        transformationId,
+                        node.uuid,
+                        maxSymbolHeight > Constants.standardNodeHeight
+                    )
+                );
             }
         }
-        dispatchTransformation(checkTransformationExpandableCollapsible(transformationId));
+        dispatchTransformation(
+            checkTransformationExpandableCollapsible(transformationId)
+        );
     }, [
         contentToShow,
         highlightedSymbol,
@@ -176,7 +202,7 @@ function NodeContent(props) {
         dispatchTransformation,
         node.uuid,
         node.isExpandVAllTheWay,
-        transformationId
+        transformationId,
     ]);
 
     React.useEffect(() => {
@@ -229,7 +255,6 @@ function NodeContent(props) {
     // );
     // useResizeObserver(setContainerRef, debouncedAnimateResize);
 
-
     const classNames2 = `set_value`;
     const renderedSymbols = contentToShow
         .filter((symbol) => symbolShouldBeShown(symbol))
@@ -246,9 +271,7 @@ function NodeContent(props) {
 
     return (
         <div
-            className={`set_container ${
-                node.loading === true ? 'hidden' : ''
-            }`}
+            className={`set_container ${node.loading === true ? 'hidden' : ''}`}
             style={{color: colorPalette.dark}}
             ref={setContainerRef}
         >
@@ -292,12 +315,15 @@ function RecursionButton(props) {
         dispatch(toggleShownRecursion(node.uuid));
         const shownRecursionNodes = Object.values(state.transformationNodesMap)
             .flat()
-            .filter(n => n.shownRecursion)
-            .map(n => n.uuid);
+            .filter((n) => n.shownRecursion)
+            .map((n) => n.uuid);
         if (node.shownRecursion) {
-            shownRecursionNodes.splice(shownRecursionNodes.indexOf(node.uuid), 1)
-        } else { 
-            shownRecursionNodes.push(node.uuid)
+            shownRecursionNodes.splice(
+                shownRecursionNodes.indexOf(node.uuid),
+                1
+            );
+        } else {
+            shownRecursionNodes.push(node.uuid);
         }
         reloadEdges(shownRecursionNodes, state.clingraphGraphics.length > 0);
     }
@@ -314,7 +340,7 @@ function RecursionButton(props) {
                 >
                     <Suspense fallback={<div>R</div>}>
                         <IconWrapper
-                            icon={"clockwiseVerticalArrows"}
+                            icon={'clockwiseVerticalArrows'}
                             width="9"
                             height="9"
                         />
@@ -341,8 +367,8 @@ function useHighlightedNodeToCreateClassName(node) {
     );
 
     React.useEffect(() => {
-        if(highlightedNode === node.uuid) {
-            console.log('highlighted node', node.uuid)
+        if (highlightedNode === node.uuid) {
+            console.log('highlighted node', node.uuid);
         }
         setClassNames(
             `txt-elem node_border mouse_over_shadow ${node.uuid} ${
@@ -371,8 +397,7 @@ function checkForOverflowE(
         const nodeBorder = findChildByClass(e, 'node_border');
         const wouldOverflowNow = setContainer
             ? setContainer.scrollWidth >
-              nodeBorder.offsetWidth
-               - Constants.overflowThreshold
+              nodeBorder.offsetWidth - Constants.overflowThreshold
             : false;
         // We overflowed previously but not anymore
         if (
@@ -403,15 +428,12 @@ export function Node(props) {
     const {dispatch: dispatchTransformation} = useTransformations();
     const classNames = useHighlightedNodeToCreateClassName(node);
     const [height, setHeight] = React.useState(Constants.minimumNodeHeight);
-    const {animationState} = useAnimationUpdater();
     const {setShownDetail} = useShownDetail();
     const dispatchShownNodesRef = React.useRef(dispatchShownNodes);
     const nodeuuidRef = React.useRef(node.uuid);
     const animateHeightRef = React.useRef(null);
 
-    useDebouncedAnimateResize(
-        animateHeightRef, nodeuuidRef
-    );
+    useDebouncedAnimateResize(animateHeightRef, nodeuuidRef);
 
     const notifyClick = (node) => {
         // setShownDetail(node.uuid);
@@ -425,10 +447,15 @@ export function Node(props) {
         };
     }, []);
 
-
     React.useEffect(() => {
-        dispatchTransformation(setNodeIsCollapsibleV(transformationId, node.uuid, height > Constants.standardNodeHeight));
-    }, [height, dispatchTransformation, node.uuid, transformationId])
+        dispatchTransformation(
+            setNodeIsCollapsibleV(
+                transformationId,
+                node.uuid,
+                height > Constants.standardNodeHeight
+            )
+        );
+    }, [height, dispatchTransformation, node.uuid, transformationId]);
 
     const checkForOverflow = React.useCallback(() => {
         checkForOverflowE(
@@ -437,21 +464,25 @@ export function Node(props) {
             overflowBreakingPoint,
             setOverflowBreakingPoint,
             (showMini) => {
-                dispatchTransformation(setNodeShowMini(transformationId, node.uuid, showMini))
-                dispatchTransformation(checkTransformationExpandableCollapsible(transformationId));
+                dispatchTransformation(
+                    setNodeShowMini(transformationId, node.uuid, showMini)
+                );
+                dispatchTransformation(
+                    checkTransformationExpandableCollapsible(transformationId)
+                );
             }
         );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [branchSpace, overflowBreakingPoint, animationState.graph_zoom, node.showMini]);
-    
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [branchSpace, overflowBreakingPoint, node.showMini]);
+
     const debouncedCheckForOverflow = React.useMemo(() => {
         return debounce(checkForOverflow, Constants.DEBOUNCETIMEOUT);
     }, [checkForOverflow]);
 
     React.useEffect(() => {
         checkForOverflow();
-    }, [checkForOverflow, node.showMini]);   
-    
+    }, [checkForOverflow, node.showMini]);
+
     useResizeObserver(
         document.getElementById('content'),
         debouncedCheckForOverflow
@@ -514,7 +545,7 @@ Node.propTypes = {
      */
     isSubnode: PropTypes.bool,
     /**
-     * The ref to the branch space the node sits in 
+     * The ref to the branch space the node sits in
      */
     branchSpace: PropTypes.object,
     /**
@@ -531,7 +562,6 @@ export function RecursiveSuperNode(props) {
     const classNames = `node_border ${node.uuid}`;
     const {setShownDetail} = useShownDetail();
     const {dispatch: dispatchTransformation} = useTransformations();
-    const {animationState} = useAnimationUpdater();
 
     const dispatchShownNodesRef = React.useRef(dispatchShownNodes);
     const nodeuuidRef = React.useRef(node.uuid);
@@ -555,10 +585,13 @@ export function RecursiveSuperNode(props) {
             node.showMini,
             overflowBreakingPoint,
             setOverflowBreakingPoint,
-            (showMini) => dispatchTransformation(setNodeShowMini(transformationId, node.uuid, showMini))
+            (showMini) =>
+                dispatchTransformation(
+                    setNodeShowMini(transformationId, node.uuid, showMini)
+                )
         );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [branchSpace, node.showMini, overflowBreakingPoint, animationState.graph_zoom]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [branchSpace, node.showMini, overflowBreakingPoint]);
 
     const debouncedCheckForOverflow = React.useMemo(() => {
         return debounce(checkForOverflow, Constants.DEBOUNCETIMEOUT);
@@ -572,7 +605,7 @@ export function RecursiveSuperNode(props) {
         document.getElementById('content'),
         debouncedCheckForOverflow
     );
-    
+
     return (
         <div
             className={classNames}
@@ -594,18 +627,17 @@ export function RecursiveSuperNode(props) {
             ) : (
                 <>
                     <RecursionButton node={node} />
-                    {node.recursive
-                        .map((subnode) => {
-                            return (
-                                <Node
+                    {node.recursive.map((subnode) => {
+                        return (
+                            <Node
                                 key={subnode.uuid}
                                 node={subnode}
                                 notifyClick={notifyClick}
                                 isSubnode={true}
                                 transformationId={transformationId}
-                                />
-                                );
-                        })}
+                            />
+                        );
+                    })}
                 </>
             )}
         </div>
@@ -615,11 +647,11 @@ export function RecursiveSuperNode(props) {
 RecursiveSuperNode.propTypes = {
     /**
      * object containing the node data to be displayed
-    */
-   node: NODE,
+     */
+    node: NODE,
     /**
-    * The ref to the branch space
-    */
+     * The ref to the branch space
+     */
     branchSpace: PropTypes.object,
     /**
      * The id of the transformation the node belongs to

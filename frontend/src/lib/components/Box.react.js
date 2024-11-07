@@ -9,7 +9,6 @@ import {
     useTransformations,
     setClingraphShowMini,
 } from '../contexts/transformations';
-import {useAnimationUpdater} from '../contexts/AnimationUpdater';
 import {debounce} from 'lodash';
 import useResizeObserver from '@react-hook/resize-observer';
 import * as Constants from '../constants';
@@ -79,7 +78,6 @@ export function Box(props) {
     const classNames = useHighlightedNodeToCreateClassName(node);
     const [imageSize, setImageSize] = React.useState({width: 0, height: 0});
     const {dispatch: dispatchTransformation} = useTransformations();
-    const {animationState} = useAnimationUpdater();
 
     React.useEffect(() => {
         let mounted = true;
@@ -109,12 +107,7 @@ export function Box(props) {
             }
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        branchSpace,
-        overflowBreakingPoint,
-        animationState.graph_zoom,
-        node.showMini,
-    ]);
+    }, [branchSpace, overflowBreakingPoint, node.showMini]);
 
     const debouncedCheckForOverflow = React.useMemo(() => {
         return debounce(checkForOverflow, Constants.DEBOUNCETIMEOUT);
@@ -157,9 +150,7 @@ export function Box(props) {
                         <div className={'loading'} style={imageSize}></div>
                     ) : (
                         <img
-                            src={`${backendURL('clingraph')}/${
-                                node.uuid
-                            }`}
+                            src={`${backendURL('clingraph')}/${node.uuid}`}
                             // width={`30px`}
                             alt="Clingraph"
                         />
