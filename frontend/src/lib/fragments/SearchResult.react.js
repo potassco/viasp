@@ -8,28 +8,21 @@ import {
 } from '../types/propTypes';
 import {styled} from 'styled-components';
 import {useColorPalette} from '../contexts/ColorPalette';
-import {darken} from 'polished';
+import {darken, lighten} from 'polished';
 import * as Constants from '../constants';
 import {NavigationArea} from './NavigationArea.react';
 
+const SuggestionTextSpan = styled.span`
+    margin-left: 0.8em;
+`;
+
 function SuggestionContent(props) {
-    const {value, bolden} = props;
-    let display = 'UNKNOWN FILTER';
+    const {value} = props;
+    const display = value.repr;
 
-    const index = value.repr.toLowerCase().indexOf(bolden.toLowerCase());
-    if (index !== -1) {
-        display = (
-            <>
-                <span>{value.repr.substring(0, index)}</span>
-                <b>{value.repr.substring(index, index + bolden.length)}</b>
-                <span>{value.repr.substring(index + bolden.length)}</span>
-            </>
-        );
-    } else {
-        display = value.repr;
-    }
-
-    return <span className="txt-elem">{display}</span>;
+    return (
+        <SuggestionTextSpan className="txt-elem">{display}</SuggestionTextSpan>
+    );
 }
 
 SuggestionContent.propTypes = {
@@ -37,15 +30,14 @@ SuggestionContent.propTypes = {
      * The Search Result to be displayed, either a Transformation, a Node or a Signature
      */
     value: SEARCHRESULTSYMBOLWRAPPER,
-    /**
-     *  The user input
-     */
-    bolden: PropTypes.string,
 };
 
 const SearchRowLi = styled.li`
     background-color: ${(props) => props.$backgroundColor};
     padding: 0.7em 0;
+    justify-content: begin;
+    align-items: center;
+    display: flex;
 
     &.active {
         background-color: ${(props) =>
@@ -66,7 +58,6 @@ export const Suggestion = React.forwardRef((props, ref) => {
         value,
         active,
         select,
-        userInput,
         mouseHoverCallback,
         isAutocompleteSuggestion,
         isSelectedResult,
@@ -83,7 +74,10 @@ export const Suggestion = React.forwardRef((props, ref) => {
             name={value.repr}
             $backgroundColor={
                 isAutocompleteSuggestion
-                    ? colorPalette.light
+                    ? lighten(
+                          Constants.hoverColorLightenFactor,
+                          colorPalette.primary
+                      )
                     : colorPalette.primary
             }
             ref={ref}
@@ -91,13 +85,10 @@ export const Suggestion = React.forwardRef((props, ref) => {
             onClick={isSelectedResult ? null : () => select(value)}
         >
             {!isSelectedResult ? (
-                <SuggestionContent
-                    value={value}
-                    bolden={isAutocompleteSuggestion ? userInput : ''}
-                />
+                <SuggestionContent value={value} />
             ) : (
                 <ActiveSearchResultDiv className="active_search_result">
-                    <SuggestionContent value={value} bolden={''} />
+                    <SuggestionContent value={value} />
                     <NavigationArea
                         className="navigation_area"
                         visible={true}
@@ -128,10 +119,6 @@ Suggestion.propTypes = {
      *  onClick Callback
      */
     select: PropTypes.func,
-    /**
-     *  The user input
-     */
-    userInput: PropTypes.string,
     /**
      *  onMouseHover Callback
      */

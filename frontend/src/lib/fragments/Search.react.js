@@ -2,26 +2,15 @@ import React from 'react';
 import './search.css';
 import * as Constants from '../constants';
 import {Suggestion} from './SearchResult.react';
-import PropTypes from 'prop-types';
 import {useSettings} from '../contexts/Settings';
-import {addSignature, clear, useFilters} from '../contexts/Filters';
+import {darken, lighten} from 'polished';
 import {
-    NODE,
-    SIGNATURE,
-    SEARCHRESULTSYMBOLWRAPPER,
-    TRANSFORMATION,
-} from '../types/propTypes';
-import {
-    showOnlyTransformation,
     useTransformations,
     addSearchResultHighlightedSymbol,
-    removeSearchResultHighlightedSymbol,
-    rotateSearchResultHighlightedSymbol,
     unsetRecentSearchResultHighlightedSymbol,
     clearSearchResultHighlightedSymbol,
 } from '../contexts/transformations';
 import {useColorPalette} from '../contexts/ColorPalette';
-import {useShownDetail} from '../contexts/ShownDetail';
 import IconWrapper from './IconWrapper.react';
 import {styled} from 'styled-components';
 import PulseLoader from 'react-spinners/PulseLoader';
@@ -40,8 +29,12 @@ function middlewareAddSearchResultHighlightedSymbol(
 }
 
 const SearchInput = styled.input`
-    background-color: ${(props) => props.$colorPalette.primary};
     color: ${(props) => props.$colorPalette.light};
+    background-color: ${({$colorPalette, $isHovered}) =>
+        $isHovered
+            ? darken(Constants.hoverColorDarkenFactor, $colorPalette.primary)
+            : $colorPalette.primary};
+
     width: 100%;
     border-radius: 0.4em;
     padding: 0.7em 0.4em 0.7em 0.8em;
@@ -52,7 +45,7 @@ const SearchInput = styled.input`
     }
 `;
 
-const AutocompleteResultsUL = styled.ul`
+const ResultsListUL = styled.ul`
     position: absolute;
     z-index: 30;
     list-style: none;
@@ -60,18 +53,25 @@ const AutocompleteResultsUL = styled.ul`
     left: 0;
     margin-top: 0;
     margin-left: 0;
-    padding-left: 1.2em;
-    padding-right: 0.2em;
+    padding-left: 0em;
+    padding-right: 0em;
     margin-bottom: 1px;
     border-radius: 0.7em;
     overflow-x: hidden;
     overflow-y: auto;
     max-height: 8em;
-    background-color: ${(props) => props.$colorPalette.light};
-    color: ${(props) => props.$colorPalette.dark};
 `;
 
-const SearchResultsUL = styled(AutocompleteResultsUL)`
+const AutocompleteResultsUL = styled(ResultsListUL)`
+    background-color: ${(props) =>
+        lighten(
+            Constants.hoverColorLightenFactor,
+            props.$colorPalette.primary
+        )};
+    color: ${(props) => props.$colorPalette.light};
+`;
+
+const SearchResultsUL = styled(ResultsListUL)`
     background-color: ${(props) => props.$colorPalette.primary};
     color: ${(props) => props.$colorPalette.light};
 `;
@@ -82,10 +82,13 @@ const SearchInputContainerDiv = styled.div`
     display: flex;
 `;
 
-const SearchContentDiv = styled.div`
+const SearchBarDiv = styled.div`
     width: 100%;
-    border-radius: 0.4em;
-    background-color: ${(props) => props.$colorPalette.primary};
+`;
+
+const SearchDiv = styled.div`
+    display: flex;
+    justify-content: end;
 `;
 
 export function Search() {
@@ -96,6 +99,7 @@ export function Search() {
         React.useState(true);
     const [showSuggestions, setShowSuggestions] = React.useState(false);
     const [userInput, setUserInput] = React.useState('');
+    const [isHovered, setIsHovered] = React.useState(false);
     const {
         dispatch: dispatchT,
         state: {searchResultHighlightedSymbols},
@@ -208,7 +212,10 @@ export function Search() {
         if (filteredSuggestions.length) {
             if (isAutocompleteVisible) {
                 suggestionsListComponent = (
-                    <AutocompleteResultsUL $colorPalette={colorPalette}>
+                    <AutocompleteResultsUL
+                        className="results-list"
+                        $colorPalette={colorPalette}
+                    >
                         {filteredSuggestions.map((suggestion, index) => {
                             return (
                                 <Suggestion
@@ -216,14 +223,13 @@ export function Search() {
                                     key={index}
                                     value={suggestion}
                                     select={selectAutocomplete}
-                                    userInput={userInput}
                                     ref={(el) =>
                                         (suggestionRefs.current[index] = el)
                                     }
                                     mouseHoverCallback={() =>
                                         handleMouseOver(index)
                                     }
-                                    isAutocompleteSuggestion={true}
+                                    isAutocompleteSuggestion
                                 />
                             );
                         })}
@@ -231,7 +237,10 @@ export function Search() {
                 );
             } else {
                 suggestionsListComponent = (
-                    <SearchResultsUL $colorPalette={colorPalette}>
+                    <SearchResultsUL
+                        className="results-list"
+                        $colorPalette={colorPalette}
+                    >
                         {filteredSuggestions.map((suggestion, index) => {
                             const findIndexOfSelectedInSuggestions =
                                 searchResultHighlightedSymbols.findIndex(
@@ -243,7 +252,6 @@ export function Search() {
                                     key={index}
                                     value={suggestion}
                                     select={select}
-                                    userInput={userInput}
                                     ref={(el) =>
                                         (suggestionRefs.current[index] = el)
                                     }
@@ -265,12 +273,13 @@ export function Search() {
         }
     }
     return (
-        <div className="search">
-            <SearchContentDiv
-                className="search_content"
-                $colorPalette={colorPalette}
-            >
-                <SearchInputContainerDiv className="search_input_container">
+        <SearchDiv className="search">
+            <SearchBarDiv className="search_bar">
+                <SearchInputContainerDiv
+                    className="search_input_container"
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                >
                     <SearchInput
                         className="txt-elem"
                         ref={searchInputRef}
@@ -278,6 +287,7 @@ export function Search() {
                         onKeyDown={onKeyDown}
                         value={userInput}
                         $colorPalette={colorPalette}
+                        $isHovered={isHovered}
                         placeholder="query"
                         type="text"
                     />
@@ -286,7 +296,7 @@ export function Search() {
                         loading={awaitingInput}
                         cssOverride={{
                             position: 'absolute',
-                            marginRight: '0.2em',
+                            marginRight: '0.8em',
                         }}
                         size={'0.25em'}
                         speedMultiplier={Constants.awaitingInputSpinnerSpeed}
@@ -307,8 +317,8 @@ export function Search() {
                     />
                 </SearchInputContainerDiv>
                 {suggestionsListComponent}
-            </SearchContentDiv>
-        </div>
+            </SearchBarDiv>
+        </SearchDiv>
     );
 }
 

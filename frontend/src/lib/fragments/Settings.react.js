@@ -1,16 +1,16 @@
-import React from "react";
-import PropTypes from "prop-types";
-import {useColorPalette} from "../contexts/ColorPalette";
+import React from 'react';
+import PropTypes from 'prop-types';
+import {useColorPalette} from '../contexts/ColorPalette';
 import {
     useTransformations,
     clearExplanationHighlightedSymbol,
     clearSearchResultHighlightedSymbol,
 } from '../contexts/transformations';
-import './settings.css'
-import { darken } from 'polished';
-import { Search } from "./Search.react";
-import { styled } from "styled-components";
-import * as Constants from "../constants";
+import './settings.css';
+import {darken} from 'polished';
+import {Search} from './Search.react';
+import {styled} from 'styled-components';
+import * as Constants from '../constants';
 
 const ClearMarkedDiv = styled.div`
     display: flex;
@@ -20,7 +20,7 @@ const ClearMarkedDiv = styled.div`
 const ClearMarkedSpan = styled.span`
     background: ${({$colorPalette}) => $colorPalette.primary};
     color: ${({$colorPalette}) => $colorPalette.light};
-    padding: 1em 1.5em;
+    padding: 0.7em 0.9em;
     transition: opacity 0.8s;
     font-family: monospace;
     border-radius: 0.7em;
@@ -45,7 +45,6 @@ function ClearMarked() {
         dispatch: dispatchT,
         state: {allHighlightedSymbols},
     } = useTransformations();
-
 
     function onClick() {
         dispatchT(clearExplanationHighlightedSymbol());

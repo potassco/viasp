@@ -9,6 +9,7 @@ import {Facts} from '../components/Facts.react';
 import {Edges} from '../components/Edges.react';
 import {Arrows} from '../components/Arrows.react';
 import {ShownNodesProvider} from '../contexts/ShownNodes';
+import {ContentDivProvider, useContentDiv} from '../contexts/ContentDivContext';
 import {
     TransformationProvider,
     useTransformations,
@@ -45,13 +46,15 @@ import useResizeObserver from '@react-hook/resize-observer';
 import * as Constants from '../constants';
 import debounce from 'lodash.debounce';
 
-
-
-
 function GraphContainer(props) {
     const {notifyDash, scrollContainer, transform} = props;
     const {
-        state: {transformations, clingraphGraphics, transformationDropIndices, explanationHighlightedSymbols},
+        state: {
+            transformations,
+            clingraphGraphics,
+            transformationDropIndices,
+            explanationHighlightedSymbols,
+        },
         dispatch: dispatchTransformation,
         setSortAndFetchGraph,
     } = useTransformations();
@@ -61,9 +64,12 @@ function GraphContainer(props) {
     const clingraphUsed = clingraphGraphics.length > 0;
 
     function onMoveEnd(newList, movedItem, oldIndex, newIndex) {
-        if (transformationDropIndices.lower_bound <= newIndex && newIndex <= transformationDropIndices.upper_bound) {
+        if (
+            transformationDropIndices.lower_bound <= newIndex &&
+            newIndex <= transformationDropIndices.upper_bound
+        ) {
             clearHighlightedSymbol();
-            setSortAndFetchGraph(oldIndex, newIndex)
+            setSortAndFetchGraph(oldIndex, newIndex);
         }
         dispatchTransformation(setTransformationDropIndices(null));
     }
@@ -127,8 +133,7 @@ function MainWindow(props) {
         translation: {x: 0, y: 0},
         scale: 1,
     });
-    const contentDivRef = React.useRef(null);
-
+    const contentDivRef = useContentDiv();
 
     // React.useEffect(() => {
     //     fetch(backendURLRef.current('graph/sorts')).catch(() => {
@@ -191,19 +196,17 @@ function MainWindow(props) {
             const contentWidth = contentDivRef.current.clientWidth;
             const rowWidth = contentWidth * newScale;
             const detailOpenWidth =
-                shownDetail === null 
-                ? 0
-                : Constants.detailOpenWidthRatio * contentWidth;
+                shownDetail === null
+                    ? 0
+                    : Constants.detailOpenWidthRatio * contentWidth;
             setTranslationBounds({
-                scale: shownDetail === null 
+                scale:
+                    shownDetail === null
                         ? 1
                         : 1 - Constants.detailOpenWidthRatio,
                 translation: {
                     xMax: 0,
-                    xMin: 
-                        contentWidth -
-                        rowWidth -
-                        detailOpenWidth,
+                    xMin: contentWidth - rowWidth - detailOpenWidth,
                 },
             });
 
@@ -294,7 +297,7 @@ function MainWindow(props) {
             });
         }
         prevShownDetail.current = shownDetail;
-    }, [setMapShiftValue, shownDetail]);
+    }, [setMapShiftValue, shownDetail, contentDivRef]);
 
     React.useEffect(() => {
         handleMapChangeOnDetailChange();
@@ -303,12 +306,14 @@ function MainWindow(props) {
     const shiftZoomOnResize = React.useCallback(() => {
         setMapShiftValue((oldShiftValue) => {
             const contentWidth = contentDivRef.current.clientWidth;
-            const detailWidth = shownDetail === null
-                ? 0
-                : Constants.detailOpenWidthRatio * contentWidth;
+            const detailWidth =
+                shownDetail === null
+                    ? 0
+                    : Constants.detailOpenWidthRatio * contentWidth;
             const rowWidth = contentWidth * oldShiftValue.scale;
             if (
-                translationBounds.translation.xMin + oldShiftValue.translation.x >=
+                translationBounds.translation.xMin +
+                    oldShiftValue.translation.x >=
                 Constants.detailOpenShiftThreshold * contentWidth
             ) {
                 return {...oldShiftValue};
@@ -317,14 +322,11 @@ function MainWindow(props) {
                 ...oldShiftValue,
                 translation: {
                     ...oldShiftValue.translation,
-                    x: 
-                        contentWidth -
-                        rowWidth -
-                        detailWidth,
+                    x: contentWidth - rowWidth - detailWidth,
                 },
             };
         });
-    }, [shownDetail, translationBounds]);
+    }, [shownDetail, translationBounds, contentDivRef]);
 
     const debouncedShiftZoomOnResize = React.useMemo(
         () => debounce(shiftZoomOnResize, Constants.SMALLERDEBOUNCETIMEOUT),
@@ -339,10 +341,11 @@ function MainWindow(props) {
     // Add an effect to update the scroll position state when the contentDiv scrolls
     React.useEffect(() => {
         const contentDiv = contentDivRef.current;
-        const handleScroll = (event) => {
-            setScrollPosition(event.target.scrollTop)
-        };
-
+        const handleScroll = debounce((event) => {
+            requestAnimationFrame(() => {
+                setScrollPosition(event.target.scrollTop);
+            });
+        }, 100);
 
         if (contentDiv) {
             contentDiv.addEventListener('scroll', handleScroll);
@@ -442,18 +445,20 @@ export default function ViaspDash(props) {
                                 <AnimationUpdaterProvider>
                                     <UserMessagesProvider>
                                         <ShownNodesProvider>
-                                            <TransformationProvider>
-                                                <HighlightedSymbolProvider>
-                                                    <div>
-                                                        <UserMessages />
-                                                        <MainWindow
-                                                            notifyDash={
-                                                                notifyDash
-                                                            }
-                                                        />
-                                                    </div>
-                                                </HighlightedSymbolProvider>
-                                            </TransformationProvider>
+                                            <ContentDivProvider>
+                                                <TransformationProvider>
+                                                    <HighlightedSymbolProvider>
+                                                        <div>
+                                                            <UserMessages />
+                                                            <MainWindow
+                                                                notifyDash={
+                                                                    notifyDash
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </HighlightedSymbolProvider>
+                                                </TransformationProvider>
+                                            </ContentDivProvider>
                                         </ShownNodesProvider>
                                     </UserMessagesProvider>
                                 </AnimationUpdaterProvider>

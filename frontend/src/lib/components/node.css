@@ -16,13 +16,13 @@
 }
 
 .mouse_over_shadow:hover {
-    transition: drop-shadow .1s;
-    filter: drop-shadow(0 0 .14em #333);
+    transition: drop-shadow 0.1s;
+    filter: drop-shadow(0 0 0.14em #333);
 }
 
 .highlighted_node {
-    transition: drop-shadow .1s;
-    filter: drop-shadow(0 0 .14em #333);
+    transition: drop-shadow 0.1s;
+    filter: drop-shadow(0 0 0.14em #333);
 }
 
 .bauchbinde {
@@ -42,7 +42,7 @@
 }
 
 .set_too_high {
-    /* overflow-y: hidden; */
+    overflow-y: clipped;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -52,7 +52,7 @@
 
 .set_value {
     width: fit-content;
-    margin: .38em 1em .5em 1em;
+    margin: 0.38em 1em 0.5em 1em;
 
     position: relative;
     flex: 0 0 auto;
@@ -62,37 +62,37 @@
     align-items: center;
 }
 
-
-
 .mini {
     text-align: center;
     vertical-align: middle;
     width: fit-content;
     height: fit-content;
     /* font-size: 12pt; */
-    min-width: .57em;
+    min-width: 0.57em;
     cursor: pointer;
-    min-height: .57em;
+    min-height: 0.57em;
 }
 
-.recursion_button{
+.recursion_button {
     position: absolute;
     right: 0;
     top: 0;
 }
 
 .recursion_button:hover {
-    box-shadow: 0 .28em .57em 0 rgba(0, 0, 0, 0.2), 0 .43em .71em 0 rgba(0, 0, 0, 0.2);
-    transition: .3s ease-in-out;
-    -moz-transition: .3s ease-in-out;
-    -webkit-transition: .3s ease-in-out;
+    box-shadow:
+        0 0.28em 0.57em 0 rgba(0, 0, 0, 0.2),
+        0 0.43em 0.71em 0 rgba(0, 0, 0, 0.2);
+    transition: 0.3s ease-in-out;
+    -moz-transition: 0.3s ease-in-out;
+    -webkit-transition: 0.3s ease-in-out;
 }
 
-.recursion_button_text{
+.recursion_button_text {
     cursor: pointer;
     font-size: 1pt;
     font-weight: bold;
-    border-radius: 0em .57em 0em .28em;
+    border-radius: 0em 0.57em 0em 0.28em;
     padding: 1px;
     vertical-align: middle;
     text-align: center;
@@ -117,7 +117,7 @@
 }
 
 .hidden {
-    visibility: hidden
+    visibility: hidden;
 }
 
 .rotate_icon {

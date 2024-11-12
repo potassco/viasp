@@ -15,6 +15,9 @@ import IconWrapper from './IconWrapper.react';
 const NavigationAreaDiv = styled.div`
     color: ${(props) => props.$colorPalette.light};
     border-radius: 0.4em;
+    margin-right: 0.8em;
+    position: absolute;
+    right: 0;
     display: ${(props) => (props.$visible ? 'flex' : 'none')};
 `;
 
@@ -48,7 +51,7 @@ function NextButton(props) {
         <IconWrapper
             icon="navigateNext"
             height="15px"
-            color={disabled ? colorPalette.dark : colorPalette.light}
+            color={colorPalette.light}
             onClick={disabled ? null : onForward}
         />
     );
@@ -74,7 +77,7 @@ function PrevButton(props) {
             icon="navigateNext"
             height="15px"
             flip="horizontal"
-            color={disabled ? colorPalette.dark : colorPalette.light}
+            color={colorPalette.light}
             onClick={disabled ? null : onBackward}
         />
     );
@@ -147,13 +150,15 @@ export function NavigationArea(props) {
                 onBackward={() => {
                     onRotate(-1);
                 }}
-                disabled={selected < 1}
+                // disabled={selected < 1}
+                disabled={includesLength < 2}
             />
             <NextButton
                 onForward={() => {
                     onRotate(+1);
                 }}
-                disabled={selected + 1 >= includesLength}
+                // disabled={selected + 1 >= includesLength}
+                disabled={includesLength < 2}
             />
             {/* <CloseButton onClose={onClose} /> */}
         </NavigationAreaDiv>
