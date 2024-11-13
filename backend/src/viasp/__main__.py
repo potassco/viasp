@@ -17,6 +17,7 @@ from viasp.shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DE
 from viasp.shared.io import clingo_model_to_stable_model, clingo_symbols_to_stable_model
 from viasp.shared.util import get_json, get_lp_files, SolveHandle
 from viasp.shared.simple_logging import error, warn, plain
+from viasp.exceptions import NoRelaxedModelsFoundException
 
 #
 # DEFINES
@@ -182,7 +183,7 @@ class ViaspArgumentParser:
         self.__cmd_parser.add_argument('files',
                                        help=textwrap.dedent("""\
             : Files containing ASP encodings
-              Optionally, a single JSON file defining the answer set(s) in clingo's 
+              Optionally, a single JSON file defining the answer set(s) in clingo's
               `--outf=2` format"""),
                                        nargs='*')
         self.__cmd_parser.add_argument('stdin',
@@ -424,13 +425,19 @@ class ViaspRunner():
                         models_to_mark.append(stable_model)
                 for m in models_to_mark:
                     ctl.viasp.mark(m)
-            plain(handle.get())  # type: ignore
+            if str(handle.get()) == "UNSAT":
+                plain("UNSATISFIABLE")
+            else:
+                plain("SATISFIABLE")
             if handle.get().unsatisfiable:
                 if relax:
-                    ctl = ctl.viasp.relax_constraints(
-                        head_name=head_name,
-                        collect_variables=not no_collect_variables,
-                        relaxer_opt_mode=relaxer_opt_mode)
+                    try:
+                        ctl = ctl.viasp.relax_constraints(
+                            head_name=head_name,
+                            collect_variables=not no_collect_variables,
+                            relaxer_opt_mode=relaxer_opt_mode)
+                    except NoRelaxedModelsFoundException as e:
+                        self.warn_no_relaxed_models()
                 else:
                     self.warn_unsat()
         return ctl
@@ -438,10 +445,17 @@ class ViaspRunner():
     def warn_unsat(self):
         plain(
             textwrap.dedent(f"""\
-            [INFO] The input program is unsatisfiable. To visualize the relaxed program use: 
+            [INFO] The input program is unsatisfiable. To visualize the relaxed program use:
                     {RELAXER_GROUP_HELP}
                     --print-relax{PRINT_RELAX_HELP}
                     --relax      {USE_RELAX_HELP}"""))
+        sys.exit(0)
+
+    def warn_no_relaxed_models(self):
+        plain(
+            textwrap.dedent(f"""\
+                [WARN] Relaxation did not produce any stable models.
+                """))
         sys.exit(0)
 
     def warn_optimality_not_guaranteed(self):
@@ -481,13 +495,19 @@ class ViaspRunner():
 
             for m in models_to_mark:
                 ctl.viasp.mark(m)
-            plain(handle.get())
+            if str(handle.get()) == "UNSAT":
+                plain("UNSATISFIABLE")
+            else:
+                plain("SATISFIABLE")
             if handle.get().unsatisfiable:
                 if relax:
-                    ctl = ctl.viasp.relax_constraints(
-                        head_name=head_name,
-                        collect_variables=not no_collect_variables,
-                        relaxer_opt_mode=relaxer_opt_mode)
+                    try:
+                        ctl = ctl.viasp.relax_constraints(
+                            head_name=head_name,
+                            collect_variables=not no_collect_variables,
+                            relaxer_opt_mode=relaxer_opt_mode)
+                    except NoRelaxedModelsFoundException as e:
+                        self.warn_no_relaxed_models()
                 else:
                     self.warn_unsat()
         return ctl

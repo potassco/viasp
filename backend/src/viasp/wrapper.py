@@ -12,6 +12,7 @@ from .clingoApiClient import ClingoClient
 from .shared.defaults import STDIN_TMP_STORAGE_PATH
 from .shared.io import clingo_model_to_stable_model
 from .shared.model import StableModel
+from .exceptions import NoRelaxedModelsFoundException
 
 
 def is_non_cython_function_call(attr: classmethod):
@@ -91,6 +92,8 @@ class ShowConnector:
             for m in handle:
                 c = m.cost[0] if len(m.cost) > 0 else 0
                 models[clingo_model_to_stable_model(m)] = c
+            if len(models) == 0:
+                raise NoRelaxedModelsFoundException()
             for m in list(
                     filter(lambda i: models.get(i) == min(models.values()),
                             models.keys())):
