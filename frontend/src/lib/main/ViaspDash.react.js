@@ -46,9 +46,6 @@ import useResizeObserver from '@react-hook/resize-observer';
 import * as Constants from '../constants';
 import debounce from 'lodash.debounce';
 
-
-
-
 function GraphContainer(props) {
     const {notifyDash, scrollContainer, transform} = props;
     const {
@@ -62,9 +59,12 @@ function GraphContainer(props) {
     const clingraphUsed = clingraphGraphics.length > 0;
 
     function onMoveEnd(newList, movedItem, oldIndex, newIndex) {
-        if (transformationDropIndices.lower_bound <= newIndex && newIndex <= transformationDropIndices.upper_bound) {
+        if (
+            transformationDropIndices.lower_bound <= newIndex &&
+            newIndex <= transformationDropIndices.upper_bound
+        ) {
             clearHighlightedSymbol();
-            setSortAndFetchGraph(oldIndex, newIndex)
+            setSortAndFetchGraph(oldIndex, newIndex);
         }
         dispatchTransformation(setTransformationDropIndices(null));
     }
@@ -72,7 +72,7 @@ function GraphContainer(props) {
     const graphContainerRef = React.useRef(null);
     return (
         <div className="graph_container" ref={graphContainerRef}>
-            <Facts transform={transform}/>
+            <Facts transform={transform} />
             <Suspense fallback={<div>Loading...</div>}>
                 <Settings />
             </Suspense>
@@ -88,7 +88,7 @@ function GraphContainer(props) {
                 unsetZIndex={true}
                 commonProps={{transform}}
             />
-            {clingraphUsed ? <Boxrow transform={transform}/> : null}
+            {clingraphUsed ? <Boxrow transform={transform} /> : null}
             {highlightedSymbol.length === 0 ? null : <Arrows />}
             {transformations.length === 0 ? null : <Edges />}
         </div>
@@ -130,7 +130,6 @@ function MainWindow(props) {
     });
     const contentDivRef = React.useRef(null);
 
-
     // React.useEffect(() => {
     //     fetch(backendURLRef.current('graph/sorts')).catch(() => {
     //         dispatchRef.current(
@@ -160,7 +159,6 @@ function MainWindow(props) {
 
     React.useEffect(() => {
         const handleKeyDown = (event) => {
-            console.log(event.key);
             if (event.key === Constants.ZOOMTOGGLEBUTTON) {
                 setCtrlPressed(true);
             }
@@ -193,19 +191,17 @@ function MainWindow(props) {
             const contentWidth = contentDivRef.current.clientWidth;
             const rowWidth = contentWidth * newScale;
             const detailOpenWidth =
-                shownDetail === null 
-                ? 0
-                : Constants.detailOpenWidthRatio * contentWidth;
+                shownDetail === null
+                    ? 0
+                    : Constants.detailOpenWidthRatio * contentWidth;
             setTranslationBounds({
-                scale: shownDetail === null 
+                scale:
+                    shownDetail === null
                         ? 1
                         : 1 - Constants.detailOpenWidthRatio,
                 translation: {
                     xMax: 0,
-                    xMin: 
-                        contentWidth -
-                        rowWidth -
-                        detailOpenWidth,
+                    xMin: contentWidth - rowWidth - detailOpenWidth,
                 },
             });
 
@@ -305,12 +301,14 @@ function MainWindow(props) {
     const shiftZoomOnResize = React.useCallback(() => {
         setMapShiftValue((oldShiftValue) => {
             const contentWidth = contentDivRef.current.clientWidth;
-            const detailWidth = shownDetail === null
-                ? 0
-                : Constants.detailOpenWidthRatio * contentWidth;
+            const detailWidth =
+                shownDetail === null
+                    ? 0
+                    : Constants.detailOpenWidthRatio * contentWidth;
             const rowWidth = contentWidth * oldShiftValue.scale;
             if (
-                translationBounds.translation.xMin + oldShiftValue.translation.x >=
+                translationBounds.translation.xMin +
+                    oldShiftValue.translation.x >=
                 Constants.detailOpenShiftThreshold * contentWidth
             ) {
                 return {...oldShiftValue};
@@ -319,10 +317,7 @@ function MainWindow(props) {
                 ...oldShiftValue,
                 translation: {
                     ...oldShiftValue.translation,
-                    x: 
-                        contentWidth -
-                        rowWidth -
-                        detailWidth,
+                    x: contentWidth - rowWidth - detailWidth,
                 },
             };
         });
@@ -342,9 +337,8 @@ function MainWindow(props) {
     React.useEffect(() => {
         const contentDiv = contentDivRef.current;
         const handleScroll = (event) => {
-            setScrollPosition(event.target.scrollTop)
+            setScrollPosition(event.target.scrollTop);
         };
-
 
         if (contentDiv) {
             contentDiv.addEventListener('scroll', handleScroll);
