@@ -25,6 +25,7 @@ import {findChildByClass} from '../utils';
 import debounce from 'lodash.debounce';
 import * as Constants from '../constants';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
+import {useAnimationUpdater} from '../contexts/AnimationUpdater';
 
 function any(iterable) {
     for (let index = 0; index < iterable.length; index++) {
@@ -432,6 +433,7 @@ export function Node(props) {
     const dispatchShownNodesRef = React.useRef(dispatchShownNodes);
     const nodeuuidRef = React.useRef(node.uuid);
     const animateHeightRef = React.useRef(null);
+    const {animationState} = useAnimationUpdater();
 
     useDebouncedAnimateResize(animateHeightRef, nodeuuidRef);
 
@@ -481,7 +483,7 @@ export function Node(props) {
 
     React.useEffect(() => {
         checkForOverflow();
-    }, [checkForOverflow, node.showMini]);
+    }, [checkForOverflow, node.showMini, animationState]);
 
     useResizeObserver(
         document.getElementById('content'),
