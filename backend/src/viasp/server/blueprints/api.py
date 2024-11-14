@@ -185,7 +185,7 @@ def set_warnings():
     if request.method == "POST":
         if not isinstance(request.json, list):
             return "Expected a list of warnings", 400
-        db_warnings = [Warnings(encoding_id=get_or_create_encoding_id(), warning=w) for w in request.json]
+        db_warnings = [Warnings(encoding_id=get_or_create_encoding_id(), warning=current_app.json.dumps(w)) for w in request.json]
         db_session.add_all(db_warnings)
         try:
             db_session.commit()
@@ -199,7 +199,7 @@ def set_warnings():
         db_session.commit()
     elif request.method == "GET":
         result = db_session.query(Warnings).where(Warnings.encoding_id == get_or_create_encoding_id()).all()
-        return jsonify([w.warning for w in result])
+        return [current_app.json.loads(w.warning) for w in result]
     return "ok"
 
 

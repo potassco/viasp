@@ -368,9 +368,6 @@ function useHighlightedNodeToCreateClassName(node) {
     );
 
     React.useEffect(() => {
-        if (highlightedNode === node.uuid) {
-            console.log('highlighted node', node.uuid);
-        }
         setClassNames(
             `txt-elem node_border mouse_over_shadow ${node.uuid} ${
                 highlightedNode === node.uuid ? 'highlighted_node' : null

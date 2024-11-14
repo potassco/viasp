@@ -4,9 +4,6 @@ import PropTypes from 'prop-types';
 import {useColorPalette} from '../contexts/ColorPalette';
 import {useTransformations} from '../contexts/transformations';
 import {useAnimationUpdater} from '../contexts/AnimationUpdater';
-import {styled} from 'styled-components';
-
-const EdgesContainer = styled.div``;
 
 export function Edges() {
     const colorPalete = useColorPalette();
@@ -14,10 +11,6 @@ export function Edges() {
         state: {edges},
     } = useTransformations();
     const {animationState} = useAnimationUpdater();
-
-    React.useEffect(() => {
-        console.log('Scale: ', animationState.graph_zoom);
-    }, [animationState]);
 
     return (
         <>
