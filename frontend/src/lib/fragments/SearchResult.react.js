@@ -14,6 +14,12 @@ import {NavigationArea} from './NavigationArea.react';
 
 const SuggestionTextSpan = styled.span`
     margin-left: 0.8em;
+    padding-right: 3em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    text-align: left;
 `;
 
 function SuggestionContent(props) {
@@ -51,6 +57,7 @@ const ActiveSearchResultDiv = styled.div`
     width: 100%;
     align-items: center;
     height: 100%;
+    padding-right: 3em;
 `;
 
 export const Suggestion = React.forwardRef((props, ref) => {

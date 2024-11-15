@@ -29,7 +29,6 @@ export function make_rules_string(rule) {
     return rule.join(' ');
 }
 
-
 export function make_default_nodes(oldNodes = []) {
     if (oldNodes.length > 0) {
         return oldNodes.map((node, i) => {
@@ -115,6 +114,10 @@ export function emToPixel(em) {
     return em * parseFloat(getComputedStyle(document.documentElement).fontSize);
 }
 
+export function pixelToEm(px) {
+    return px / parseFloat(getComputedStyle(document.documentElement).fontSize);
+}
+
 export function getNextColor(
     currentExplanationHighlightedSymbol,
     currentSearchResultHighlightedSymbol,
@@ -176,7 +179,7 @@ export function getNextHoverColor(
         .indexOf(symbol);
     if (searchSymbolSourceIndex !== -1) {
         return currentExplanationHighlightedSymbol[searchSymbolSourceIndex]
-                    .color;
+            .color;
     }
     return getNextColor(
         currentExplanationHighlightedSymbol,

@@ -15,6 +15,7 @@ import IconWrapper from './IconWrapper.react';
 import {styled} from 'styled-components';
 import PulseLoader from 'react-spinners/PulseLoader';
 import {NavigationArea, CloseButton} from './NavigationArea.react';
+import {pixelToEm} from '../utils';
 
 function middlewareAddSearchResultHighlightedSymbol(
     dispatchT,
@@ -37,7 +38,7 @@ const SearchInput = styled.input`
 
     width: 100%;
     border-radius: 0.4em;
-    padding: 0.7em 0.4em 0.7em 0.8em;
+    padding: 0.7em 3em 0.7em 0.8em;
     border: 0px;
 
     &:focus {
@@ -83,13 +84,27 @@ const SearchInputContainerDiv = styled.div`
 `;
 
 const SearchBarDiv = styled.div`
-    width: 100%;
+    width: ${(props) => props.$inputWidth}em;
+    position: relative;
 `;
 
 const SearchDiv = styled.div`
     display: flex;
     justify-content: end;
 `;
+
+function calculateTextWidth(text) {
+    const span = document.createElement('span');
+    span.style.visibility = 'hidden';
+    span.style.whiteSpace = 'pre';
+    span.style.position = 'absolute';
+    span.style.padding = '0.7em 3em 0.7em 0.8em';
+    span.textContent = text;
+    document.body.appendChild(span);
+    const width = span.offsetWidth;
+    document.body.removeChild(span);
+    return width;
+}
 
 export function Search() {
     const [activeSuggestion, setActiveSuggestion] = React.useState(0);
@@ -100,6 +115,9 @@ export function Search() {
     const [showSuggestions, setShowSuggestions] = React.useState(false);
     const [userInput, setUserInput] = React.useState('');
     const [isHovered, setIsHovered] = React.useState(false);
+    const [inputWidth, setInputWidth] = React.useState(
+        Constants.minSearchInputWidthInEm
+    );
     const {
         dispatch: dispatchT,
         state: {searchResultHighlightedSymbols},
@@ -116,6 +134,7 @@ export function Search() {
         setUserInput(userInput);
         if (userInput === '') {
             setAwaitingInput(false);
+            setFilteredSuggestions([]);
         } else {
             fetch(`${backendURL('query')}?q=${encodeURIComponent(userInput)}`)
                 .then((r) => r.json())
@@ -156,6 +175,10 @@ export function Search() {
         setUserInput(searchResultSuggestion.repr);
         setAwaitingInput(false);
         setShowSuggestions(false);
+        if (searchInputRef.current) {
+            const inputLength = searchResultSuggestion.repr.length;
+            searchInputRef.current.setSelectionRange(inputLength, inputLength);
+        }
     }
 
     function select(searchResultSuggestion) {
@@ -207,6 +230,29 @@ export function Search() {
             });
         }
     }, [activeSuggestion]);
+
+    React.useEffect(() => {
+        const calculateWidth = () => {
+            const inputWidth = calculateTextWidth(userInput);
+            const suggestionsWidth = filteredSuggestions.reduce(
+                (maxWidth, suggestion) => {
+                    const suggestionWidth = calculateTextWidth(suggestion.repr);
+                    return Math.max(maxWidth, suggestionWidth);
+                },
+                0
+            );
+            const newWidth =
+                pixelToEm(Math.max(inputWidth, suggestionsWidth)) + 2;
+            setInputWidth(
+                Math.min(
+                    Math.max(newWidth, Constants.minSearchInputWidthInEm),
+                    Constants.maxSearchInputWidthInEm
+                )
+            );
+        };
+
+        calculateWidth();
+    }, [userInput, filteredSuggestions]);
 
     if (showSuggestions && userInput) {
         if (filteredSuggestions.length) {
@@ -274,7 +320,7 @@ export function Search() {
     }
     return (
         <SearchDiv className="search">
-            <SearchBarDiv className="search_bar">
+            <SearchBarDiv className="search_bar" $inputWidth={inputWidth}>
                 <SearchInputContainerDiv
                     className="search_input_container"
                     onMouseEnter={() => setIsHovered(true)}
@@ -288,6 +334,7 @@ export function Search() {
                         value={userInput}
                         $colorPalette={colorPalette}
                         $isHovered={isHovered}
+                        $inputWidth={inputWidth}
                         placeholder="query"
                         type="text"
                     />
