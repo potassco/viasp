@@ -86,11 +86,11 @@ class ProgramRelaxer(TermRelaxer):
             self.constraint_counter += 1
 
             if self.collect_variables:
-                self.did_collect_variables = True
                 variables: List[AST] = []
                 _ = self.visit_sequence(rule.body, adder=variables.append)
                 variables = [v for i,v in enumerate(variables) if v not in variables[:i]]
                 if variables != []:
+                    self.did_collect_variables = True
                     args.append(Function(location, '', variables, 0))
 
             rule.head = Literal(location = location,
