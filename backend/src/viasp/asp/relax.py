@@ -66,6 +66,7 @@ class ProgramRelaxer(TermRelaxer):
         self.head_name: str = kwargs.get("head_name", "unsat")
         self.collect_variables: bool = kwargs.get("collect_variables", True)
         self.constraint_counter: int = 1
+        self.did_collect_variables: bool = False
 
     def visit_Rule(self, rule: ast.Rule) -> AST: # type: ignore
         """
@@ -85,6 +86,7 @@ class ProgramRelaxer(TermRelaxer):
             self.constraint_counter += 1
 
             if self.collect_variables:
+                self.did_collect_variables = True
                 variables: List[AST] = []
                 _ = self.visit_sequence(rule.body, adder=variables.append)
                 variables = [v for i,v in enumerate(variables) if v not in variables[:i]]
@@ -108,9 +110,11 @@ def relax_constraints(relaxer: ProgramRelaxer, program: str) -> List[AST]:
     :param program: The program to relax..
     :return: The relaxed program as a list of AST.
     """
-    # Add minimization statement
-    program += f"\n:~ {relaxer.head_name}(R,T).[1,R,T]" if \
-                    relaxer.collect_variables else f"\n:~ {relaxer.head_name}(R).[1,R]"
     relaxed_program: List[AST] = []
     parse_string(program, lambda stm: relaxed_program.append(relaxer.visit(stm)))
+    # Add minimization statement
+    if relaxer.did_collect_variables:
+        relaxed_program.append(f":~ {relaxer.head_name}(R,T).[1,R,T]")
+    else:
+        relaxed_program.append(f":~ {relaxer.head_name}(R).[1,R]")
     return relaxed_program
