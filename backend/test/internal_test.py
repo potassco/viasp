@@ -19,7 +19,7 @@ def test_writing_to_server():
         program = "\n".join(f.readlines())
     analyzer = ProgramAnalyzer()
     analyzer.add_program(program)
-    sorted_program = analyzer.get_sorted_program()
+    sorted_program = analyzer.get_sorted_program(program)
     saved_models = get_stable_models_for_program(program)
     reified = reify_list(sorted_program)
 

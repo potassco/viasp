@@ -22,6 +22,11 @@ from viasp.server.models import CurrentGraphs, Encodings, Recursions, Dependency
 from viasp.shared.defaults import CLINGRAPH_PATH, GRAPH_PATH, PROGRAM_STORAGE_PATH, STDIN_TMP_STORAGE_PATH
 import secrets
 
+program_simple = "a(1..2). {b(X)} :- a(X). c(X) :- b(X)."
+program_multiple_sorts = "a(1..2). {b(X)} :- a(X). c(X) :- a(X)."
+program_recursive = "j(X, X+1) :- X=0..5.j(X,  Y) :- j(X,Z), j(Z,Y)."
+
+
 def create_app_with_registered_blueprints(*bps) -> Flask:
     app = Flask(__name__)
     for bp in bps:
@@ -40,6 +45,28 @@ def db_session():
     session.rollback()
     session.close()
     Base.metadata.drop_all(engine)
+
+@pytest.fixture
+def encoding_id():
+    return uuid4().hex
+
+@pytest.fixture
+def flask_test_client(app_context, db_session):
+    with app_context.test_client() as client:
+        yield client
+
+@pytest.fixture
+def unique_session(flask_test_client, encoding_id):
+    with flask_test_client.session_transaction() as sess:
+        sess['encoding_id'] = encoding_id
+    yield flask_test_client
+
+def setup_client(c, program):
+    c.post("control/program", json=program)
+    saved_models = get_clingo_stable_models(program)
+    c.post("control/models", json=saved_models)
+    c.post("control/show")
+
 
 @pytest.fixture
 def single_node_graph(a_1):
@@ -90,8 +117,8 @@ def get_sort_program(load_analyzer, db_session) -> Callable[[str], Tuple[List[Tr
 def get_sort_program_and_get_graph(get_sort_program, app_context, db_session) -> Callable[[str], Tuple[Tuple[nx.DiGraph, str, List[Transformation]], ProgramAnalyzer]]:
     def c(program: str):
         """
-        Returning a Tuple containing 
-            * the graph, 
+        Returning a Tuple containing
+            * the graph,
             * the hash of the sorted program,
             * the sorted program as json string
             * the analyzer
@@ -126,18 +153,6 @@ def get_sort_program_and_get_graph(get_sort_program, app_context, db_session) ->
         g = build_graph(wrapped_stable_models, reified, sorted_program, analyzer, recursion_rules)
         return (g, hash_from_sorted_transformations(sorted_program), sorted_program), analyzer
     return c
-
-@pytest.fixture
-def program_simple() -> str:
-    return "a(1..2). {b(X)} :- a(X). c(X) :- b(X)."
-
-@pytest.fixture
-def program_multiple_sorts() -> str:
-    return "a(1..2). {b(X)} :- a(X). c(X) :- a(X)."
-
-@pytest.fixture
-def program_recursive() -> str:
-    return "j(X, X+1) :- X=0..5.j(X,  Y) :- j(X,Z), j(Z,Y)."
 
 
 @pytest.fixture

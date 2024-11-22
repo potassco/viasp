@@ -43,7 +43,7 @@ class DebugClient(ViaspClient):
 
     def is_available(self):
         return True
-    
+
     def register_warning(self, message: str):
         pass
 
@@ -306,7 +306,7 @@ def test_unmark_model_from_file(client):
 def test_get_relaxed_program(client):
     debug_client = DebugClient(client)
     input_program = r"sample. :- sample.:-a(X)."
-    relaxed_program = r"#program base.sample.unsat(r1) :- sample.unsat(r2,(X,)) :- a(X).:~ unsat(R,T). [1@0,R,T]"
+    relaxed_program = r"#program base.sample.unsat(r1,()) :- sample.unsat(r2,(X,)) :- a(X).:~ unsat(R,T). [1@0,R,T]"
     load_program_string(
         input_program, _viasp_client=debug_client)
 

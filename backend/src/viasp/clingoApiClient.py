@@ -24,6 +24,7 @@ def dict_factory_that_supports_uuid(kv_pairs):
 class ClingoClient(ViaspClient):
 
     def __init__(self, **kwargs):
+        self.session = requests.Session()
         if "viasp_backend_url" in kwargs:
             self.backend_url = kwargs["viasp_backend_url"]
         else:
@@ -41,7 +42,7 @@ class ClingoClient(ViaspClient):
     def _register_function_call(self, call: ClingoMethodCall):
         if backend_is_running(self.backend_url):
             serialized = json.dumps(call, cls=DataclassJSONEncoder)
-            r = requests.post(f"{self.backend_url}/control/add_call",
+            r = self.session.post(f"{self.backend_url}/control/add_call",
                               data=serialized,
                               headers={'Content-Type': 'application/json'})
             if not r.ok:
@@ -51,7 +52,7 @@ class ClingoClient(ViaspClient):
 
     def set_target_stable_model(self, stable_models: Collection[StableModel]):
         serialized = json.dumps(stable_models, cls=DataclassJSONEncoder)
-        r = requests.post(f"{self.backend_url}/control/models",
+        r = self.session.post(f"{self.backend_url}/control/models",
                           data=serialized,
                           headers={'Content-Type': 'application/json'})
         if r.ok:
@@ -60,7 +61,7 @@ class ClingoClient(ViaspClient):
             error(f"Setting models failed [{r.status_code}] ({r.reason})")
 
     def show(self):
-        r = requests.post(f"{self.backend_url}/control/show")
+        r = self.session.post(f"{self.backend_url}/control/show")
         if r.ok:
             log(f"Drawing in progress.")
         else:
@@ -73,7 +74,7 @@ class ClingoClient(ViaspClient):
             "kwargs": kwargs
         },
                                 cls=DataclassJSONEncoder)
-        r = requests.post(f"{self.backend_url}/control/relax",
+        r = self.session.post(f"{self.backend_url}/control/relax",
                           data=serialized,
                           headers={'Content-Type': 'application/json'})
         if r.ok:
@@ -101,7 +102,7 @@ class ClingoClient(ViaspClient):
             },
             cls=DataclassJSONEncoder)
 
-        r = requests.post(f"{self.backend_url}/control/clingraph",
+        r = self.session.post(f"{self.backend_url}/control/clingraph",
                           data=serialized,
                           headers={'Content-Type': 'application/json'})
         if r.ok:
@@ -116,7 +117,7 @@ class ClingoClient(ViaspClient):
             transformer, imports, path)
         serialized = json.dumps(serializable_transformer,
                                 cls=DataclassJSONEncoder)
-        r = requests.post(f"{self.backend_url}/control/transformer",
+        r = self.session.post(f"{self.backend_url}/control/transformer",
                           data=serialized,
                           headers={'Content-Type': 'application/json'})
         if r.ok:
@@ -128,7 +129,7 @@ class ClingoClient(ViaspClient):
 
     def register_warning(self, warning):
         serializable_warning = json.dumps([warning], cls=DataclassJSONEncoder)
-        r = requests.post(f"{self.backend_url}/control/warnings",
+        r = self.session.post(f"{self.backend_url}/control/warnings",
                           data=serializable_warning,
                           headers={'Content-Type': 'application/json'})
         if not r.ok:

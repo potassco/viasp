@@ -24,6 +24,7 @@ def create_app():
     register_blueprints(app)
     CORS(app, resources={r"/*": {"origins": "*"}}, max_age=3600)
     app.config['SECRET_KEY'] = secrets.token_hex(16)
+    app.config['SESSION_TYPE'] = 'filesystem'
 
 
     @app.teardown_appcontext

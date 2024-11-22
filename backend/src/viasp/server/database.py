@@ -1,6 +1,8 @@
 from os.path import join, dirname, abspath
 from typing import Set, List
-from uuid import UUID
+from uuid import UUID, uuid4
+from functools import wraps
+from flask import session
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -37,13 +39,15 @@ def init_db():
     import viasp.server.models
     Base.metadata.create_all(bind=engine)
 
+def ensure_encoding_id(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'encoding_id' not in session:
+            session['encoding_id'] = "0"
+        return f(*args, **kwargs)
+    return decorated_function
 
-def get_or_create_encoding_id() -> str:
-    # TODO
-    # if 'encoding_id' not in session:
-    #     session['encoding_id'] = uuid4().hex
-    # print(f"Returing encoding id {session['encoding_id']}", flush=True)
-    # return session['encoding_id']
-    # if 'encoding_id' in session:
-    #     return session['encoding_id']
-    return "0"
+def get_or_create_encoding_id():
+    if 'encoding_id' not in session:
+        session['encoding_id'] = "0"
+    return session['encoding_id']

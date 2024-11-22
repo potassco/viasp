@@ -26,7 +26,8 @@ class Models(Base):
 class Graphs(Base):
     __tablename__ = "graphs_table"
 
-    hash: Mapped[str] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    hash: Mapped[str] = mapped_column()
     data: Mapped[str] = mapped_column(nullable=True)
     sort: Mapped[str] = mapped_column()
     encoding_id = mapped_column(ForeignKey("encodings_table.id"))
@@ -168,4 +169,3 @@ class AnalyzerConstants(Base):
     __table_args__ = (UniqueConstraint('encoding_id',
                                        'constant',
                                        name='_encoding_constant_uc'), )
-

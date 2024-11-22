@@ -8,7 +8,7 @@ from viasp.shared.model import StableModel
 class ViaspClient(ABC):
 
     @abstractmethod
-    def is_available(self):
+    def is_available(self) -> bool:
         pass
 
     @abstractmethod

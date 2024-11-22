@@ -1,16 +1,19 @@
 import pytest
-from typing import Tuple, List, Dict
+import pathlib
+from typing import Tuple, List
 import networkx as nx
 from flask import current_app
-from sqlalchemy.exc import MultipleResultsFound, IntegrityError
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, update
+from clingo.ast import parse_string
+import uuid
 
-from conftest import db_session
 from helper import get_clingo_stable_models
-from viasp.shared.util import hash_from_sorted_transformations, hash_transformation_rules, get_start_node_from_graph
-from viasp.server.blueprints.dag_api import get_node_positions
-from viasp.shared.model import Transformation, TransformerTransport, TransformationError, FailedReason, RuleContainer, Node
+from viasp.shared.model import Transformation, TransformerTransport, TransformationError, FailedReason, Node, Symbol
 from viasp.exampleTransformer import Transformer as ExampleTransfomer
-from viasp.server.models import Encodings, Graphs, Recursions, DependencyGraphs, Models, Clingraphs, Warnings, Transformers, CurrentGraphs, GraphEdges, GraphNodes, AnalyzerConstants, AnalyzerFacts, AnalyzerNames
+from viasp.server.models import Encodings, Graphs, Recursions, DependencyGraphs, Models, Clingraphs, Warnings, Transformers, CurrentGraphs, GraphEdges, GraphNodes, GraphSymbols, AnalyzerConstants, AnalyzerFacts, AnalyzerNames
+from conftest import setup_client, program_simple, program_multiple_sorts, program_recursive
+
 
 
 @pytest.fixture(
@@ -26,7 +29,6 @@ def test_program_database(db_session):
     encoding_id = "test"
     program1 = "a. b:-a."
     program2 = "c."
-    assert len(db_session.query(Encodings).all()) == 0, "Database should be empty initially."
     db_session.add(Encodings(id=encoding_id, program=program1))
     db_session.commit()
 
@@ -47,6 +49,7 @@ def test_program_database(db_session):
     assert len(db_session.query(Encodings).all()) == 0, "Database should be empty after clearing."
 
 
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
 def test_encoding_id_is_unique(db_session):
     encoding_id = "test"
     program1 = "a. b:-a."
@@ -81,6 +84,7 @@ def test_models_database(app_context, db_session):
     assert len(set([m.id for m in res])) == len(res), "id must be unique"
 
 
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
 def test_models_unique_constraint_database(app_context, db_session):
     encoding_id = "test"
     program = "a. b:-a."
@@ -106,436 +110,603 @@ def test_models_unique_constraint_database(app_context, db_session):
     assert len(res) == 2
 
 
-def test_graph_json_database(graph_info, db_session):
-    encoding_id = "test"
-    graph, hash, sort = graph_info
 
-    db_graph = db_session.query(Graphs).filter_by(hash=hash, encoding_id=encoding_id).first()
-    assert db_graph is None, "Database should be empty initially."
-
-    db_session.add(Encodings(id=encoding_id, program=""))
-    db_session.add(Graphs(hash=hash, sort=current_app.json.dumps(sort), encoding_id=encoding_id, data=current_app.json.dumps(nx.node_link_data(graph))))
-    db_session.commit()
-    r = db_session.query(Graphs).filter_by(hash=hash, encoding_id=encoding_id).first()
-    assert type(r.data) == str
-    assert len(r.data) > 0
-    db_session.query(Graphs).delete()
-    db_session.query(DependencyGraphs).delete()
-    db_session.query(Encodings).delete()
-    db_session.query(Models).delete()
-
-
-def test_graphs_data_is_nullable(graph_info, db_session):
-    encoding_id = "test"
-    _, hash, sort = graph_info
-
-    db_session.add(Graphs(hash=hash, sort=current_app.json.dumps(sort), encoding_id=encoding_id, data=None))
-    db_session.commit()
-
-
-def test_graphs_encodingid_hash_unique_constraint(graph_info, db_session):
-    encoding_id = "test"
-    _, hash, sort = graph_info
-
-    db_session.add(
-        Graphs(hash=hash,
-               sort=current_app.json.dumps(sort),
-               encoding_id=encoding_id,
-               data=None))
-    sort2 = sort
-    sort2.reverse()
-    db_session.add(
-        Graphs(hash=hash,
-               sort=current_app.json.dumps(sort2),
-               encoding_id=encoding_id,
-               data=None))
-
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
-
-
-def test_graph_data_database(db_session, graph_info):
-    encoding_id = "test"
-    graph, hash, sort = graph_info
-
-    res = db_session.query(Graphs).filter_by(hash = hash, encoding_id = encoding_id).one_or_none()
-    assert res == None
-
-    db_session.add(Graphs(data=current_app.json.dumps(nx.node_link_data(graph)), hash=hash, encoding_id=encoding_id, sort=current_app.json.dumps(sort)))
-    db_session.commit()
-
-    res = db_session.query(Graphs).filter_by(hash=hash, encoding_id=encoding_id).one_or_none()
-    assert res != None
-    assert type(res) == Graphs
-    assert type(res.data) == str
-    assert len(res.data) > 0
-    assert type(nx.node_link_graph(current_app.json.loads(res.data))) == nx.DiGraph
-
-
-def test_graph_data_is_unique(db_session, graph_info):
-    encoding_id = "test"
-    graph, hash, sort = graph_info
-
-    db_session.add(
-        Graphs(data=current_app.json.dumps(nx.node_link_data(graph)),
-               hash=hash,
-               encoding_id=encoding_id,
-               sort=current_app.json.dumps(sort)))
-    db_session.add(
-        Graphs(data=current_app.json.dumps(nx.node_link_data(graph)),
-               hash=hash,
-               encoding_id=encoding_id,
-               sort=current_app.json.dumps(sort)))
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
-
-
-
-def test_current_graph_json_database(db_session, graph_info):
-    encoding_id = "test"
-    _, hash, _ = graph_info
-
-    res = db_session.query(CurrentGraphs).filter_by(
-        encoding_id=encoding_id).one_or_none()
-    assert res == None
-
-    db_session.add(CurrentGraphs(hash=hash, encoding_id=encoding_id))
-    db_session.commit()
-
-    res = db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).one_or_none()
-    assert res != None
-    assert type(res) == CurrentGraphs
-    assert type(res.hash) == str
-    assert len(res.hash) > 0
-
-
-def test_current_graph_is_unique(db_session, graph_info):
-    encoding_id = "test"
-    _, hash, _ = graph_info
-
-    res = db_session.query(CurrentGraphs).filter_by(
-        encoding_id=encoding_id).one_or_none()
-    assert res == None
-
-    db_session.add(CurrentGraphs(hash=hash, encoding_id=encoding_id))
-    db_session.add(CurrentGraphs(hash=hash+"2", encoding_id=encoding_id))
-
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
-
-    db_session.add(CurrentGraphs(hash=hash, encoding_id=encoding_id))
-    db_session.add(CurrentGraphs(hash=hash, encoding_id=encoding_id+"2"))
-    db_session.commit()
-
-    res = db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).all()
-    assert len(res) == 1
-    res = db_session.query(CurrentGraphs).filter_by(
-        encoding_id=encoding_id+"2").all()
-    assert len(res) == 1
-
-
-def test_graph_nodes_database(db_session, graph_info):
-    encoding_id = "test"
-    graph, hash, sort = graph_info
-
-    res = db_session.query(GraphNodes).filter_by(
-        encoding_id=encoding_id).all()
-    assert len(res) == 0
-
-    pos: Dict[Node, List[float]] = get_node_positions(graph)
-    db_nodes = [
-        GraphNodes(encoding_id=encoding_id,
-                   graph_hash=hash,
-                   transformation_hash=d["transformation"].hash,
-                   branch_position=pos[node][0],
-                   node=current_app.json.dumps(node),
-                   node_uuid=node.uuid.hex)
-    for _, node, d in graph.edges(data=True)]
-    fact_node = get_start_node_from_graph(graph)
-    db_nodes.append(
-        GraphNodes(encoding_id=encoding_id,
-                   graph_hash=hash,
-                   transformation_hash="-1",
-                   branch_position=0,
-                   node=current_app.json.dumps(fact_node),
-                   node_uuid=fact_node.uuid.hex))
-
-    db_session.add_all(db_nodes)
-    db_session.commit()
-
-    res = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id).order_by(GraphNodes.branch_position).all()
-    assert len(res) == len(graph.nodes)
-    assert len(set([r.node for r in res])) == len(res)
-
-
-@pytest.mark.skip(reason="Not implemented yet")
-def test_graph_edges_database(db_session, graph_info):
-    pass
-
-
-def test_dependency_graphs_database(db_session, load_analyzer):
-    encoding_id = "test"
-    program1 = "a. b:-a."
-
-    analyzer = load_analyzer(program1)
-
-    res = db_session.query(DependencyGraphs).filter_by(
-        encoding_id=encoding_id).all()
-    assert len(res) == 0
-
-    db_session.add(DependencyGraphs(encoding_id=encoding_id, data=current_app.json.dumps(analyzer.dependency_graph)))
-    db_session.commit()
-
-    res = db_session.query(DependencyGraphs).filter_by(encoding_id=encoding_id).all()
-    assert len(res) == 1
-    assert type(res[0].data) == str
-    assert len(res[0].data) > 0
-
-
-def test_recursion_database(app_context, db_session):
-    encoding_id = "test"
-    recursion = [hash_transformation_rules(("a :- b.",)), hash_transformation_rules(("b :- c.",))]
-
-    res = db_session.query(Recursions).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
-    assert len(res) == 0
-
-    db_session.add_all([
-        Recursions(encoding_id=encoding_id,
-                   recursive_transformation_hash=r_hash)
-    for r_hash in recursion])
-    db_session.commit()
-
-    res = db_session.query(Recursions).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
-    assert len(res) == 2
-
-
-def test_recursion_unique_constraint_database(app_context, db_session):
-    encoding_id = "test"
-    recursion = hash_transformation_rules(("a :- b.", ))
-
-    db_session.add(Recursions(encoding_id=encoding_id,
-                   recursive_transformation_hash=recursion))
-    db_session.add(
-        Recursions(encoding_id=encoding_id,
-                   recursive_transformation_hash=recursion))
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
-
-    db_session.add(Recursions(encoding_id=encoding_id+"1",
-                    recursive_transformation_hash=recursion))
-    db_session.add(Recursions(encoding_id=encoding_id+"2",
-                    recursive_transformation_hash=recursion))
-    db_session.commit()
-    res = db_session.query(Recursions).all()
-    assert len(res) == 2
-
-
-def test_clingraph_database(db_session):
-    encoding_id = "test"
-    clingraph_names = ["test1", "test2"]
-
-    r = db_session.query(Clingraphs).all()
-    assert type(r) == list
-    assert len(r) == 0
-
-    for n in clingraph_names:
-        db_session.add(Clingraphs(encoding_id=encoding_id, filename=n))
-    db_session.commit()
-
-    r = db_session.query(Clingraphs).filter_by(encoding_id=encoding_id).all()
-    assert type(r) == list
-    assert len(r) == 2
-
-
-def test_clingraph_unique_constraint_database(db_session):
-    encoding_id = "test"
-    clingraph_name = "test1"
-
-    res = db_session.query(Clingraphs).all()
-    assert type(res) == list
-    assert len(res) == 0
-
-    db_session.add(Clingraphs(encoding_id=encoding_id,
-                              filename=clingraph_name))
-    db_session.add(Clingraphs(encoding_id=encoding_id,
-                              filename=clingraph_name))
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
-
-    db_session.add(Clingraphs(encoding_id=encoding_id+"1",
-                                filename=clingraph_name))
-    db_session.add(Clingraphs(encoding_id=encoding_id+"2",
-                                filename=clingraph_name))
-    db_session.commit()
-    res = db_session.query(Clingraphs).all()
-    assert type(res) == list
-    assert len(res) == 2
-
-
-def test_warnings_database(app_context, load_analyzer, program_simple, db_session):
-    encoding_id = "test"
-    analyzer = load_analyzer(program_simple)
-    warnings = [
-        TransformationError(ast=analyzer.rules[0],
-                            reason=FailedReason.FAILURE),
-        TransformationError(ast=analyzer.rules[1], reason=FailedReason.FAILURE)
-    ]
-
-    res = db_session.query(Warnings).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
-    assert len(res) == 0
-
-    db_session.add_all([Warnings(encoding_id=encoding_id, warning=current_app.json.dumps(w)) for w in warnings])
-    db_session.commit()
-
-    res = db_session.query(Warnings).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
-    assert len(res) == 2
-
-
-def test_warnings_unique_constraint_database(app_context, load_analyzer, program_simple,
-                           db_session):
-    encoding_id = "test"
-    analyzer = load_analyzer(program_simple)
-    warning = TransformationError(ast=analyzer.rules[0],
-                            reason=FailedReason.FAILURE)
-
-    db_session.add(
-        Warnings(encoding_id=encoding_id,
-                 warning=current_app.json.dumps(warning)))
-    db_session.add(
-        Warnings(encoding_id=encoding_id,
-                 warning=current_app.json.dumps(warning)))
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
-
-    db_session.add(
-        Warnings(encoding_id=encoding_id+"1",
-                 warning=current_app.json.dumps(warning)))
-    db_session.add(
-        Warnings(encoding_id=encoding_id+"2",
-                 warning=current_app.json.dumps(warning)))
-    db_session.commit()
-    res = db_session.query(Warnings).all()
-    assert len(res) == 2
-
-
-@pytest.mark.skip(reason="Transformer not registered bc of base exception?")
-def test_transformer_database(app_context, db_session):
-    encoding_id = "test"
-    transformer = ExampleTransfomer()
+def register_clingraph(c):
+    c.post("control/clingraph",
+        data = current_app.json.dumps(
+            {
+                "viz-encoding": "node(B):-a(B).attr(node,B,color,blue):-node(B).",
+                "engine": "dot",
+                "graphviz-type": "graph"
+        }),
+        headers={'Content-Type': 'application/json'})
+
+def register_transformer(c):
+    transformer = ExampleTransfomer
     path = str(
         pathlib.Path(__file__).parent.parent.resolve() / "src" / "viasp" / "exampleTransformer.py") # type: ignore
     transformer_transport = TransformerTransport.merge(transformer, "", path)
-    db_session.add(Transformers(encoding_id=encoding_id, transformer=current_app.json.dumps(transformer_transport)))
-    res = db_session.query(Transformers).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
+    c.post("control/transformer",
+        data=current_app.json.dumps(transformer_transport),
+        headers={'Content-Type': 'application/json'})
+
+@pytest.mark.parametrize("program, expected_length", [
+    (program_simple, 1),
+])
+def test_graph_database_datatypes(encoding_id, unique_session, db_session, program, expected_length):
+    setup_client(unique_session, program)
+    res = db_session.execute(
+        select(Graphs)
+        .where(Graphs.encoding_id == encoding_id)
+    ).scalars().all()
+    assert len(res) == expected_length
+    graph = res[0]
+
+    assert isinstance(graph.encoding_id, str)
+    assert len(graph.encoding_id) > 0
+    assert isinstance(graph.hash, str)
+    assert len(graph.hash) > 0
+
+    assert isinstance(graph.data, str)
+    assert len(graph.data) > 0
+    assert isinstance(nx.node_link_graph(current_app.json.loads(graph.data)), nx.DiGraph)
+
+    assert isinstance(graph.sort, str)
+    assert len(graph.sort) > 0
+    assert isinstance(current_app.json.loads(graph.sort), list)
+
+@pytest.mark.parametrize("program", [
+    (program_simple),
+])
+def test_graphs_data_is_nullable(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+    db_graph = db_session.execute(
+        select(Graphs)
+        .where(Graphs.encoding_id == encoding_id)
+    ).scalar()
+    db_session.query(Graphs).filter_by(encoding_id=db_graph.encoding_id).update({"data": None})
+    db_session.commit()
+    db_graph = db_session.query(Graphs).first()
+    assert db_graph.data is None
+
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
+@pytest.mark.parametrize("program", [
+    (program_simple),
+])
+def test_graphs_unique_constraint(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+    db_graph = db_session.execute(
+        select(Graphs)
+        .where(Graphs.encoding_id == encoding_id)
+    ).scalar()
+
+    sort2 = current_app.json.loads(db_graph.sort)
+    sort2.reverse()
+    db_session.add(
+        Graphs(hash=db_graph.hash,
+                sort=current_app.json.dumps(sort2),
+                encoding_id=encoding_id,
+                data=None))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+@pytest.mark.parametrize("program", [
+    (program_simple),
+    (program_multiple_sorts),
+    (program_recursive)
+])
+def test_current_graphs_datatypes(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+    db_current_graphs = db_session.execute(
+        select(CurrentGraphs)
+        .where(CurrentGraphs.encoding_id == encoding_id)
+    ).scalars().all()
+    assert len(db_current_graphs) == 1
+    assert isinstance(db_current_graphs[0].hash, str)
+    assert isinstance(db_current_graphs[0].encoding_id, str)
+
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
+@pytest.mark.parametrize("program", [
+    (program_simple),
+])
+def test_current_graph_uniqueness(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+    db_current_graphs = db_session.execute(
+        select(CurrentGraphs)
+        .where(CurrentGraphs.encoding_id == encoding_id)
+    ).scalar()
+    db_session.add(CurrentGraphs(hash=db_current_graphs.hash+"2", encoding_id=db_current_graphs.encoding_id))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    db_session.add(CurrentGraphs(hash=db_current_graphs.hash, encoding_id=db_current_graphs.encoding_id+"2"))
+    db_session.commit()
+    db_current_graphs = db_session.execute(
+        select(CurrentGraphs)
+    ).scalars().all()
+    assert len(db_current_graphs) == 2
+
+@pytest.mark.parametrize("program", [
+    (program_simple),
+    (program_multiple_sorts),
+    (program_recursive)
+])
+def test_graph_nodes_datatypes(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+
+    db_graph_nodes = db_session.execute(
+        select(GraphNodes)
+        .where(GraphNodes.encoding_id == encoding_id)
+    ).scalars().all()
+    assert len(db_graph_nodes) > 0
+    for node in db_graph_nodes:
+        assert isinstance(node.encoding_id, str)
+        assert isinstance(node.graph_hash, str)
+        assert isinstance(node.transformation_hash, str)
+        assert isinstance(node.branch_position, float)
+        assert isinstance(node.node, str)
+        assert isinstance(current_app.json.loads(node.node), Node)
+        assert isinstance(node.node_uuid, str)
+        assert node.recursive_supernode_uuid == None or \
+                type(node.recursive_supernode_uuid) == str
+
+@pytest.mark.parametrize("program", [
+    (program_simple),
+    (program_multiple_sorts),
+    (program_recursive)
+])
+def test_graph_nodes_nullable(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+
+    db_session.execute(
+        update(GraphNodes)
+        .where(GraphNodes.encoding_id == encoding_id)
+        .values(recursive_supernode_uuid=None)
+    )
+    db_graph_nodes = db_session.execute(
+        select(GraphNodes)
+        .where(GraphNodes.encoding_id == encoding_id)
+    ).scalars().all()
+    for n in db_graph_nodes:
+        assert n.recursive_supernode_uuid == None
+
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
+@pytest.mark.parametrize("program", [
+    (program_simple),
+    (program_multiple_sorts),
+    (program_recursive)
+])
+def test_graph_nodes_uniqueness(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+    db_node = db_session.execute(
+        select(GraphNodes)
+        .where(GraphNodes.encoding_id == encoding_id)
+    ).scalar()
+
+    db_session.add(GraphNodes(encoding_id=db_node.encoding_id+"1",
+                                graph_hash=db_node.graph_hash+"1",
+                                transformation_hash=db_node.transformation_hash+"1",
+                                branch_position=db_node.branch_position+1,
+                                node=db_node.node+"1",
+                                node_uuid=db_node.node_uuid))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+
+@pytest.mark.parametrize("program, expected_n_symbols", [
+    (program_simple, 10),
+    (program_multiple_sorts, 14),
+    (program_recursive, 36)
+])
+def test_graph_symbols_datatypes(encoding_id, unique_session, db_session, program, expected_n_symbols):
+    setup_client(unique_session, program)
+
+    db_graph_node_uuids = db_session.execute(
+        select(GraphNodes.node_uuid)
+        .where(GraphNodes.encoding_id == encoding_id)
+    ).scalars().all()
+    db_graph_symbols = db_session.execute(
+        select(GraphSymbols)
+        .filter(GraphSymbols.node.in_(db_graph_node_uuids))
+    ).scalars().all()
+
+    assert len(db_graph_symbols) == expected_n_symbols
+    for sym in db_graph_symbols:
+        assert isinstance(sym.id, int)
+        assert isinstance(sym.node, str)
+        assert isinstance(sym.symbol_uuid, str)
+        assert isinstance(sym.symbol, str)
+
+@pytest.mark.parametrize("program", [
+    (program_simple),
+    (program_multiple_sorts),
+    (program_recursive)
+])
+def test_graph_edges_datatypes(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+
+    db_graph_edges = db_session.execute(
+        select(GraphEdges)
+        .where(GraphEdges.encoding_id == encoding_id)
+    ).scalars().all()
+
+    for edge in db_graph_edges:
+        assert isinstance(edge.id, int)
+        assert isinstance(edge.encoding_id, str)
+        assert isinstance(edge.graph_hash, str)
+        assert isinstance(edge.source, str)
+        assert isinstance(edge.target, str)
+        assert isinstance(edge.transformation_hash, str)
+        assert isinstance(edge.style, str)
+        assert edge.recursion_anchor_keyword == None \
+            or  isinstance(edge.recursion_anchor_keyword, str)
+        assert edge.recursive_supernode_uuid == None \
+            or  isinstance(edge.recursive_supernode_uuid, str)
+
+@pytest.mark.parametrize("program", [
+    (program_simple),
+    (program_multiple_sorts),
+    (program_recursive)
+])
+def test_dependency_graphs_database(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+
+    db_dependency_graphs = db_session.execute(
+        select(DependencyGraphs)
+        .where(DependencyGraphs.encoding_id == encoding_id)
+    ).scalars().all()
+
+    assert len(db_dependency_graphs) == 1
+    for graph in db_dependency_graphs:
+        assert isinstance(graph.encoding_id, str)
+        assert isinstance(graph.data, str)
+        g = nx.node_link_graph(current_app.json.loads(graph.data))
+        assert isinstance(g, nx.DiGraph)
+        assert len(g.nodes) > 0
+
+@pytest.mark.parametrize("program, n_recursions", [
+    (program_simple, 0),
+    (program_multiple_sorts, 0),
+    (program_recursive, 1)
+])
+def test_recursion_datatypes(encoding_id, unique_session, db_session, program, n_recursions):
+    setup_client(unique_session, program)
+
+    db_recursions = db_session.execute(
+        select(Recursions)
+        .where(Recursions.encoding_id == encoding_id)
+    ).scalars().all()
+
+    assert len(db_recursions) == n_recursions
+    for recursion in db_recursions:
+        assert isinstance(recursion.encoding_id, str)
+        assert isinstance(recursion.recursive_transformation_hash, str)
+
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
+@pytest.mark.parametrize("program", [
+    (program_recursive)
+])
+def test_recursion_unique_constraint(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+
+    db_recursions = db_session.execute(
+        select(Recursions)
+        .where(Recursions.encoding_id == encoding_id)
+    ).scalars().one()
+
+    db_session.add(
+        Recursions(
+            encoding_id=db_recursions.encoding_id,
+            recursive_transformation_hash=db_recursions.recursive_transformation_hash
+        )
+    )
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+    db_session.rollback()
+
+    db_session.add(
+        Recursions(
+            encoding_id=db_recursions.encoding_id+"1",
+            recursive_transformation_hash=db_recursions.recursive_transformation_hash
+        )
+    )
+    db_session.add(
+        Recursions(
+            encoding_id=db_recursions.encoding_id,
+            recursive_transformation_hash=uuid.uuid4().hex
+        )
+    )
+    db_session.commit()
+
+    db_recursions = db_session.execute(
+        select(Recursions)
+    ).scalars().all()
+    assert len(db_recursions) == 3
+
+
+@pytest.mark.parametrize("program, expected_n_clingraphs", [
+    (program_simple, 4),
+    (program_multiple_sorts, 4),
+    (program_recursive, 0)
+])
+def test_clingraphs_datatypes(encoding_id, unique_session, db_session, program, expected_n_clingraphs):
+    setup_client(unique_session, program)
+    register_clingraph(unique_session)
+
+    db_clingraphs = db_session.execute(
+        select(Clingraphs)
+        .where(Clingraphs.encoding_id == encoding_id)
+    ).scalars().all()
+    assert len(db_clingraphs) == expected_n_clingraphs
+
+    for clingraph in db_clingraphs:
+        assert isinstance(clingraph.id, int)
+        assert isinstance(clingraph.encoding_id, str)
+        assert isinstance(clingraph.filename, str)
+
+
+
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
+@pytest.mark.parametrize("program", [
+    (program_simple),
+])
+def test_clingraph_unique_constraint(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+    register_clingraph(unique_session)
+
+    db_clingraph = db_session.execute(
+        select(Clingraphs)
+        .where(Clingraphs.encoding_id == encoding_id)
+    ).scalar()
+    db_session.add(Clingraphs(
+        encoding_id = db_clingraph.encoding_id,
+        filename = db_clingraph.filename))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+
+@pytest.mark.skip("Error due to namespace mismatch clingoTransformer")
+@pytest.mark.parametrize("program", [
+    (program_simple),
+])
+def test_transformer_datatypes(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+    register_transformer(unique_session)
+
+    res = db_session.execute(
+        select(Transformers)
+        .where(Transformers.encoding_id == encoding_id)
+    ).scalars().all()
+    assert isinstance(res, list)
     assert len(res) == 1
-    res = current_app.json.loads(res[0].transformer)
-    assert res == transformer
+    for t in res:
+        assert isinstance(t.encoding_id, str)
+        assert isinstance(t.transformer, bytes)
+        assert isinstance(current_app.json.loads(t.transformer), TransformerTransport)
 
+@pytest.mark.skip("Error due to namespace mismatch clingoTransformer")
+@pytest.mark.parametrize("program", [
+    (program_simple),
+])
+def test_transformers_uniqueness(encoding_id, unique_session, db_session, program):
+    setup_client(unique_session, program)
+    register_transformer(unique_session)
 
-def test_facts_database(app_context, db_session):
-    encoding_id = "test"
-    facts = {"a", "b"}
+    res = db_session.execute(
+        select(Transformers)
+        .where(Transformers.encoding_id == encoding_id)
+    ).scalar()
 
-    res = db_session.query(AnalyzerFacts).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
-    assert len(res) == 0
-
-    db_session.add_all([AnalyzerFacts(encoding_id=encoding_id, fact=f) for f in facts])
-    db_session.commit()
-
-    res = db_session.query(AnalyzerFacts).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
-    assert len(res) == 2
-
-def test_facts_unique_constraint_database(app_context, db_session):
-    encoding_id = "test"
-    fact = "a"
-
-    db_session.add(AnalyzerFacts(encoding_id=encoding_id, fact=fact))
-    db_session.add(AnalyzerFacts(encoding_id=encoding_id, fact=fact))
+    db_session.add(Transformers(
+        encoding_id = encoding_id,
+        transformer = res.transformer
+    ))
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
 
-    db_session.add(AnalyzerFacts(encoding_id=encoding_id+"1", fact=fact))
-    db_session.add(AnalyzerFacts(encoding_id=encoding_id+"2", fact=fact))
+    encoding_id2 = uuid.uuid4().hex
+    db_session.add(Transformers(
+        encoding_id = encoding_id2,
+        transformer = res.transformer
+    ))
     db_session.commit()
-    res = db_session.query(AnalyzerFacts).all()
+    res = db_session.execute(
+        select(Transformers)
+        .where(Transformers.encoding_id == encoding_id or Transformers.encoding_id == encoding_id2)
+    ).scalars().all()
     assert len(res) == 2
 
+@pytest.mark.parametrize("program", [
+    (program_simple),
+])
+def test_warnings_datatypes(unique_session, db_session, program):
+    setup_client(unique_session, program)
 
-def test_constants_database(app_context, db_session):
-    encoding_id = "test"
-    constants = {"#const n=2.", "#const b=3."}
+    test_ast = []
+    parse_string(program, test_ast.append)
 
-    res = db_session.query(AnalyzerConstants).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
-    assert len(res) == 0
-
-    db_session.add_all([AnalyzerConstants(encoding_id=encoding_id, constant=c) for c in constants])
+    te0 = TransformationError(ast=test_ast[0], reason=FailedReason.FAILURE)
+    te1 = TransformationError(ast=test_ast[1], reason=FailedReason.WARNING)
+    db_session.add(
+        Warnings(
+            encoding_id = "test",
+            warning = current_app.json.dumps(te0)
+        )
+    )
     db_session.commit()
 
-    res = db_session.query(AnalyzerConstants).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
-    assert len(res) == 2
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
+@pytest.mark.parametrize("program", [
+    (program_simple),
+])
+def test_warnings_uniqueness(unique_session, db_session, program):
+    setup_client(unique_session, program)
 
+    test_ast = []
+    parse_string(program, test_ast.append)
 
-def test_constants_unique_constraint_database(app_context, db_session):
-    encoding_id = "test"
-    constant = "#const n=2."
+    te0 = TransformationError(ast=test_ast[0], reason=FailedReason.FAILURE)
+    te1 = TransformationError(ast=test_ast[1], reason=FailedReason.WARNING)
+    db_session.add_all([
+        Warnings(
+            encoding_id = "test",
+            warning = current_app.json.dumps(te0)
+        ),
+        Warnings(
+            encoding_id = "test",
+            warning = current_app.json.dumps(te0)
+        )
+    ])
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+    db_session.add_all([
+        Warnings(
+            encoding_id = "test",
+            warning = current_app.json.dumps(te0)
+        ),
+        Warnings(
+            encoding_id = "test",
+            warning = current_app.json.dumps(te1)
+        )
+    ])
+    db_session.flush()
+    db_session.rollback()
+    db_session.add_all([
+        Warnings(
+            encoding_id = "test",
+            warning = current_app.json.dumps(te0)
+        ),
+        Warnings(
+            encoding_id = "testother",
+            warning = current_app.json.dumps(te0)
+        )
+    ])
+    db_session.flush()
+    db_session.rollback()
 
-    db_session.add(AnalyzerConstants(encoding_id=encoding_id, constant=constant))
-    db_session.add(AnalyzerConstants(encoding_id=encoding_id, constant=constant))
+@pytest.mark.parametrize("program, expected_names_len", [
+    (program_simple, 5),
+    (program_multiple_sorts, 5),
+    (program_recursive, 5)
+])
+def test_analyzer_names_datatypes(encoding_id, unique_session, db_session, program, expected_names_len):
+    setup_client(unique_session, program)
+
+    db_names = db_session.execute(
+        select(AnalyzerNames)
+        .where(AnalyzerNames.encoding_id == encoding_id)
+    ).scalars().all()
+    assert len(db_names) == expected_names_len
+    for n in db_names:
+        assert isinstance(n.encoding_id, str)
+        assert isinstance(n.name, str)
+
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
+def test_analyzer_names_uniqueness(encoding_id, unique_session, db_session):
+    db_name = {"encoding_id": encoding_id, "name": "example"}
+    db_session.add(AnalyzerNames(**db_name))
+    db_session.add(AnalyzerNames(**db_name))
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
 
-    db_session.add(AnalyzerConstants(encoding_id=encoding_id+"1", constant=constant))
-    db_session.add(AnalyzerConstants(encoding_id=encoding_id+"2", constant=constant))
+    db_name2 = {"encoding_id": encoding_id, "name": "other"}
+    encoding_id2 = uuid.uuid4().hex
+    db_name3 = {"encoding_id": encoding_id2, "name": "other"}
+    db_session.add(AnalyzerNames(**db_name))
+    db_session.add(AnalyzerNames(**db_name2))
+    db_session.add(AnalyzerNames(**db_name3))
     db_session.commit()
-    res = db_session.query(AnalyzerConstants).all()
-    assert len(res) == 2
+    res = db_session.execute(
+        select(AnalyzerNames)
+        .filter(AnalyzerNames.encoding_id.in_([encoding_id, encoding_id2])  )
+    ).scalars().all()
+    assert len(res) == 3
 
 
-def test_analyzer_names_database(app_context, db_session):
-    encoding_id = "test"
-    names = {"a", "b"}
+@pytest.mark.parametrize("program, expected_facts", [
+    (program_simple, 1),
+    (program_recursive, 0),
+    (program_multiple_sorts, 1),
+])
+def test_facts_datatypes(encoding_id, unique_session, db_session, program, expected_facts):
+    setup_client(unique_session, program)
 
-    res = db_session.query(AnalyzerNames).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
-    assert len(res) == 0
-
-    db_session.add_all([AnalyzerNames(encoding_id=encoding_id, name=n) for n in names])
-    db_session.commit()
-
-    res = db_session.query(AnalyzerNames).filter_by(encoding_id=encoding_id).all()
-    assert type(res) == list
-    assert len(res) == 2
+    db_facts = db_session.execute(
+        select(AnalyzerFacts)
+        .where(AnalyzerFacts.encoding_id == encoding_id)
+    ).scalars().all()
+    assert len(db_facts) == expected_facts
+    for f in db_facts:
+        assert isinstance(f.encoding_id, str)
+        assert isinstance(f.fact, str)
 
 
-def test_analyzer_names_unique_constraint_database(app_context, db_session):
-    encoding_id = "test"
-    name = "a"
-
-    db_session.add(AnalyzerNames(encoding_id=encoding_id, name=name))
-    db_session.add(AnalyzerNames(encoding_id=encoding_id, name=name))
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
+def test_facts_uniqueness(encoding_id, unique_session, db_session):
+    db_fact = {"encoding_id": encoding_id, "fact": "example fact"}
+    db_session.add(AnalyzerFacts(**db_fact))
+    db_session.add(AnalyzerFacts(**db_fact))
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
 
-    db_session.add(AnalyzerNames(encoding_id=encoding_id+"1", name=name))
-    db_session.add(AnalyzerNames(encoding_id=encoding_id+"2", name=name))
+    db_fact2 = {"encoding_id": encoding_id, "fact": "other example fact"}
+    encoding_id2 = uuid.uuid4().hex
+    db_fact3 = {"encoding_id": encoding_id2, "fact": "example fact"}
+    db_session.add(AnalyzerFacts(**db_fact))
+    db_session.add(AnalyzerFacts(**db_fact2))
+    db_session.add(AnalyzerFacts(**db_fact3))
     db_session.commit()
-    res = db_session.query(AnalyzerNames).all()
-    assert len(res) == 2
+    res = db_session.execute(
+        select(AnalyzerFacts)
+        .where(AnalyzerFacts.encoding_id.in_([encoding_id, encoding_id2]))
+    ).scalars().all()
+    assert len(res) == 3
+
+
+@pytest.mark.parametrize("program, expected_names_len", [
+    (f"{program_simple}#const n=2.d(n).", 1),
+    (program_simple, 0),
+    (program_recursive, 0),
+    (program_multiple_sorts, 0),
+])
+def test_analyzer_constants_datatypes(encoding_id, unique_session, db_session, program, expected_names_len):
+    setup_client(unique_session, program)
+
+    db_names = db_session.execute(
+        select(AnalyzerConstants)
+        .where(AnalyzerConstants.encoding_id == encoding_id)
+    ).scalars().all()
+    assert len(db_names) == expected_names_len
+    for n in db_names:
+        assert isinstance(n.encoding_id, str)
+        assert isinstance(n.constant, str)
+
+@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
+def test_analyzer_constants_uniqueness(encoding_id, unique_session, db_session):
+    db_const = {"encoding_id": encoding_id, "constant": "example"}
+    db_session.add(AnalyzerConstants(**db_const))
+    db_session.add(AnalyzerConstants(**db_const))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    db_const2 = {"encoding_id": encoding_id, "constant": "other"}
+    encoding_id2 = uuid.uuid4().hex
+    db_const3 = {"encoding_id": encoding_id2, "constant": "example fact"}
+    db_session.add(AnalyzerConstants(**db_const))
+    db_session.add(AnalyzerConstants(**db_const2))
+    db_session.add(AnalyzerConstants(**db_const3))
+    db_session.commit()
+    res = db_session.execute(
+        select(AnalyzerConstants).
+        where(AnalyzerConstants.encoding_id.in_([encoding_id, encoding_id2]))
+    ).scalars().all()
+    assert len(res) == 3

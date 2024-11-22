@@ -10,7 +10,7 @@ from clingraph.graphviz import compute_graphs, render
 import networkx as nx
 
 from .dag_api import generate_graph, wrap_marked_models
-from ..database import db_session, get_or_create_encoding_id
+from ..database import db_session, ensure_encoding_id
 from ..models import *
 from ...asp.reify import ProgramAnalyzer
 from ...asp.relax import ProgramRelaxer, relax_constraints
@@ -23,43 +23,44 @@ bp = Blueprint("api", __name__, template_folder='../templates/')
 using_clingraph: List[str] = []
 
 
-def handle_call_received(call: ClingoMethodCall) -> None:
+def handle_call_received(call: ClingoMethodCall, encoding_id: str) -> None:
     if call.name == "load":
         path = call.kwargs["path"]
         with open(path, encoding="utf-8") as f:
             prg = "".join(f.readlines())
 
         db_encoding = db_session.query(Encodings).filter_by(
-            id = get_or_create_encoding_id()).first()
+            id = encoding_id).first()
         if db_encoding is not None:
             db_encoding.program += prg
         else:
-            db_encoding = Encodings(id=get_or_create_encoding_id(), program=prg)
+            db_encoding = Encodings(id=encoding_id, program=prg)
             db_session.add(db_encoding)
     elif call.name == "add":
-        db_encoding = db_session.query(Encodings).filter_by(id = get_or_create_encoding_id()).first()
+        db_encoding = db_session.query(Encodings).filter_by(id = encoding_id).first()
         if db_encoding is not None:
             db_encoding.program += call.kwargs["program"]
         else:
-            db_encoding = Encodings(id=get_or_create_encoding_id(), program=call.kwargs["program"])
+            db_encoding = Encodings(id=encoding_id, program=call.kwargs["program"])
             db_session.add(db_encoding)
     else:
         pass
     db_session.commit()
 
 
-def handle_calls_received(calls: Iterable[ClingoMethodCall]) -> None:
+def handle_calls_received(calls: Iterable[ClingoMethodCall], encoding_id: str) -> None:
     for call in calls:
-        handle_call_received(call)
+        handle_call_received(call, encoding_id)
 
 
 @bp.route("/control/program", methods=["GET", "POST", "DELETE"])
+@ensure_encoding_id
 def get_program():
     if request.method == "POST":
         program = request.json
         if not isinstance(program, str):
             return "Invalid program object", 400
-        encoding_id = get_or_create_encoding_id()
+        encoding_id = session['encoding_id']
 
         db_encoding = db_session.query(Encodings).filter_by(id=encoding_id).first()
         if db_encoding is not None:
@@ -74,26 +75,27 @@ def get_program():
             db_session.rollback()
             return "Error saving program", 500
     elif request.method == "GET":
-        encoding_id = get_or_create_encoding_id()
+        encoding_id = session['encoding_id']
         result = db_session.query(Encodings).filter_by(id = encoding_id).first()
         return jsonify(result.program) if result else "ok", 200
     elif request.method == "DELETE":
-        encoding_id = get_or_create_encoding_id()
+        encoding_id = session['encoding_id']
         db_session.query(Encodings).filter_by(id = encoding_id).delete()
         db_session.commit()
     return "ok", 200
 
 
 @bp.route("/control/add_call", methods=["POST"])
+@ensure_encoding_id
 def add_call():
     if request.method == "POST":
         call = request.json
         if isinstance(call, ClingoMethodCall):
-            handle_call_received(call)
+            handle_call_received(call, session['encoding_id'])
         elif isinstance(call, list):
-            handle_calls_received(call)
+            handle_calls_received(call, session['encoding_id'])
         else:
-            abort(Response("fvalid call object", 400))
+            abort(Response("Invalid call object", 400))
     return "ok", 200
 
 
@@ -112,6 +114,7 @@ def get_by_name_or_index_from_args_or_kwargs(name: str, index: int, *args:
 
 
 @bp.route("/control/models", methods=["GET", "POST", "DELETE"])
+@ensure_encoding_id
 def set_stable_models():
     if request.method == "POST":
         try:
@@ -122,7 +125,7 @@ def set_stable_models():
             parsed_models = [parsed_models]
         if not isinstance(parsed_models, list):
             return "Expected a model or a list of models", 400
-        encoding_id = get_or_create_encoding_id()
+        encoding_id = session['encoding_id']
 
         db_session.query(Models).filter_by(encoding_id = encoding_id).delete()
         for model in parsed_models:
@@ -134,18 +137,19 @@ def set_stable_models():
             except IntegrityError:
                 db_session.rollback()
     elif request.method == "GET":
-        result = db_session.query(Models).where(Models.encoding_id == get_or_create_encoding_id()).all()
+        result = db_session.query(Models).where(Models.encoding_id == session['encoding_id']).all()
         return jsonify([m.model for m in result])
     elif request.method == "DELETE":
-        db_session.query(Models).where(Models.encoding_id == get_or_create_encoding_id()).delete()
+        db_session.query(Models).where(Models.encoding_id == session['encoding_id']).delete()
         db_session.commit()
     return "ok", 200
 
 
 @bp.route("/control/models/clear", methods=["POST"])
+@ensure_encoding_id
 def models_clear():
     if request.method == "POST":
-        models = db_session.query(Models).where(Models.encoding_id == get_or_create_encoding_id()).all()
+        models = db_session.query(Models).where(Models.encoding_id == session['encoding_id']).all()
         for model in models:
             db_session.delete(model)
         db_session.commit()
@@ -155,6 +159,7 @@ def models_clear():
 
 
 @bp.route("/control/transformer", methods=["POST", "GET", "DELETE"])
+@ensure_encoding_id
 def set_transformer():
     if request.method == "POST":
         try:
@@ -163,7 +168,7 @@ def set_transformer():
                 return "Expected a transformer object", 400
         except BaseException:
             return "Invalid transformer object", 400
-        db_transformer = Transformers(encoding_id=get_or_create_encoding_id(), transformer=transformer)
+        db_transformer = Transformers(encoding_id=session['encoding_id'], transformer=transformer)
         db_session.add(db_transformer)
         try:
             db_session.commit()
@@ -171,21 +176,22 @@ def set_transformer():
             db_session.rollback()
             return str(e), 500
     elif request.method == "GET":
-        result = db_session.query(Transformers).where(Transformers.encoding_id == get_or_create_encoding_id()).first()
+        result = db_session.query(Transformers).where(Transformers.encoding_id == session['encoding_id']).first()
         return jsonify(current_app.json.loads(result.transformer)) if result else "ok", 200
     elif request.method == "DELETE":
-        db_session.query(Transformers).where(Transformers.encoding_id == get_or_create_encoding_id()).delete()
+        db_session.query(Transformers).where(Transformers.encoding_id == session['encoding_id']).delete()
         db_session.commit()
     return "ok", 200
 
 
 
 @bp.route("/control/warnings", methods=["POST", "DELETE", "GET"])
+@ensure_encoding_id
 def set_warnings():
     if request.method == "POST":
         if not isinstance(request.json, list):
             return "Expected a list of warnings", 400
-        db_warnings = [Warnings(encoding_id=get_or_create_encoding_id(), warning=w) for w in request.json]
+        db_warnings = [Warnings(encoding_id=session['encoding_id'], warning=w) for w in request.json]
         db_session.add_all(db_warnings)
         try:
             db_session.commit()
@@ -193,18 +199,19 @@ def set_warnings():
             db_session.rollback()
             return str(e), 500
     elif request.method == "DELETE":
-        warnings = db_session.query(Warnings).where(Warnings.encoding_id == get_or_create_encoding_id()).all()
+        warnings = db_session.query(Warnings).where(Warnings.encoding_id == session['encoding_id']).all()
         for warning in warnings:
             db_session.delete(warning)
         db_session.commit()
     elif request.method == "GET":
-        result = db_session.query(Warnings).where(Warnings.encoding_id == get_or_create_encoding_id()).all()
+        result = db_session.query(Warnings).where(Warnings.encoding_id == session['encoding_id']).all()
         return jsonify([w.warning for w in result])
     return "ok"
 
 
-def set_primary_sort(analyzer: ProgramAnalyzer, encoding_id: str):
-    primary_sort = analyzer.get_sorted_program()
+def set_primary_sort(analyzer: ProgramAnalyzer, program: str, encoding_id: str):
+
+    primary_sort = analyzer.get_sorted_program(program)
     primary_hash = hash_from_sorted_transformations(primary_sort)
 
     db_current_graph = db_session.query(CurrentGraphs).where(CurrentGraphs.encoding_id == encoding_id).first()
@@ -225,8 +232,8 @@ def set_primary_sort(analyzer: ProgramAnalyzer, encoding_id: str):
         generate_graph(encoding_id, analyzer)
 
 
-def save_recursions(analyzer: ProgramAnalyzer, encoding_id: str):
-    for t in analyzer.check_positive_recursion():
+def save_recursions(analyzer: ProgramAnalyzer, program: str, encoding_id: str):
+    for t in analyzer.check_positive_recursion(program):
         db_recursion = Recursions(encoding_id=encoding_id,
                     recursive_transformation_hash=t)
         db_session.add(db_recursion)
@@ -237,7 +244,6 @@ def save_recursions(analyzer: ProgramAnalyzer, encoding_id: str):
 
 
 def save_analyzer_values(analyzer: ProgramAnalyzer, encoding_id: str):
-
     db_dependency_graph = DependencyGraphs(encoding_id=encoding_id,
                         data=current_app.json.dumps(
                             nx.node_link_data(analyzer.dependency_graph))) if analyzer.dependency_graph != None else None
@@ -272,10 +278,11 @@ def save_analyzer_values(analyzer: ProgramAnalyzer, encoding_id: str):
 
 
 @bp.route("/control/show", methods=["POST"])
+@ensure_encoding_id
 def show_selected_models():
     try:
         analyzer = ProgramAnalyzer()
-        encoding_id = get_or_create_encoding_id()
+        encoding_id = session['encoding_id']
         encoding = db_session.query(Encodings).filter(Encodings.id == encoding_id).first()
         if encoding is not None:
             program = encoding.program
@@ -296,8 +303,8 @@ def show_selected_models():
         marked_models = wrap_marked_models(marked_models,
                                         analyzer.get_conflict_free_showTerm())
         if analyzer.will_work():
-            save_recursions(analyzer, encoding_id)
-            set_primary_sort(analyzer, encoding_id)
+            save_recursions(analyzer, program, encoding_id)
+            set_primary_sort(analyzer, program, encoding_id)
             save_analyzer_values(analyzer, encoding_id)
     except Exception as e:
         return str(e), 500
@@ -305,6 +312,7 @@ def show_selected_models():
 
 
 @bp.route("/control/relax", methods=["POST"])
+@ensure_encoding_id
 def transform_relax():
     if request.json is None:
         return "Invalid request", 400
@@ -312,7 +320,7 @@ def transform_relax():
         args = request.json["args"] if "args" in request.json else []
         kwargs = request.json["kwargs"] if "kwargs" in request.json else {}
 
-        encoding_id = get_or_create_encoding_id()
+        encoding_id = session['encoding_id']
         encoding = db_session.query(Encodings).filter_by(
             id = encoding_id).first()
         if encoding is None:
@@ -356,6 +364,7 @@ def generate_clingraph(viz_encoding: str, engine: str, graphviz_type: str, encod
 
 
 @bp.route("/control/clingraph", methods=["POST", "GET", "DELETE"])
+@ensure_encoding_id
 def clingraph_generate():
     if request.method == "POST":
         if request.json is None:
@@ -366,16 +375,18 @@ def clingraph_generate():
         graphviz_type = request.json[
             "graphviz-type"] if "graphviz-type" in request.json else "digraph"
         try:
-            generate_clingraph(viz_encoding, engine, graphviz_type, get_or_create_encoding_id())
+            print(f"generating clingraph")
+            generate_clingraph(viz_encoding, engine, graphviz_type, session['encoding_id'])
         except Exception as e:
+            print(f"exception: {e}")
             return str(e), 500
     if request.method == "GET":
-        clingraph_names = db_session.query(Clingraphs).filter_by(encoding_id = get_or_create_encoding_id()).all()
+        clingraph_names = db_session.query(Clingraphs).filter_by(encoding_id = session['encoding_id']).all()
         if len(clingraph_names) > 0:
             return jsonify({"using_clingraph": True}), 200
         return jsonify({"using_clingraph": False}), 200
     if request.method == "DELETE":
-        result = db_session.query(Clingraphs).where(Clingraphs.encoding_id == get_or_create_encoding_id()).all()
+        result = db_session.query(Clingraphs).where(Clingraphs.encoding_id == session['encoding_id']).all()
         for r in result:
             db_session.delete(r)
         db_session.commit()
