@@ -19,7 +19,7 @@ const symbolPulsate = ($pulsatingColor) => keyframes`
 `;
 
 const pulsate = ($pulsatingColor) => css`
-    animation: ${symbolPulsate($pulsatingColor)} 1.5s infinite;
+    animation: ${symbolPulsate($pulsatingColor)} 1s infinite;
 `;
 
 const SymbolElementSpan = styled.span`

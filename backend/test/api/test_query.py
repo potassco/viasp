@@ -4,6 +4,8 @@ from helper import get_clingo_stable_models
 import uuid
 from urllib.parse import quote_plus
 
+from conftest import setup_client
+
 program_simple = "a(1..2). {b(X)} :- a(X). c(X) :- b(X)."
 program_multiple_sorts = "a(1..2). {b(X)} :- a(X). c(X) :- a(X)."
 program_recursive = "j(X, X+1) :- X=0..5.j(X,  Y) :- j(X,Z), j(Z,Y)."
@@ -27,8 +29,14 @@ def setup_for_query(c, program):
     c.post("control/show")
 
 
-def test_query_endpoints_methods(client_with_a_graph):
-    client = client_with_a_graph
+
+@pytest.mark.parametrize("program", [
+    (program_simple),
+    (program_multiple_sorts),
+    (program_recursive)
+])
+def test_query_endpoints_methods(unique_session, program):
+    client = setup_client(unique_session, program)
     res = client.get("query")
     assert res.status_code == 200
     res = client.post("query")

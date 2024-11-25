@@ -28,7 +28,7 @@ class SymbolIdentifier:
         return hash(self.symbol)
 
     def __repr__(self):
-        return f"{{symbol: {str(self.symbol)}, uuid: {self.uuid}}}"
+        return f"{{symbol: {str(self.symbol)}, uuid: {self.uuid}, hash_reason: {self.has_reason}}}"
 
 
 @dataclass()

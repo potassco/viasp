@@ -9,7 +9,7 @@ import numpy as np
 from flask import Blueprint, current_app, session, request, jsonify, abort, Response, send_file
 from clingo.ast import AST
 from sqlalchemy.exc import MultipleResultsFound
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update
 
 from ...asp.reify import ProgramAnalyzer, reify_list
 from ...asp.justify import build_graph, search_nonground_term_in_symbols
@@ -186,7 +186,8 @@ def find_reason_rule_by_uuid(symbolid, nodeid, encoding_id) -> Optional[int]:
                 ]
 
     if len(matching_nodes) != 1:
-        raise ValueError(f"Couldn't find reason rule of {symbolid}.")
+        # raise ValueError(f"Couldn't find reason rule of {symbolid}.")
+        return None
     node = current_app.json.loads(matching_nodes[0].node)
 
     symbolstr = str(
@@ -390,8 +391,16 @@ def entire_graph():
         sort = request.json['sort']
         sort = current_app.json.loads(sort) if type(sort) == str else sort
 
-        # db_current_graph = CurrentGraphs(encoding_id=get_or_create_encoding_id(), hash=hash)
-        # db_session.add(db_current_graph)
+        current_hash = get_current_graph_hash(session['encoding_id'])
+        if current_hash == None:
+            db_session.add(CurrentGraphs(encoding_id=session['encoding_id'],
+                                         hash=hash))
+        else:
+            db_session.execute(
+                update(CurrentGraphs)
+                .where(CurrentGraphs.encoding_id == session['encoding_id'])
+                .values(hash=hash)
+            )
         db_session.commit()
         save_graph(data, session['encoding_id'], sort)
         return "ok", 200
@@ -409,7 +418,7 @@ def entire_graph():
                 encoding_id=encoding_id, hash=current_graph_hash).first()
             if db_graph is not None and db_graph.data is not None and db_graph.data != "":
                 db_graph.data = ""
-            db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).delete()
+            # db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).delete()
             # db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_graph_hash).delete()
             db_session.commit()
         except Exception as e:
@@ -730,8 +739,14 @@ def get_reasons_of():
         try:
             reason_uuids = find_reason_by_uuid(source_uuid, node_uuid, encoding_id)
             reason_rule_uuid = find_reason_rule_by_uuid(source_uuid, node_uuid, encoding_id)
-        except Exception as e:
-            return jsonify({'error': str(e)}), 404
+        except Exception:
+            return jsonify({
+                "symbols": [{
+                    "src": None,
+                    "tgt": None
+                }],
+                "rule": None
+            })
         return jsonify({
             "symbols": [{
                 "src": source_uuid,

@@ -66,6 +66,7 @@ def setup_client(c, program):
     saved_models = get_clingo_stable_models(program)
     c.post("control/models", json=saved_models)
     c.post("control/show")
+    return c
 
 
 @pytest.fixture
@@ -110,7 +111,7 @@ def get_sort_program(load_analyzer, db_session) -> Callable[[str], Tuple[List[Tr
         db_session.query(Encodings).delete()
         db_session.add(Encodings(id=encoding_id, program=program))
         db_session.commit()
-        return analyzer.get_sorted_program(), analyzer
+        return analyzer.get_sorted_program(program), analyzer
     return c
 
 @pytest.fixture

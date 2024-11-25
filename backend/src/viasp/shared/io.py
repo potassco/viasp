@@ -59,8 +59,19 @@ def object_hook(obj):
     elif t == "Supremum":
         return clingo.Supremum
     elif t == "Node":
-        obj['atoms'] = frozenset(obj['atoms'])
-        obj['diff'] = frozenset(obj['diff'])
+        # obj['atoms'] = frozenset(obj['atoms'])
+        obj['atoms'] = frozenset(
+            map(lambda x: SymbolIdentifier(
+                symbol=x.symbol,
+                has_reason=x.has_reason,
+                uuid=UUID(x.uuid)), obj['atoms'])
+        )
+        # obj['diff'] = frozenset(obj['diff'])
+        obj['diff'] = frozenset(
+            map(
+                lambda x: SymbolIdentifier(symbol=x.symbol,
+                                           has_reason=x.has_reason,
+                                           uuid=UUID(x.uuid)), obj['diff']))
         obj['uuid'] = UUID(obj['uuid'])
         return Node(**obj)
     elif t == "ClingraphNode":
