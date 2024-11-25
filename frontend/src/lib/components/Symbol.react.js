@@ -8,18 +8,18 @@ import {styled, keyframes, css} from 'styled-components';
 import {useColorPalette} from '../contexts/ColorPalette';
 import {useContentDiv} from '../contexts/ContentDivContext';
 
-const symbolPulsate = keyframes`
+const symbolPulsate = ($pulsatingColor) => keyframes`
     0% {
-        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.7);
+        box-shadow: 0 0 0 0 ${$pulsatingColor};
     }
 
     100% {
-        box-shadow: 0 0 0 20px rgba(0, 0, 0, 0);
+        box-shadow: 0 0 0 1em rgba(0, 0, 0, 0);
     }
 `;
 
-const pulsate = css`
-    animation: ${symbolPulsate} 1s infinite;
+const pulsate = ($pulsatingColor) => css`
+    animation: ${symbolPulsate($pulsatingColor)} 1.5s infinite;
 `;
 
 const SymbolElementSpan = styled.span`
@@ -31,7 +31,7 @@ const SymbolElementSpan = styled.span`
     min-height: 0;
     width: fit-content;
     width: -moz-fit-content;
-    ${(props) => (props.$pulsate ? pulsate : '')};
+    ${(props) => (props.$pulsate ? pulsate(props.$pulsatingColor) : '')};
 `;
 
 function scrollParentToChild(parent, child) {
@@ -67,6 +67,7 @@ export function Symbol(props) {
     const [backgroundColorStyle, setBackgroundColorStyle] =
         useState('transparent');
     const [isPulsating, setIsPulsating] = useState(false);
+    const [pulsatingColor, setPulsatingColor] = useState('transparent');
 
     let atomString = make_atoms_string(symbolIdentifier.symbol);
     const suffix = `_${isSubnode ? 'sub' : 'main'}`;
@@ -88,11 +89,19 @@ export function Symbol(props) {
             )
             .filter((value, index, self) => self.indexOf(value) === index);
 
-        setIsPulsating(
+        if (
             searchResultHighlightIndices.some(
                 (index) => searchResultHighlightedSymbols[index].recent
             )
-        );
+        ) {
+            setIsPulsating(true);
+            setPulsatingColor(
+                searchResultHighlightedSymbols.filter((s) => s.recent)[0].color
+            );
+        } else {
+            setIsPulsating(false);
+            setPulsatingColor('transparent');
+        }
         if (
             searchResultHighlightIndices.length > 0 ||
             reasonHighlightIndices.length > 0
@@ -186,6 +195,7 @@ export function Symbol(props) {
         <SymbolElementSpan
             id={symbolIdentifier.uuid + suffix}
             $pulsate={isPulsating}
+            $pulsatingColor={pulsatingColor}
             $backgroundColorStyle={backgroundColorStyle}
             onClick={(e) => handleClick(e, symbolIdentifier)}
             onMouseEnter={handleMouseEnter}

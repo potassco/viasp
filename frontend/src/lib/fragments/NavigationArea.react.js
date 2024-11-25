@@ -17,6 +17,7 @@ const NavigationAreaDiv = styled.div`
     border-radius: 0.4em;
     position: absolute;
     right: 0;
+    margin-right: 0.4em;
     display: ${(props) => (props.$visible ? 'flex' : 'none')};
 `;
 

@@ -18,6 +18,7 @@ import {
 } from '../contexts/transformations';
 import {ColorPaletteProvider} from '../contexts/ColorPalette';
 import {HighlightedNodeProvider} from '../contexts/HighlightedNode';
+import {SearchUserInputProvider} from '../contexts/SearchUserInput';
 import {
     showError,
     useMessages,
@@ -448,14 +449,16 @@ export default function ViaspDash(props) {
                                             <ContentDivProvider>
                                                 <TransformationProvider>
                                                     <HighlightedSymbolProvider>
-                                                        <div>
-                                                            <UserMessages />
-                                                            <MainWindow
-                                                                notifyDash={
-                                                                    notifyDash
-                                                                }
-                                                            />
-                                                        </div>
+                                                        <SearchUserInputProvider>
+                                                            <div>
+                                                                <UserMessages />
+                                                                <MainWindow
+                                                                    notifyDash={
+                                                                        notifyDash
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        </SearchUserInputProvider>
                                                     </HighlightedSymbolProvider>
                                                 </TransformationProvider>
                                             </ContentDivProvider>

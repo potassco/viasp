@@ -6,6 +6,7 @@ import {
     clearExplanationHighlightedSymbol,
     clearSearchResultHighlightedSymbol,
 } from '../contexts/transformations';
+import {useSearchUserInput} from '../contexts/SearchUserInput';
 import './settings.css';
 import {darken} from 'polished';
 import {Search} from './Search.react';
@@ -45,10 +46,12 @@ function ClearMarked() {
         dispatch: dispatchT,
         state: {allHighlightedSymbols},
     } = useTransformations();
+    const [, setSearchUserInput] = useSearchUserInput();
 
     function onClick() {
         dispatchT(clearExplanationHighlightedSymbol());
         dispatchT(clearSearchResultHighlightedSymbol());
+        setSearchUserInput('');
     }
     return (
         <ClearMarkedDiv className="clear_marked">

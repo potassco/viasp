@@ -11,6 +11,7 @@ import {
     clearSearchResultHighlightedSymbol,
 } from '../contexts/transformations';
 import {useColorPalette} from '../contexts/ColorPalette';
+import {useSearchUserInput} from '../contexts/SearchUserInput';
 import IconWrapper from './IconWrapper.react';
 import {styled} from 'styled-components';
 import PulseLoader from 'react-spinners/PulseLoader';
@@ -113,7 +114,7 @@ export function Search() {
     const [isAutocompleteVisible, setIsAutocompleteVisible] =
         React.useState(true);
     const [showSuggestions, setShowSuggestions] = React.useState(false);
-    const [userInput, setUserInput] = React.useState('');
+    const [userInput, setUserInput] = useSearchUserInput();
     const [isHovered, setIsHovered] = React.useState(false);
     const [inputWidth, setInputWidth] = React.useState(
         Constants.minSearchInputWidthInEm
@@ -175,6 +176,7 @@ export function Search() {
         setUserInput(searchResultSuggestion.repr);
         setAwaitingInput(false);
         setShowSuggestions(false);
+        setFilteredSuggestions([]);
         if (searchInputRef.current) {
             const inputLength = searchResultSuggestion.repr.length;
             searchInputRef.current.setSelectionRange(inputLength, inputLength);
