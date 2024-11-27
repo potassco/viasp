@@ -375,10 +375,8 @@ def clingraph_generate():
         graphviz_type = request.json[
             "graphviz-type"] if "graphviz-type" in request.json else "digraph"
         try:
-            print(f"generating clingraph")
             generate_clingraph(viz_encoding, engine, graphviz_type, session['encoding_id'])
         except Exception as e:
-            print(f"exception: {e}")
             return str(e), 500
     if request.method == "GET":
         clingraph_names = db_session.query(Clingraphs).filter_by(encoding_id = session['encoding_id']).all()

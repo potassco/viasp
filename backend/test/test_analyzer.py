@@ -334,7 +334,7 @@ def test_data_type_is_correct(get_sort_program, db_session):
     assert data_type_str_ == str, f"{a_rule}.str should be a str, not {data_type_str_}"
 
 
-def test_aggregate_in_body_of_constraint():
+def test_aggregate_in_body_of_constraint(app_context, db_session):
     program = ":- 3 { assignedB(P,R) : paper(P) }, reviewer(R)."
     a = ProgramAnalyzer()
     a.add_program(program)

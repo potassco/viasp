@@ -1,6 +1,4 @@
 import pytest
-import pathlib
-from typing import Tuple, List
 import networkx as nx
 from flask import current_app
 from sqlalchemy.exc import IntegrityError
@@ -9,20 +7,10 @@ from clingo.ast import parse_string
 import uuid
 
 from helper import get_clingo_stable_models
-from viasp.shared.model import Transformation, TransformerTransport, TransformationError, FailedReason, Node, Symbol
-from viasp.exampleTransformer import Transformer as ExampleTransfomer
+from viasp.shared.model import TransformerTransport, TransformationError, FailedReason, Node
 from viasp.server.models import Encodings, Graphs, Recursions, DependencyGraphs, Models, Clingraphs, Warnings, Transformers, CurrentGraphs, GraphEdges, GraphNodes, GraphSymbols, AnalyzerConstants, AnalyzerFacts, AnalyzerNames
-from conftest import setup_client, program_simple, program_multiple_sorts, program_recursive
+from conftest import setup_client, register_clingraph, register_transformer, program_simple, program_multiple_sorts, program_recursive
 
-
-
-@pytest.fixture(
-    params=["program_simple", "program_multiple_sorts", "program_recursive"])
-def graph_info(request, get_sort_program_and_get_graph,
-    app_context
-) -> Tuple[nx.DiGraph, str, List[Transformation]]:
-    program = request.getfixturevalue(request.param)
-    return get_sort_program_and_get_graph(program)[0]
 
 
 def test_program_database(db_session):
@@ -110,26 +98,6 @@ def test_models_unique_constraint_database(app_context, db_session):
     assert len(res) == 2
 
 
-
-def register_clingraph(c):
-    c.post("control/clingraph",
-        data = current_app.json.dumps(
-            {
-                "viz-encoding": "node(B):-a(B).attr(node,B,color,blue):-node(B).",
-                "engine": "dot",
-                "graphviz-type": "graph"
-        }),
-        headers={'Content-Type': 'application/json'})
-
-def register_transformer(c):
-    transformer = ExampleTransfomer
-    path = str(
-        pathlib.Path(__file__).parent.parent.resolve() / "src" / "viasp" / "exampleTransformer.py") # type: ignore
-    transformer_transport = TransformerTransport.merge(transformer, "", path)
-    c.post("control/transformer",
-        data=current_app.json.dumps(transformer_transport),
-        headers={'Content-Type': 'application/json'})
-
 @pytest.mark.parametrize("program, expected_length", [
     (program_simple, 1),
 ])
@@ -155,6 +123,7 @@ def test_graph_database_datatypes(encoding_id, unique_session, db_session, progr
     assert len(graph.sort) > 0
     assert isinstance(current_app.json.loads(graph.sort), list)
 
+
 @pytest.mark.parametrize("program", [
     (program_simple),
 ])
@@ -168,6 +137,7 @@ def test_graphs_data_is_nullable(encoding_id, unique_session, db_session, progra
     db_session.commit()
     db_graph = db_session.query(Graphs).first()
     assert db_graph.data is None
+
 
 @pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
 @pytest.mark.parametrize("program", [
@@ -191,6 +161,7 @@ def test_graphs_unique_constraint(encoding_id, unique_session, db_session, progr
         db_session.commit()
     db_session.rollback()
 
+
 @pytest.mark.parametrize("program", [
     (program_simple),
     (program_multiple_sorts),
@@ -205,6 +176,7 @@ def test_current_graphs_datatypes(encoding_id, unique_session, db_session, progr
     assert len(db_current_graphs) == 1
     assert isinstance(db_current_graphs[0].hash, str)
     assert isinstance(db_current_graphs[0].encoding_id, str)
+
 
 @pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
 @pytest.mark.parametrize("program", [
@@ -227,6 +199,7 @@ def test_current_graph_uniqueness(encoding_id, unique_session, db_session, progr
         select(CurrentGraphs)
     ).scalars().all()
     assert len(db_current_graphs) == 2
+
 
 @pytest.mark.parametrize("program", [
     (program_simple),
@@ -252,6 +225,7 @@ def test_graph_nodes_datatypes(encoding_id, unique_session, db_session, program)
         assert node.recursive_supernode_uuid == None or \
                 type(node.recursive_supernode_uuid) == str
 
+
 @pytest.mark.parametrize("program", [
     (program_simple),
     (program_multiple_sorts),
@@ -271,6 +245,7 @@ def test_graph_nodes_nullable(encoding_id, unique_session, db_session, program):
     ).scalars().all()
     for n in db_graph_nodes:
         assert n.recursive_supernode_uuid == None
+
 
 @pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
 @pytest.mark.parametrize("program", [
@@ -320,6 +295,7 @@ def test_graph_symbols_datatypes(encoding_id, unique_session, db_session, progra
         assert isinstance(sym.symbol_uuid, str)
         assert isinstance(sym.symbol, str)
 
+
 @pytest.mark.parametrize("program", [
     (program_simple),
     (program_multiple_sorts),
@@ -346,6 +322,7 @@ def test_graph_edges_datatypes(encoding_id, unique_session, db_session, program)
         assert edge.recursive_supernode_uuid == None \
             or  isinstance(edge.recursive_supernode_uuid, str)
 
+
 @pytest.mark.parametrize("program", [
     (program_simple),
     (program_multiple_sorts),
@@ -367,6 +344,7 @@ def test_dependency_graphs_database(encoding_id, unique_session, db_session, pro
         assert isinstance(g, nx.DiGraph)
         assert len(g.nodes) > 0
 
+
 @pytest.mark.parametrize("program, n_recursions", [
     (program_simple, 0),
     (program_multiple_sorts, 0),
@@ -384,6 +362,7 @@ def test_recursion_datatypes(encoding_id, unique_session, db_session, program, n
     for recursion in db_recursions:
         assert isinstance(recursion.encoding_id, str)
         assert isinstance(recursion.recursive_transformation_hash, str)
+
 
 @pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
 @pytest.mark.parametrize("program", [
@@ -434,7 +413,7 @@ def test_recursion_unique_constraint(encoding_id, unique_session, db_session, pr
 ])
 def test_clingraphs_datatypes(encoding_id, unique_session, db_session, program, expected_n_clingraphs):
     setup_client(unique_session, program)
-    register_clingraph(unique_session)
+    register_clingraph(unique_session, "node(B):-a(B).attr(node,B,color,blue):-node(B).")
 
     db_clingraphs = db_session.execute(
         select(Clingraphs)
@@ -448,14 +427,13 @@ def test_clingraphs_datatypes(encoding_id, unique_session, db_session, program, 
         assert isinstance(clingraph.filename, str)
 
 
-
 @pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
 @pytest.mark.parametrize("program", [
     (program_simple),
 ])
 def test_clingraph_unique_constraint(encoding_id, unique_session, db_session, program):
     setup_client(unique_session, program)
-    register_clingraph(unique_session)
+    register_clingraph(unique_session, "node(B):-a(B).attr(node,B,color,blue):-node(B).")
 
     db_clingraph = db_session.execute(
         select(Clingraphs)
@@ -487,6 +465,7 @@ def test_transformer_datatypes(encoding_id, unique_session, db_session, program)
         assert isinstance(t.encoding_id, str)
         assert isinstance(t.transformer, bytes)
         assert isinstance(current_app.json.loads(t.transformer), TransformerTransport)
+
 
 @pytest.mark.skip("Error due to namespace mismatch clingoTransformer")
 @pytest.mark.parametrize("program", [
@@ -521,6 +500,7 @@ def test_transformers_uniqueness(encoding_id, unique_session, db_session, progra
     ).scalars().all()
     assert len(res) == 2
 
+
 @pytest.mark.parametrize("program", [
     (program_simple),
 ])
@@ -539,6 +519,7 @@ def test_warnings_datatypes(unique_session, db_session, program):
         )
     )
     db_session.commit()
+
 
 @pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
 @pytest.mark.parametrize("program", [
@@ -590,6 +571,7 @@ def test_warnings_uniqueness(unique_session, db_session, program):
     db_session.flush()
     db_session.rollback()
 
+
 @pytest.mark.parametrize("program, expected_names_len", [
     (program_simple, 5),
     (program_multiple_sorts, 5),
@@ -606,6 +588,7 @@ def test_analyzer_names_datatypes(encoding_id, unique_session, db_session, progr
     for n in db_names:
         assert isinstance(n.encoding_id, str)
         assert isinstance(n.name, str)
+
 
 @pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
 def test_analyzer_names_uniqueness(encoding_id, unique_session, db_session):
@@ -688,6 +671,7 @@ def test_analyzer_constants_datatypes(encoding_id, unique_session, db_session, p
     for n in db_names:
         assert isinstance(n.encoding_id, str)
         assert isinstance(n.constant, str)
+
 
 @pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
 def test_analyzer_constants_uniqueness(encoding_id, unique_session, db_session):

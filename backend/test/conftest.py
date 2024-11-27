@@ -1,6 +1,8 @@
 from inspect import signature
-from typing import List, Generator, Any, Mapping, Tuple, Callable
+from typing import List, Generator, Any, Tuple, Callable
 from uuid import uuid4
+import secrets
+import pathlib
 
 import networkx as nx
 import pytest
@@ -11,16 +13,16 @@ from flask.testing import FlaskClient
 from helper import get_clingo_stable_models
 from viasp.asp.justify import build_graph, save_model
 from viasp.asp.reify import ProgramAnalyzer, reify_list
-from viasp.server.blueprints.api import bp as api_bp, save_analyzer_values
+from viasp.server.blueprints.api import bp as api_bp
 from viasp.server.blueprints.app import bp as app_bp
 from viasp.server.blueprints.dag_api import bp as dag_bp
 from viasp.shared.io import DataclassJSONProvider
 from viasp.shared.util import hash_from_sorted_transformations
 from viasp.shared.model import ClingoMethodCall, Node, SymbolIdentifier, Transformation
 from viasp.server.database import db_session as Session, get_or_create_encoding_id, Base, engine
-from viasp.server.models import CurrentGraphs, Encodings, Recursions, DependencyGraphs, Models
+from viasp.server.models import Encodings, Recursions, DependencyGraphs, Models
 from viasp.shared.defaults import CLINGRAPH_PATH, GRAPH_PATH, PROGRAM_STORAGE_PATH, STDIN_TMP_STORAGE_PATH
-import secrets
+from viasp.exampleTransformer import Transformer as ExampleTransfomer
 
 program_simple = "a(1..2). {b(X)} :- a(X). c(X) :- b(X)."
 program_multiple_sorts = "a(1..2). {b(X)} :- a(X). c(X) :- a(X)."
@@ -66,6 +68,27 @@ def setup_client(c, program):
     saved_models = get_clingo_stable_models(program)
     c.post("control/models", json=saved_models)
     c.post("control/show")
+    return c
+
+def register_clingraph(c, clingraph_encoding):
+    c.post("control/clingraph",
+        data = current_app.json.dumps(
+            {
+                "viz-encoding": clingraph_encoding,
+                "engine": "dot",
+                "graphviz-type": "graph"
+        }),
+        headers={'Content-Type': 'application/json'})
+    return c
+
+def register_transformer(c):
+    transformer = ExampleTransfomer
+    path = str(
+        pathlib.Path(__file__).parent.parent.resolve() / "src" / "viasp" / "exampleTransformer.py") # type: ignore
+    transformer_transport = TransformerTransport.merge(transformer, "", path)
+    c.post("control/transformer",
+        data=current_app.json.dumps(transformer_transport),
+        headers={'Content-Type': 'application/json'})
     return c
 
 
@@ -125,12 +148,12 @@ def get_sort_program_and_get_graph(get_sort_program, app_context, db_session) ->
             * the analyzer
         """
         sorted_program, analyzer = get_sort_program(program)
-        encoding_id = get_or_create_encoding_id()
+        encoding_id = "0"
         # db_session.add(CurrentGraphs(hash=hash_from_sorted_transformations(sorted_program), encoding_id=encoding_id))
         db_recursions = [
             Recursions(encoding_id=encoding_id,
                        recursive_transformation_hash=t)
-            for t in analyzer.check_positive_recursion()
+            for t in analyzer.check_positive_recursion(program)
         ]
         db_dependency_graph = DependencyGraphs(
             encoding_id=encoding_id,
@@ -150,7 +173,7 @@ def get_sort_program_and_get_graph(get_sort_program, app_context, db_session) ->
         db_session.commit()
         wrapped_stable_models = [list(save_model(saved_model)) for saved_model in saved_models]
         reified = reify_list(sorted_program)
-        recursion_rules = analyzer.check_positive_recursion()
+        recursion_rules = analyzer.check_positive_recursion(program)
         g = build_graph(wrapped_stable_models, reified, sorted_program, analyzer, recursion_rules)
         return (g, hash_from_sorted_transformations(sorted_program), sorted_program), analyzer
     return c

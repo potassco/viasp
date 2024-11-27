@@ -84,11 +84,11 @@ def _is_running_in_notebook():
 
 def viasp(**kwargs) -> None:
     r"""
-    Single endpoint to start a viasp visualization. 
+    Single endpoint to start a viasp visualization.
     This function loads the input program, solves it, and visualizes the models.
     Optional settings for the visualization can be provided.
 
-    :param \**kwargs: 
+    :param \**kwargs:
         * *models* (``int``) --
             number of models to compute, defaults to `0` (compute all)
         * *paths* (``list``) --
@@ -180,12 +180,12 @@ def load_program_file(path: Union[str, List[str]], **kwargs) -> None:
 
     :param path: ``str`` or ``list``
         path or list of paths to the program file
-    :param \**kwargs: 
+    :param \**kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
           a viasp client object
-    
+
     See Also
     --------
     ``load_program_string``
@@ -209,7 +209,7 @@ def load_program_string(program: str, **kwargs) -> None:
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
           a viasp client object
-    
+
     See Also
     --------
     ``load_program_file``
@@ -242,17 +242,16 @@ def add_program_file(*args, **kwargs):
     :param path: ``str`` or ``list``
         The path or list of paths to the non-ground program.
     :param \**kwargs:
-        * *viasp_backend_url* (``str``) -- 
+        * *viasp_backend_url* (``str``) --
           url of the viasp backend
-        * *_viasp_client* (``ClingoClient``) -- 
+        * *_viasp_client* (``ClingoClient``) --
           a viasp client object
 
     See Also
     --------
-    ``add_program_string`` 
+    ``add_program_string``
     """
-    if "_viasp_client" in kwargs:
-        del kwargs["_viasp_client"]
+    viasp_client = kwargs.pop("_viasp_client", None)
 
     n = len(args) + len(kwargs)
     if n == 1:
@@ -263,7 +262,10 @@ def add_program_file(*args, **kwargs):
     else:
         kwargs["program"] = _get_program_string(args[2])
 
+    if viasp_client is not None:
+        kwargs["_viasp_client"] = viasp_client
     add_program_string(*args,**kwargs)
+
 
 
 def add_program_string(*args, **kwargs) -> None:
@@ -272,10 +274,10 @@ def add_program_string(*args, **kwargs) -> None:
     This function provides two overloads, similar to ``clingo.control.Control.add``.
 
     .. code-block:: python
-        
+
         def add(self, name: str, parameters: Sequence[str], program: str) -> None:
             ...
-        
+
         def add(self, program: str) -> None:
             return self.add("base", [], program)
 
@@ -321,8 +323,8 @@ def add_program_string(*args, **kwargs) -> None:
 def show(**kwargs) -> None:
     r"""
     Propagate the marked models to the backend and Generate the graph.
-    
-    :param \**kwargs: 
+
+    :param \**kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -368,7 +370,7 @@ def unmark_from_clingo_model(model: Union[clingo_Model, StableModel],
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
           a viasp client object
-    
+
     See Also
     --------
     ``mark_from_clingo_model``
@@ -383,7 +385,7 @@ def clear(**kwargs) -> None:
     r"""
     Clear all marked models.
 
-    :param \**kwargs: 
+    :param \**kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -406,7 +408,7 @@ def get_relaxed_program(*args, **kwargs) -> Union[str, None]:
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
           a viasp client object
-    
+
     See also
     --------
     ``relax_constraints``
@@ -418,7 +420,7 @@ def get_relaxed_program(*args, **kwargs) -> Union[str, None]:
 
 def relax_constraints(*args, **kwargs) -> viaspControl:
     r"""
-    Relax constraints in the marked models. Returns 
+    Relax constraints in the marked models. Returns
     a new viaspControl object with the relaxed program loaded
     and stable models marked.
 
@@ -454,7 +456,7 @@ def clingraph(viz_encoding, engine="dot", graphviz_type="graph", **kwargs) -> No
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
           a viasp client object
-    
+
     Note
     --------
     See https://github.com/potassco/clingraph for more details.
@@ -471,7 +473,7 @@ def register_transformer(transformer: Transformer, imports: str = "", path: str 
         The transformer to register.
     :param imports: ``str``
         The imports usued by the transformer.
-        (Can only be clingo imports and standard imports. 
+        (Can only be clingo imports and standard imports.
         String lines must be separated by newlines.)
     :param path: ``str``
         The path to the transformer.
@@ -619,7 +621,7 @@ def mark_from_string(model: str, **kwargs) -> None:
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
           a viasp client object
-        
+
     :raises: :py:class:`InvalidSyntax` if the string contains non-facts.
 
     See Also
@@ -657,7 +659,7 @@ def mark_from_file(path: Union[str, List[str]], **kwargs) -> None:
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
           a viasp client object
-    
+
     :raises: :py:class:`InvalidSyntax` if the string contains non-facts.
 
     See Also
@@ -727,7 +729,7 @@ def unmark_from_file(path: str, **kwargs) -> None:
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
           a viasp client object
-    
+
     :raises: :py:class:`InvalidSyntax` if the string contains non-facts.
 
     See Also
