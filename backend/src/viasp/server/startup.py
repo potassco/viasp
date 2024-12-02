@@ -78,9 +78,9 @@ def run(host=DEFAULT_BACKEND_HOST,
 
     # make sure the backend is up, before continuing with other modules
     @retry(
-        stop_max_attempt_number=30,
-        wait_exponential_multiplier=10,
-        wait_exponential_max=10000,
+        wait_exponential_multiplier=100,
+        wait_exponential_max=2000,
+        stop_max_delay=20000,
     )
     def wait_for_backend():
         try:
