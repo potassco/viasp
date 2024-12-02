@@ -49,6 +49,9 @@ class ShowConnector:
 
     def clear(self):
         self._marked.clear()
+    
+    def clear_program(self):
+        self._database.clear_program()
 
     def register_function_call(self, name, sig, args, kwargs):
         self._database.register_function_call(name, sig, args, kwargs)
@@ -64,7 +67,7 @@ class ShowConnector:
         :param collect_variables: ``bool``
             default=True (collect variables from body as a tuple in the head literal)
         """
-        self._database.set_target_stable_model(self._marked)
+        # self._database.set_target_stable_model(self._marked)
         kwargs = {"head_name": head_name, "collect_variables": collect_variables}
         return self._database.relax_constraints(**kwargs)
 
@@ -80,7 +83,7 @@ class ShowConnector:
         :param collect_variables: ``bool``
             default=True (collect variables from body as a tuple in the head literal)
         """
-        self._database.set_target_stable_model(self._marked)
+        # self._database.set_target_stable_model(self._marked)
         kwargs = {"head_name": head_name, "collect_variables": collect_variables}
 
         relaxed_prg = self._database.relax_constraints(**kwargs)
@@ -98,7 +101,9 @@ class ShowConnector:
                     filter(lambda i: models.get(i) == min(models.values()),
                             models.keys())):
                 ctl.viasp.mark(m)
-        if "optN" not in relaxer_opt_mode and "enum" not in relaxer_opt_mode and "ignore" not in relaxer_opt_mode:
+        if "optN" not in relaxer_opt_mode and \
+            "enum" not in relaxer_opt_mode and \
+            "ignore" not in relaxer_opt_mode:
             user_message = {
                 "reason": {"value": "relaxer"},
                 "message": "To show more relaxed answer sets, use --relaxer-opt-mode=optN"}

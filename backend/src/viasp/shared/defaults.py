@@ -17,3 +17,23 @@ STDIN_TMP_STORAGE_PATH = SHARED_PATH / "viasp_stdin_tmp.lp"
 COLOR_PALETTE_PATH = SERVER_PATH / "colorPalette.json"
 SORTGENERATION_TIMEOUT_SECONDS = 10
 SORTGENERATION_BATCH_SIZE = 1000
+
+
+# Messages Strings
+BACKEND_UNAVAILABLE_STR = "Backend is unavailable at ({})"
+REGISTER_FUNCTION_CALL_SUCCESS_STR = ""
+REGISTER_FUNCTION_CALL_FAILED_STR = "Registering function call failed [{}] ({})"
+MARK_MODELS_SUCCESS_STR = "Save stable model."
+MARK_MODELS_FAILED_STR = "Setting models failed [{}] ({})"
+SHOW_SUCCESS_STR = "Generate graph."
+SHOW_FAILED_STR = "Drawing failed [{}] ({})"
+RELAX_CONSTRAINTS_SUCCESS_STR = "Successfully transformed program constraints."
+RELAX_CONSTRAINTS_FAILED_STR = "Failed to relax proram [{}] ({})"
+CLEAR_PROGRAM_SUCCESS_STR = ""
+CLEAR_PROGRAM_FAILED_STR = "Clearing program failed [{}] ({})"
+CLINGRAPH_SUCCESS_STR = "Clingraph visualization in progress."
+CLINGRAPH_FAILED_STR = "Failed Clingraph visualization [{}] ({})"
+TRANSFORMER_REGISTER_SUCCESS_STR = "Transformer registered successfully."
+TRANSFORMER_REGISTER_FAILED_STR = "Failed to register Transformer [{}] ({})"
+REGISTER_WARNING_SUCCESS_STR = ""
+REGISTER_WARNING_FAILED_STR = "Failed to register warning [{}] ({})"

@@ -296,7 +296,13 @@ def add_program_string(*args, **kwargs) -> None:
     ``add_program_file``
     """
     connector = _get_connector(**kwargs)
+    viasp_backend_url = None
+    _viasp_client = None
+    if "viasp_backend_url" in kwargs:
+        viasp_backend_url = kwargs["viasp_backend_url"]
+        del kwargs["viasp_backend_url"]
     if "_viasp_client" in kwargs:
+        _viasp_client = kwargs["_viasp_client"]
         del kwargs["_viasp_client"]
 
 
@@ -314,6 +320,10 @@ def add_program_string(*args, **kwargs) -> None:
         pass_kwargs["program"] = kwargs["program"] \
                     if "program" in kwargs else args[2]
 
+    if viasp_backend_url:
+        pass_kwargs["viasp_backend_url"] = viasp_backend_url
+    if _viasp_client:
+        pass_kwargs["_viasp_client"] = _viasp_client
     connector.register_function_call(
         "add", signature(InnerControl._add2), [], kwargs=pass_kwargs)
 
@@ -392,6 +402,21 @@ def clear(**kwargs) -> None:
     """
     connector = _get_connector(**kwargs)
     connector.clear()
+
+
+def clear_program(**kwargs) -> None:
+    r"""
+    Clear the program in the backend.
+    
+    :param \**kwargs: 
+        * *viasp_backend_url* (``str``) --
+          url of the viasp backend
+        * *_viasp_client* (``ClingoClient``) --
+          a viasp client object
+
+    """
+    connector = _get_connector(**kwargs)
+    connector.clear_program()
 
 
 def get_relaxed_program(*args, **kwargs) -> Union[str, None]:

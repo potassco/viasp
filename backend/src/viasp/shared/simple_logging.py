@@ -26,25 +26,39 @@ def log(text: str, level=Level.INFO) -> None:
     else:
         print(text)
 
+def prevent_none_execution(f):
+    def wrapper(*args, **kwargs):
+        if len(args) > 0 and len(args[0]) == 0:
+            return
+        else:
+            f(*args, **kwargs)
+    return wrapper
 
+@prevent_none_execution
 def error(text: str) -> None:
     log(text, Level.ERROR)
 
 
+@prevent_none_execution
 def warn(text: str) -> None:
     log(text, Level.WARN)
 
 
+@prevent_none_execution
 def info(text: str) -> None:
     log(text, Level.INFO)
 
 
+@prevent_none_execution
 def debug(text: str) -> None:
     log(text, Level.DEBUG)
 
 
+@prevent_none_execution
 def trace(text: str) -> None:
     log(text, Level.TRACE)
 
+
+@prevent_none_execution
 def plain(text: str) -> None:
     log(text, Level.PLAIN)
