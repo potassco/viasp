@@ -52,6 +52,7 @@ const SearchRowLi = styled.li`
 `;
 
 const ActiveSearchResultDiv = styled.div`
+    position: relative;
     display: flex;
     justify-content: space-between;
     width: 100%;

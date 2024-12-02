@@ -48,8 +48,6 @@ const SearchInput = styled.input`
 `;
 
 const ResultsListUL = styled.ul`
-    position: absolute;
-    z-index: 30;
     list-style: none;
     right: 0;
     left: 0;
@@ -61,7 +59,8 @@ const ResultsListUL = styled.ul`
     border-radius: 0.7em;
     overflow-x: hidden;
     overflow-y: auto;
-    max-height: 8em;
+    max-height: ${(props) => (props.$isVisible ? '8em' : '0')};
+    transition: max-height 0.3s ease-out;
 `;
 
 const AutocompleteResultsUL = styled(ResultsListUL)`
@@ -256,13 +255,14 @@ export function Search() {
         calculateWidth();
     }, [userInput, filteredSuggestions]);
 
-    if (showSuggestions && userInput) {
+    if (userInput) {
         if (filteredSuggestions.length) {
             if (isAutocompleteVisible) {
                 suggestionsListComponent = (
                     <AutocompleteResultsUL
                         className="results-list"
                         $colorPalette={colorPalette}
+                        $isVisible={showSuggestions}
                     >
                         {filteredSuggestions.map((suggestion, index) => {
                             return (
@@ -288,6 +288,7 @@ export function Search() {
                     <SearchResultsUL
                         className="results-list"
                         $colorPalette={colorPalette}
+                        $isVisible={showSuggestions}
                     >
                         {filteredSuggestions.map((suggestion, index) => {
                             const findIndexOfSelectedInSuggestions =
@@ -317,7 +318,12 @@ export function Search() {
                 );
             }
         } else {
-            suggestionsListComponent = <div className="no-suggestions" />;
+            suggestionsListComponent =  <SearchResultsUL
+                        className="results-list"
+                        $colorPalette={colorPalette}
+                        $isVisible={false}
+                    />;
+            // suggestionsListComponent = <div className="no-suggestions" />;
         }
     }
     return (

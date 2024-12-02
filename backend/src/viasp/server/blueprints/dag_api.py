@@ -157,6 +157,7 @@ def get_src_tgt_mapping_from_graph(encoding_id: str,
             ))
     return db_edges
 
+
 def find_reason_by_uuid(symbolid, nodeid, encoding_id):
     node = find_node_by_uuid(nodeid, encoding_id)
 
@@ -732,14 +733,20 @@ def get_reasons_of():
         if request.json is None:
             return jsonify({'error': 'Missing JSON in request'}), 400
         if "sourceid" not in request.json or "nodeid" not in request.json:
-            return jsonify({'error': 'Missing sourceid or nodeid in request'}), 400
-        source_uuid = request.json["sourceid"]
-        node_uuid = request.json["nodeid"]
+            return jsonify({'error':
+                            'Missing sourceid or nodeid in request'}), 400
+        source_uuid = uuid.UUID(request.json["sourceid"])
+        node_uuid = uuid.UUID(request.json["nodeid"])
         encoding_id = session['encoding_id']
         try:
-            reason_uuids = find_reason_by_uuid(source_uuid, node_uuid, encoding_id)
-            reason_rule_uuid = find_reason_rule_by_uuid(source_uuid, node_uuid, encoding_id)
-        except Exception:
+            reason_uuids = find_reason_by_uuid(source_uuid, node_uuid,
+                                               encoding_id)
+            print(f"1Reasons of {source_uuid} in {node_uuid}", flush=True)
+            reason_rule_uuid = find_reason_rule_by_uuid(
+                source_uuid, node_uuid, encoding_id)
+            print(f"2Reasons of {source_uuid} in {node_uuid}", flush=True)
+        except Exception as e:
+            print(f"AReasons of {e}", flush=True)
             return jsonify({
                 "symbols": [{
                     "src": None,
@@ -752,7 +759,9 @@ def get_reasons_of():
                 "src": source_uuid,
                 "tgt": reason_uuid
             } for reason_uuid in reason_uuids],
-            "rule": reason_rule_uuid})
+            "rule":
+            reason_rule_uuid
+        })
     raise NotImplementedError
 
 

@@ -321,8 +321,6 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
             definition: ast.Definition,  # type: ignore
             **kwargs: Any) -> AST:
         self.constants.add(str(definition))
-        print(f"Encounter definition {definition}", flush=True)
-
         self.names.add(definition.name)
         return definition.update(**self.visit_children(definition, **kwargs))
 

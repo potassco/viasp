@@ -1,4 +1,5 @@
 import pytest
+import uuid
 
 from viasp.shared.util import hash_from_sorted_transformations
 from viasp.shared.model import Node, Transformation
@@ -236,7 +237,11 @@ def test_graph_reason_endpoints(unique_session, program):
     assert client.get("graph/reason").status_code == 405
     assert client.delete("graph/reason").status_code == 405
     assert client.put("graph/reason").status_code == 405
-    assert client.post("graph/reason", json={"sourceid":0, "nodeid":0}).status_code == 200
+    assert client.post("graph/reason",
+                       json={
+                           "sourceid": uuid.uuid4(),
+                           "nodeid": uuid.uuid4()
+                       }).status_code == 200
 
 @pytest.mark.parametrize("program", [
     (program_simple),
@@ -251,7 +256,7 @@ def test_graph_reason(unique_session, program):
     for node in graph.nodes:
         for source in node.diff:
             res = client.post("graph/reason", json={"sourceid": source.uuid, "nodeid": node.uuid})
-            assert res.status_code == 200 
+            assert res.status_code == 200
             assert type(res.json) == dict
             assert "rule" in res.json
             assert type(res.json["rule"]) == str or res.json["rule"] == None
