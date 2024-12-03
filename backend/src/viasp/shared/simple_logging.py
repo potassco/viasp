@@ -12,15 +12,15 @@ class Level(Enum):
 
 def log(text: str, level=Level.INFO) -> None:
     if level == Level.ERROR:
-        print(f"[ERROR] {text}")
+        print(f"*** ERROR: (viasp): {text}")
     elif level == Level.WARN:
-        print(f"[WARNING] {text}")
+        print(f"*** WARNING: (viasp): {text}")
     elif level == Level.INFO:
-        print(f"[INFO] {text}")
+        print(f"*** INFO: (viasp): {text}")
     elif level == Level.DEBUG:
-        print(f"[ERROR] {text}")
+        print(f"*** ERROR: (viasp): {text}")
     elif level == Level.TRACE:
-        print(f"[ERROR] {text}")
+        print(f"*** ERROR: (viasp): {text}")
     elif level == Level.PLAIN:
         print(text)
     else:

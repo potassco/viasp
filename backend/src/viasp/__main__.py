@@ -407,20 +407,19 @@ class ViaspRunner():
             sys.exit(1)
 
     def warn_unsat(self):
-        plain(
+        info(
             textwrap.dedent(f"""\
-
-            [INFO] The input program is unsatisfiable. To visualize the relaxed program use:
-                    {RELAXER_GROUP_HELP}
-                    --print-relax{PRINT_RELAX_HELP}
-                    --relax      {USE_RELAX_HELP}"""))
+            The input program is unsatisfiable. To visualize the relaxed program use:
+                {RELAXER_GROUP_HELP}
+                --print-relax{PRINT_RELAX_HELP}
+                --relax      {USE_RELAX_HELP}"""))
         sys.exit(0)
 
     def warn_no_relaxed_models(self):
-        plain(
+        warn(
             textwrap.dedent(f"""\
-                [WARN] The relaxed program has no stable models.
-                """))
+            The relaxed program has no stable models.
+            """))
         sys.exit(0)
 
     def warn_optimality_not_guaranteed(self):
@@ -530,7 +529,7 @@ class ViaspRunner():
         ctl.add("base", [], relaxed_program)
 
         plain("Solving...")
-        models = self.run_with_clingo(ctl, False,
+        models = self.run_with_clingo(ctl, True,
                                       options['original_max_models'],
                                       options['max_models'], relaxer_opt_mode)
         viasp.api.add_program_string(relaxed_program,

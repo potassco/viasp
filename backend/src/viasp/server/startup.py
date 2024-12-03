@@ -97,7 +97,6 @@ def run(host=DEFAULT_BACKEND_HOST,
 
     def terminate_process(process):
         """ kill the backend on keyboard interruptions"""
-        print("\nKilling Backend")
         try:
             process.terminate()
         except OSError:
