@@ -1,5 +1,6 @@
 from enum import Enum
 
+VERBOSE = False
 
 class Level(Enum):
     ERROR = 0
@@ -34,29 +35,40 @@ def prevent_none_execution(f):
             f(*args, **kwargs)
     return wrapper
 
+def isEnabledFor(level: Level) -> bool:
+    global VERBOSE
+    if VERBOSE:
+        return True
+    return level.value <= Level.WARN.value
+
 @prevent_none_execution
 def error(text: str) -> None:
-    log(text, Level.ERROR)
+    if isEnabledFor(Level.ERROR):
+        log(text, Level.ERROR)
 
 
 @prevent_none_execution
 def warn(text: str) -> None:
-    log(text, Level.WARN)
+    if isEnabledFor(Level.WARN):
+        log(text, Level.WARN)
 
 
 @prevent_none_execution
 def info(text: str) -> None:
-    log(text, Level.INFO)
+    if isEnabledFor(Level.INFO):
+        log(text, Level.INFO)
 
 
 @prevent_none_execution
 def debug(text: str) -> None:
-    log(text, Level.DEBUG)
+    if isEnabledFor(Level.DEBUG):
+       log(text, Level.DEBUG)
 
 
 @prevent_none_execution
 def trace(text: str) -> None:
-    log(text, Level.TRACE)
+    if isEnabledFor(Level.TRACE):
+        log(text, Level.TRACE)
 
 
 @prevent_none_execution

@@ -31,4 +31,5 @@ Explore ASP programs and their answer sets with viASP:
    viasp/usage
    viasp/api
    viasp/colorPalette
+   viasp/localization
    viasp/contributing

@@ -4,40 +4,28 @@ import sys
 import re
 import os
 import webbrowser
+import logging
 import subprocess
 import atexit
 
 import importlib.metadata
+from contextlib import redirect_stdout
 from clingo.script import enable_python
 from clingo import Control as clingoControl
 
 import viasp.api
 from viasp.server import startup
+import viasp.shared
 from viasp.shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_FRONTEND_PORT, DEFAULT_BACKEND_PROTOCOL, DEFAULT_COLOR
+from viasp.shared.defaults import _
 from viasp.shared.io import clingo_model_to_stable_model, clingo_symbols_to_stable_model
+import viasp.shared.simple_logging
 from viasp.shared.util import get_json, get_lp_files, SolveHandle
 from viasp.shared.simple_logging import error, warn, plain, info
-from viasp.exceptions import NoRelaxedModelsFoundException
 
 #
 # DEFINES
 #
-
-#
-UNKNOWN = "UNKNOWN"
-ERROR = "(viasp) {}"
-ERROR_INFO = "(viasp) Try '--help' for usage information"
-ERROR_OPEN = "<cmd>: error: file could not be opened:\n  {}\n"
-ERROR_PARSING = "parsing failed"
-WARNING_INCLUDED_FILE = "<cmd>: already included file:\n  {}\n"
-HELP_CLINGO_HELP = ": Print {1=basic|2=more|3=full} clingo help and exit"
-PRINT_RELAX_HELP = textwrap.dedent("""\
-    : Use the relaxer and output the transformed program""")
-USE_RELAX_HELP = textwrap.dedent("""\
-    : Use the relaxer and visualize the transformed program""")
-RELAXER_GROUP_HELP = textwrap.dedent("""\
-    Options for the relaxation of integrity constraints in unsatisfiable programs."""
-                                     )
 
 try:
     VERSION = importlib.metadata.version("viasp")
@@ -47,15 +35,15 @@ except importlib.metadata.PackageNotFoundError:
 
 def backend():
     from viasp.server.factory import create_app
-    parser = argparse.ArgumentParser(description='viasp backend')
+    parser = argparse.ArgumentParser(description=_("VIASP_BACKEND_TITLE_HELP"))
     parser.add_argument('--host',
                         type=str,
-                        help='The host for the backend',
+                        help=_("BACKENDHOST_HELP"),
                         default=DEFAULT_BACKEND_HOST)
     parser.add_argument('-p',
                         '--port',
                         type=int,
-                        help='The port for the backend',
+                        help=_("BACKENDPORT_HELP"),
                         default=DEFAULT_BACKEND_PORT)
     app = create_app()
     use_reloader = False
@@ -63,7 +51,7 @@ def backend():
     args = parser.parse_args()
     host = args.host
     port = args.port
-    print(f"Starting viASP backend at {host}:{port}")
+    print(_("STARTING_VIASP_BACKEND_HELP").format(host, port))
     app.run(host=host, port=port, use_reloader=use_reloader, debug=debug)
 
 
@@ -94,39 +82,26 @@ class MyArgumentParser(argparse.ArgumentParser):
     def print_help(self, file=None):
         if file is None:
             file = sys.stdout
-        file.write("viasp version {}\n".format(VERSION))
+        file.write(_("VIASP_VERSION").format(VERSION))
         argparse.ArgumentParser.print_help(self, file)
 
     def error(self, message):
-        raise argparse.ArgumentError(None, "In context <viasp>: " + message)
+        raise argparse.ArgumentError(None, _("VIASP_ARG_PARSE_ERROR_STRING").format(message))
 
 
 #
 # class ViaspArgumentParser
 #
 
-
 class ViaspArgumentParser:
 
-    clingo_help = textwrap.dedent("""
-    Clingo Options:
-      --<option>[=<value>]\t: Set clingo <option> [to <value>]
+    clingo_help = _("CLINGO_HELP_STRING")
 
-    """)
+    usage = _("VIASP_USAGE_STRING")
 
-    usage = "viasp [options] [files]"
+    epilog = _("EPILOG_STRING")
 
-    epilog = textwrap.dedent("""
-    Default command-line:
-    viasp --models 0 [files]
-
-    viasp is part of Potassco: https://potassco.org/
-    Get help/report bugs via : https://potassco.org/support
-    """)
-
-    version_string = "viasp " + VERSION + textwrap.dedent("""
-    Copyright (C) Stephan Zwicknagl, Luis Glaser
-    License: The MIT License <https://opensource.org/licenses/MIT>""")
+    version_string = _("VIASP_NAME_STRING") + VERSION + _("COPYRIGHT_STRING")
 
     def __init__(self):
         self.__first_file: str = ""
@@ -150,9 +125,9 @@ class ViaspArgumentParser:
                 old, sep, new = i.partition("=")
                 if new == "":
                     raise Exception(
-                        "no definition for constant {}".format(old))
+                        _("NO_DEFINITION_FOR_CONSTANT_STR").format(old))
                 if old in constants:
-                    raise Exception("constant {} defined twice".format(old))
+                    raise Exception(_("CONSTANT_DEFINED_TWICE_STR").format(old))
                 else:
                     constants[old] = new
             return constants
@@ -165,18 +140,19 @@ class ViaspArgumentParser:
             mode = parts[0]
             if mode not in ['opt', 'enum', 'optN', 'ignore']:
                 raise argparse.ArgumentTypeError(
-                    f"Invalid value for opt-mode: {mode}")
+                    _("INVALID_OPT_MODE_STRING").format(mode))
             bounds = parts[1:]
             return (mode, bounds)
         except Exception as e:
-            error(ERROR.format(e))
-            error(ERROR_INFO)
+            error(_("ERROR").format(e))
+            error(_("ERROR_INFO"))
             sys.exit(1)
 
     def run(self, args):
 
         # command parser
-        _epilog = self.clingo_help + "\nusage: " + self.usage + self.epilog
+        _epilog = self.clingo_help + "\n\n" + _("USAGE_STRING") +  ": " + \
+            self.usage + "\n" + self.epilog
         cmd_parser = MyArgumentParser(
             usage=self.usage,
             epilog=_epilog,
@@ -187,25 +163,20 @@ class ViaspArgumentParser:
 
         # Positional arguments
         self.__cmd_parser.add_argument('files',
-                                       help=textwrap.dedent("""\
-            : Files containing ASP encodings
-              Optionally, a single JSON file defining the answer set(s) in clingo's
-              `--outf=2` format"""),
+                                       help=_("VIASP_FILES_HELP_STRING"),
                                        nargs='*')
         self.__cmd_parser.add_argument('stdin',
-                                       help=textwrap.dedent("""\
-            : Standard input in form of an ASP encoding or JSON in clingo's `--outf=2` format"""
-                                                            ),
+                                       help=_("VIASP_STDIN_HELP_STRING"),
                                        nargs='?',
                                        default=sys.stdin)
         # Basic Options
-        basic = cmd_parser.add_argument_group('Basic Options')
+        basic = cmd_parser.add_argument_group(_("VIASP_BASIC_OPTION"))
         basic.add_argument('--help',
                            '-h',
                            action='help',
-                           help=': Print help and exit')
+                           help=_("VIASP_HELP_HELP"))
         basic.add_argument('--clingo-help',
-                           help=HELP_CLINGO_HELP,
+                           help=_("HELP_CLINGO_HELP"),
                            type=int,
                            dest='clingo_help',
                            metavar='<m>',
@@ -215,33 +186,36 @@ class ViaspArgumentParser:
                            '-v',
                            dest='version',
                            action='store_true',
-                           help=': Print version information and exit')
+                           help=_("VIASP_VERSION_HELP"))
         basic.add_argument('--host',
                            metavar='<host>',
                            type=str,
-                           help=': The host for the backend and frontend',
+                           help=_("VIASP_HOST_HELP"),
                            default=DEFAULT_BACKEND_HOST)
         basic.add_argument('-p',
                            '--port',
                            metavar='<port>',
                            type=int,
-                           help=': The port for the backend',
+                           help=_("VIASP_PORT_BACKEND_HELP"),
                            default=DEFAULT_BACKEND_PORT)
         basic.add_argument('-f',
                            '--frontend-port',
                            metavar='<port>',
                            type=int,
-                           help=': The port for the frontend',
+                           help=_("VIASP_PORT_FRONTEND_HELP"),
                            default=DEFAULT_FRONTEND_PORT)
         basic.add_argument(
             '--color',
             choices=['blue', 'yellow', 'orange', 'green', 'red', 'purple'],
             metavar='<color>',
-            help=': The primary color',
+            help=_("VIASP_PRIMARY_COLOR_HELP"),
             default=DEFAULT_COLOR)
+        basic.add_argument('--verbose',
+                           action='store_true',
+                           help=_("VIASP_VERBOSE_LOGGING_HELP"))
 
         # Solving Options
-        solving = cmd_parser.add_argument_group('Solving Options')
+        solving = cmd_parser.add_argument_group(_("CLINGO_SOLVING_OPTION"))
         solving.add_argument('-c',
                              '--const',
                              dest='constants',
@@ -253,73 +227,63 @@ class ViaspArgumentParser:
                              help=argparse.SUPPRESS)
         solving.add_argument('--models',
                              '-n',
-                             help=": Compute at most <n> models (0 for all)",
+                             help=_("CLINGO_MODELS_HELP"),
                              type=int,
                              dest='max_models',
                              metavar='<n>')
         solving.add_argument('--select-model',
-                             help=textwrap.dedent("""\
-            : Select only one of the models when using a json input
-              Defined by an index for accessing the models, starting in index 0
-              Can appear multiple times to select multiple models"""),
+                             help=_("CLINGO_SELECT_MODEL_HELP"),
                              metavar='<index>',
                              type=int,
                              action='append',
                              nargs='?')
 
         clingraph_group = cmd_parser.add_argument_group(
-            'Clingraph Options',
-            'If included, a Clingraph visualization will be made.')
-        clingraph_group.add_argument(
-            '--viz-encoding',
-            metavar='<path>',
-            type=str,
-            help=': Path to the visualization encoding',
-            default=None)
-        clingraph_group.add_argument(
-            '--engine',
-            type=str,
-            metavar='<ENGINE>',
-            help=
-            ': The visualization engine (refer to clingraph documentation)',
-            default="dot")
-        clingraph_group.add_argument(
-            '--graphviz-type',
-            type=str,
-            metavar='<type>',
-            help=': The graph type (refer to clingraph documentation)',
-            default="graph")
+            _("CLINGRAPH_OPTION"), _("CLINGRAPH_OPTION_DESCRIPTION"))
+        clingraph_group.add_argument('--viz-encoding',
+                                     metavar='<path>',
+                                     type=str,
+                                     help=_("CLINGRAPH_PATH_HELP"),
+                                     default=None)
+        clingraph_group.add_argument('--engine',
+                                     type=str,
+                                     metavar='<ENGINE>',
+                                     help=_("CLINGRAPH_ENGINE_HELP"),
+                                     default="dot")
+        clingraph_group.add_argument('--graphviz-type',
+                                     type=str,
+                                     metavar='<type>',
+                                     help=_("CLINGRAPH_TYPE_HELP"),
+                                     default="graph")
 
-        relaxer_group = cmd_parser.add_argument_group('Relaxation Options',
-                                                      RELAXER_GROUP_HELP)
+        relaxer_group = cmd_parser.add_argument_group(_("RELAXER_OPTIONS"),
+                                                      _("RELAXER_GROUP_HELP"))
         relaxer_group.add_argument('--print-relax',
                                    action='store_true',
-                                   help=PRINT_RELAX_HELP)
+                                   help=_("RELAXER_PRINT_RELAX_HELP"))
         relaxer_group.add_argument('-r',
                                    '--relax',
                                    action='store_true',
-                                   help=USE_RELAX_HELP)
+                                   help=_("RELAXER_RELAX_HELP"))
         relaxer_group.add_argument('--head-name',
                                    type=str,
                                    metavar='<name>',
-                                   help=': The name of the head predicate',
+                                   help=_("RELAXER_HEAD_NAME_HELP"),
                                    default="unsat")
-        relaxer_group.add_argument(
-            '--no-collect-variables',
-            action='store_true',
-            default=False,
-            help=
-            ': Do not collect variables from body as a tuple in the head literal'
-        )
-        relaxer_group.add_argument(
-            '--relaxer-opt-mode',
-            metavar='<mode>',
-            type=self.__do_opt_mode,
-            help=': Clingo optimization mode for the relaxed program',
-        )
+        relaxer_group.add_argument('--no-collect-variables',
+                                   action='store_true',
+                                   default=False,
+                                   help=_("RELAXER_COLLECT_VARIABLE_NAME_HELP"))
+        relaxer_group.add_argument('--relaxer-opt-mode',
+                                    metavar='<mode>',
+                                    type=self.__do_opt_mode,
+                                    help=_("RELAXER_OPT_MODE_HELP"))
 
         options, unknown = cmd_parser.parse_known_args(args=args)
         options = vars(options)
+
+        # verbose
+        viasp.shared.simple_logging.VERBOSE = options['verbose']
 
         # print version
         if options['version']:
@@ -347,12 +311,8 @@ class ViaspArgumentParser:
             self.__first_file = f"{self.__first_file} ..."
 
         # build prologue
-        host = options.get("host", DEFAULT_BACKEND_HOST)
-        port = options.get("port", DEFAULT_BACKEND_PORT)
-        backend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
-        prologue = "viasp version " + VERSION + \
-            " at " + backend_url + "\n" + \
-            "Reading from " + self.__first_file
+        prologue = _("VIASP_VERSION").format(VERSION) + \
+            _("READING_FROM_PROLOGUE").format(self.__first_file)
 
         # handle constants
         options['constants'] = self.__do_constants(options['constants'])
@@ -402,30 +362,20 @@ class ViaspRunner():
         try:
             self.run_wild(args)
         except Exception as e:
-            error(ERROR.format(e))
-            error(ERROR_INFO)
+            error(_("ERROR").format(e))
+            error(_("ERROR_INFO"))
             sys.exit(1)
 
     def warn_unsat(self):
-        info(
-            textwrap.dedent(f"""\
-            The input program is unsatisfiable. To visualize the relaxed program use:
-                {RELAXER_GROUP_HELP}
-                --print-relax{PRINT_RELAX_HELP}
-                --relax      {USE_RELAX_HELP}"""))
+        warn(_("WARN_UNSATISFIABLE_STRING"))
         sys.exit(0)
 
     def warn_no_relaxed_models(self):
-        warn(
-            textwrap.dedent(f"""\
-            The relaxed program has no stable models.
-            """))
+        warn(_("WARN_NO_STABLE_MODEL"))
         sys.exit(0)
 
     def warn_optimality_not_guaranteed(self):
-        warn(
-            "(clingo): #models not 0: optimality of last model not guaranteed."
-        )
+        warn(_("WARN_OPTIMALITY_NOT_GUARANTEED"))
 
     def run_with_json(self, model_from_json, relax, select_model):
         models_to_mark = []
@@ -513,7 +463,7 @@ class ViaspRunner():
 
     def run_relaxer(self, encoding_files, options, head_name,
                     no_collect_variables, relaxer_opt_mode, clingo_options):
-        info("No answer sets found. Switching to transformed visualization.")
+        info(_("SWITCH_TO_TRANSFORMED_VISUALIZATION"))
         relaxed_program = self.relax_program(encoding_files, options['stdin'],
                                              head_name, no_collect_variables)
 
@@ -608,7 +558,6 @@ class ViaspRunner():
 
     def relax_program_quietly(self, encoding_files, stdin, head_name,
                                 no_collect_variables):
-        from contextlib import redirect_stdout
         with open('viasp.log', 'w') as f:
             with redirect_stdout(f):
                 relaxed_program = self.relax_program(encoding_files, stdin,
@@ -665,7 +614,7 @@ class ViaspRunner():
         # prologue
         plain(prologue)
         for i in file_warnings:
-            warn(WARNING_INCLUDED_FILE.format(i))
+            warn(_("WARNING_INCLUDED_FILE").format(i))
 
         models = self.print_and_get_stable_models(clingo_options, options,
                                                   encoding_files,
@@ -680,10 +629,12 @@ class ViaspRunner():
         else:
             self.run_viasp(encoding_files, models, options)
 
+        frontend_url = f"http://{host}:{frontend_port}"
+        plain(_("VIASP_RUNNING_INFO").format(frontend_url))
+        plain(_("VIASP_HALT_HELP"))
         if not _is_running_in_notebook():
-            webbrowser.open(f"http://{host}:{frontend_port}")
-        app.run(host=host,
-                port=frontend_port,
-                use_reloader=False,
-                debug=False,
-                dev_tools_silence_routes_logging=True)
+            webbrowser.open(frontend_url)
+
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+        app.run(host=host, port=frontend_port, use_reloader=False, debug=False)

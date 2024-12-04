@@ -13,6 +13,7 @@ import sys
 import os
 import atexit
 import shutil
+import logging
 from subprocess import Popen
 import json
 from retrying import retry
@@ -71,6 +72,8 @@ def run(host=DEFAULT_BACKEND_HOST,
                                       backendURL=backend_url,
                                       colorPalette=color_palette)
     app.title = "viASP"
+    dash_logger = logging.getLogger('dash.dash')
+    dash_logger.setLevel(logging.ERROR)
 
     # suppress dash's flask server banner
     cli = sys.modules['flask.cli']
