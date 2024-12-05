@@ -4,23 +4,20 @@ import {MAPZOOMSTATE} from '../types/propTypes';
 import {RowTemplate} from '../components/Row.react';
 import {Boxrow} from '../components/BoxRow.react';
 import '../components/main.css';
-import {Detail} from '../components/Detail.react';
-import {Search} from '../components/Search.react';
 import {Facts} from '../components/Facts.react';
 import {Edges} from '../components/Edges.react';
 import {Arrows} from '../components/Arrows.react';
 import {ShownNodesProvider} from '../contexts/ShownNodes';
+import {ContentDivProvider, useContentDiv} from '../contexts/ContentDivContext';
 import {
     TransformationProvider,
     useTransformations,
-    reorderTransformation,
     setTransformationDropIndices,
 } from '../contexts/transformations';
 import {ColorPaletteProvider} from '../contexts/ColorPalette';
 import {HighlightedNodeProvider} from '../contexts/HighlightedNode';
+import {SearchUserInputProvider} from '../contexts/SearchUserInput';
 import {
-    showError,
-    useMessages,
     UserMessagesProvider,
 } from '../contexts/UserMessages';
 import {useShownDetail, ShownDetailProvider} from '../contexts/ShownDetail';
@@ -29,7 +26,6 @@ import {UserMessages} from '../components/messages';
 import {
     DEFAULT_BACKEND_URL,
     SettingsProvider,
-    useSettings,
 } from '../contexts/Settings';
 import {FilterProvider} from '../contexts/Filters';
 import {
@@ -49,7 +45,12 @@ import debounce from 'lodash.debounce';
 function GraphContainer(props) {
     const {notifyDash, scrollContainer, transform} = props;
     const {
-        state: {transformations, clingraphGraphics, transformationDropIndices},
+        state: {
+            transformations,
+            clingraphGraphics,
+            transformationDropIndices,
+            explanationHighlightedSymbols,
+        },
         dispatch: dispatchTransformation,
         setSortAndFetchGraph,
     } = useTransformations();
@@ -89,7 +90,7 @@ function GraphContainer(props) {
                 commonProps={{transform}}
             />
             {clingraphUsed ? <Boxrow transform={transform} /> : null}
-            {highlightedSymbol.length === 0 ? null : <Arrows />}
+            {explanationHighlightedSymbols.length === 0 ? null : <Arrows />}
             {transformations.length === 0 ? null : <Edges />}
         </div>
     );
@@ -113,10 +114,6 @@ GraphContainer.propTypes = {
 
 function MainWindow(props) {
     const {notifyDash} = props;
-    const {backendURL} = useSettings();
-    const [, dispatch] = useMessages();
-    const backendURLRef = React.useRef(backendURL);
-    const dispatchRef = React.useRef(dispatch);
     const {setAnimationState} = useAnimationUpdater();
     const setAnimationStateRef = React.useRef(setAnimationState);
     const [ctrlPressed, setCtrlPressed] = React.useState(false);
@@ -128,7 +125,7 @@ function MainWindow(props) {
         translation: {x: 0, y: 0},
         scale: 1,
     });
-    const contentDivRef = React.useRef(null);
+    const contentDivRef = useContentDiv();
 
     // React.useEffect(() => {
     //     fetch(backendURLRef.current('graph/sorts')).catch(() => {
@@ -292,7 +289,7 @@ function MainWindow(props) {
             });
         }
         prevShownDetail.current = shownDetail;
-    }, [setMapShiftValue, shownDetail]);
+    }, [setMapShiftValue, shownDetail, contentDivRef]);
 
     React.useEffect(() => {
         handleMapChangeOnDetailChange();
@@ -321,7 +318,7 @@ function MainWindow(props) {
                 },
             };
         });
-    }, [shownDetail, translationBounds]);
+    }, [shownDetail, translationBounds, contentDivRef]);
 
     const debouncedShiftZoomOnResize = React.useMemo(
         () => debounce(shiftZoomOnResize, Constants.SMALLERDEBOUNCETIMEOUT),
@@ -336,9 +333,11 @@ function MainWindow(props) {
     // Add an effect to update the scroll position state when the contentDiv scrolls
     React.useEffect(() => {
         const contentDiv = contentDivRef.current;
-        const handleScroll = (event) => {
-            setScrollPosition(event.target.scrollTop);
-        };
+        const handleScroll = debounce((event) => {
+            requestAnimationFrame(() => {
+                setScrollPosition(event.target.scrollTop);
+            });
+        }, 100);
 
         if (contentDiv) {
             contentDiv.addEventListener('scroll', handleScroll);
@@ -438,18 +437,22 @@ export default function ViaspDash(props) {
                                 <AnimationUpdaterProvider>
                                     <UserMessagesProvider>
                                         <ShownNodesProvider>
-                                            <TransformationProvider>
-                                                <HighlightedSymbolProvider>
-                                                    <div>
-                                                        <UserMessages />
-                                                        <MainWindow
-                                                            notifyDash={
-                                                                notifyDash
-                                                            }
-                                                        />
-                                                    </div>
-                                                </HighlightedSymbolProvider>
-                                            </TransformationProvider>
+                                            <ContentDivProvider>
+                                                <TransformationProvider>
+                                                    <HighlightedSymbolProvider>
+                                                        <SearchUserInputProvider>
+                                                            <div>
+                                                                <UserMessages />
+                                                                <MainWindow
+                                                                    notifyDash={
+                                                                        notifyDash
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        </SearchUserInputProvider>
+                                                    </HighlightedSymbolProvider>
+                                                </TransformationProvider>
+                                            </ContentDivProvider>
                                         </ShownNodesProvider>
                                     </UserMessagesProvider>
                                 </AnimationUpdaterProvider>

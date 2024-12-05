@@ -3,7 +3,10 @@ import PropTypes from 'prop-types';
 import { Icon } from '@iconify/react';
 import clockwiseVerticalArrows from '@iconify/icons-emojione-monotone/clockwise-vertical-arrows';
 import dragHandleRounded from '@iconify/icons-material-symbols/drag-handle-rounded';
-import arrowDownDoubleFill from '@iconify/icons-ri/arrow-down-double-fill';
+import arrowDownSLine from '@iconify/icons-ri/arrow-down-s-line';
+import closeLine from '@iconify/icons-ri/close-line';
+import search from '@iconify/icons-ri/search-line';
+import IcRoundNavigateNext from '@iconify/icons-ic/round-navigate-next';
 
 export default function IconWrapper(props) {
     const {icon, ...rest} = props;
@@ -14,7 +17,16 @@ export default function IconWrapper(props) {
         return <Icon icon={dragHandleRounded} {...rest} />;
     }
     if (icon === 'arrowDownDoubleFill') {
-        return <Icon icon={arrowDownDoubleFill} {...rest} />;
+        return <Icon icon={arrowDownSLine} {...rest} />;
+    }
+    if (icon === 'search') {
+        return <Icon icon={search} {...rest} />;
+    }
+    if (icon === 'close') {
+        return <Icon icon={closeLine} {...rest} />;
+    }
+    if (icon === 'navigateNext') {
+        return <Icon icon={IcRoundNavigateNext} {...rest} />;
     }
     return <Icon {...props} />;
 }

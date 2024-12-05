@@ -1,22 +1,26 @@
-
 .settings {
     white-space: nowrap;
     float: right;
-    display: flex;
+    display: flow-root;
     position: absolute;
     z-index: 10;
     right: 0;
     top: 0;
     margin-right: 1em;
     margin-top: 1.2em;
+    /* width: 10%; */
+    max-width: 40em;
+    min-width: 7em;
 }
 
 .fadeOut {
+    z-index: 20;
     opacity: 0;
     transition: opacity 0.8s;
 }
 
 .fadeIn {
+    z-index: 20;
     opacity: 1;
     transition: opacity 0.8s;
 }
@@ -38,18 +42,15 @@
 .drawer {
     font-family: sans-serif;
     height: fit-content;
-    box-shadow: 0 2px 2px -2px rgba(0, 0, 0, .2);
 }
 
 .drawer_content {
-    z-index: 1;
-    border-radius: 0 0 0 5px;
+    max-width: 500px;
+    padding-top: 0.1em;
+    padding-bottom: 0.1em;
 }
 
-.toggle_part {
-    font-family: monospace;
-    border-radius: 6px;
-    cursor: pointer;
-    padding-right: 20px;
-    padding-left: 20px;
+.clear_marked {
+    display: flex;
+    justify-content: end;
 }

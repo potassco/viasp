@@ -1,10 +1,11 @@
 import React from "react";
-import { useHighlightedSymbol } from "../contexts/HighlightedSymbol";
 import Xarrow from "react-xarrows";
 import PropTypes from 'prop-types'
 import { v4 as uuidv4 } from 'uuid';
 import debounce from "lodash/debounce";
 import { styled } from 'styled-components';
+import { useTransformations } from "../contexts/transformations";
+import { useAnimationUpdater } from "../contexts/AnimationUpdater";
 
 const ArrowsContainer = styled.div`
     position: sticky;
@@ -16,12 +17,17 @@ const ArrowsContainer = styled.div`
 `;
 
 export function Arrows() {
-    const {highlightedSymbol} = useHighlightedSymbol();
+    const {
+        state: {explanationHighlightedSymbols},
+    } = useTransformations();
+    const {
+        animationState,
+    } = useAnimationUpdater();
     const [arrows, setArrows] = React.useState([]);
     const observerRef = React.useRef();
 
     const calculateArrows = React.useCallback(() => {
-        return highlightedSymbol
+        return explanationHighlightedSymbols
             .map((arrow) => {
                 const suffix1 = `_${
                     document.getElementById(arrow.src + '_main')
@@ -61,7 +67,7 @@ export function Arrows() {
                     />
                 );
             });
-    }, [highlightedSymbol]);
+    }, [explanationHighlightedSymbols]);
 
     const debouncedCalculateArrows = React.useMemo(
         () => debounce(() => setArrows(calculateArrows()), 10),
@@ -70,7 +76,8 @@ export function Arrows() {
 
     React.useEffect(() => {
         debouncedCalculateArrows();
-    }, [highlightedSymbol, debouncedCalculateArrows]);
+    }, [animationState, explanationHighlightedSymbols, debouncedCalculateArrows]);
+    // }, [animationState, explanationHighlightedSymbols, debouncedCalculateArrows]);
 
     React.useEffect(() => {
         const observer = new MutationObserver(debouncedCalculateArrows);

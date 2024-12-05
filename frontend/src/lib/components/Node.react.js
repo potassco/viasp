@@ -5,7 +5,6 @@ import {Symbol} from './Symbol.react';
 import {hideNode, showNode, useShownNodes} from '../contexts/ShownNodes';
 import {useColorPalette} from '../contexts/ColorPalette';
 import {useHighlightedNode} from '../contexts/HighlightedNode';
-import {useHighlightedSymbol} from '../contexts/HighlightedSymbol';
 import {
     toggleShownRecursion,
     useTransformations,
@@ -13,6 +12,10 @@ import {
     setNodeShowMini,
     setNodeIsExpandableV,
     checkTransformationExpandableCollapsible,
+    addExplanationHighlightedSymbol,
+    removeExplanationHighlightedSymbol,
+    removeHighlightExplanationRule,
+    removeExplanationRuleBackgroundHighlight,
 } from '../contexts/transformations';
 import {useSettings} from '../contexts/Settings';
 import {useShownDetail} from '../contexts/ShownDetail';
@@ -26,6 +29,7 @@ import debounce from 'lodash.debounce';
 import * as Constants from '../constants';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 import {useAnimationUpdater} from '../contexts/AnimationUpdater';
+import {useMessages, showError} from '../contexts/UserMessages';
 
 function any(iterable) {
     for (let index = 0; index < iterable.length; index++) {
@@ -36,19 +40,69 @@ function any(iterable) {
     return false;
 }
 
+function fetchReasonOf(backendURL, sourceId, nodeId) {
+    return fetch(`${backendURL('graph/reason')}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({sourceid: sourceId, nodeid: nodeId}),
+    }).then((r) => {
+        if (!r.ok) {
+            throw new Error(`${r.status} ${r.statusText}`);
+        }
+        return r.json();
+    });
+}
+
+function middlewareRemoveExplanationHighlightedSymbol(dispatch, action) {
+    dispatch(
+        removeExplanationHighlightedSymbol(
+            action.arrows,
+            action.rule_hash,
+            action.source_symbol_id
+        )
+    );
+    setTimeout(() => {
+        dispatch(
+            removeHighlightExplanationRule(
+                action.rule_hash,
+                action.source_symbol_id
+            )
+        );
+    }, Constants.ruleHighlightFadeDuration);
+}
+
+function middlewareAddExplanationHighlightedSymbol(dispatch, action) {
+    dispatch(
+        addExplanationHighlightedSymbol(
+            action.arrows,
+            action.rule_hash,
+            action.source_symbol_id,
+            action.colors
+        )
+    );
+    setTimeout(() => {
+        dispatch(
+            removeExplanationRuleBackgroundHighlight(
+                action.rule_hash,
+                action.source_symbol_id
+            )
+        );
+    }, Constants.ruleHighlightDuration);
+}
+
 function NodeContent(props) {
     const {state} = useSettings();
     const {node, setHeight, parentID, isSubnode, transformationId} = props;
     const colorPalette = useColorPalette();
     const [{activeFilters}] = useFilters();
     const {
-        highlightedSymbol,
-        highlightedRule,
-        backgroundHighlightColor,
-        ruleDotHighlightColor,
-        toggleReasonOf,
-    } = useHighlightedSymbol();
-    const {dispatch: dispatchTransformation} = useTransformations();
+        dispatch: dispatchT,
+        state: {allHighlightedSymbols, explanationHighlightedSymbols},
+    } = useTransformations();
+    const {backendURL} = useSettings();
+    const [, messageDispatch] = useMessages();
 
     let contentToShow;
     if (state.show_all) {
@@ -87,32 +141,59 @@ function NodeContent(props) {
     function handleClick(e, src) {
         e.stopPropagation();
         if (src.has_reason) {
-            toggleReasonOf(
-                src.uuid,
-                node.uuid,
-                highlightedSymbol,
-                highlightedRule,
-                backgroundHighlightColor,
-                ruleDotHighlightColor
-            );
+            fetchReasonOf(backendURL, src.uuid, node.uuid)
+                .then((result) => {
+                    if (result.symbols.every((tgt) => tgt !== null)) {
+                        const existingArrows =
+                            explanationHighlightedSymbols.map((e) =>
+                                JSON.stringify({src: e.src, tgt: e.tgt})
+                            );
+                        if (
+                            result.symbols.some((arrow) => {
+                                return !existingArrows.includes(
+                                    JSON.stringify(arrow)
+                                );
+                            })
+                        ) {
+                            middlewareAddExplanationHighlightedSymbol(
+                                dispatchT,
+                                {
+                                    arrows: result.symbols,
+                                    rule_hash: result.rule,
+                                    source_symbol_id: src.uuid,
+                                    colors: colorPalette.explanationHighlights,
+                                }
+                            );
+                        } else {
+                            middlewareRemoveExplanationHighlightedSymbol(
+                                dispatchT,
+                                {
+                                    arrows: result.symbols,
+                                    rule_hash: result.rule,
+                                    source_symbol_id: src.uuid,
+                                }
+                            );
+                        }
+                    }
+                })
+                .catch((error) => {
+                    messageDispatch(
+                        showError(`Failed to get reason: ${error}`)
+                    );
+                });
         }
     }
 
     const symbolVisibilityManager = React.useCallback(
         (compareHighlightedSymbol, symbol) => {
-            const i = compareHighlightedSymbol
-                .map((item) => item.tgt)
-                .indexOf(symbol.uuid);
-            const j = compareHighlightedSymbol
-                .map((item) => item.src)
-                .indexOf(symbol.uuid);
+            const i = compareHighlightedSymbol.indexOf(symbol.uuid);
             const childElement = document.getElementById(
                 symbol.uuid + `_${isSubnode ? 'sub' : 'main'}`
             );
             const parentElement = document.getElementById(parentID);
 
             if (!childElement || !parentElement) {
-                return {fittingHeight: 0, isMarked: i !== -1 || j !== -1};
+                return {fittingHeight: 0, isMarked: i !== -1};
             }
             const childRect = childElement.getBoundingClientRect();
             const parentRect = parentElement.getBoundingClientRect();
@@ -120,7 +201,7 @@ function NodeContent(props) {
             return {
                 fittingHeight:
                     childRect.bottom - parentRect.top + belowLineMargin,
-                isMarked: i !== -1 || j !== -1,
+                isMarked: i !== -1,
             };
         },
         [isSubnode, parentID]
@@ -131,7 +212,7 @@ function NodeContent(props) {
             .filter((symbol) => symbolShouldBeShown(symbol))
             .map((s) =>
                 symbolVisibilityManager(
-                    highlightedSymbol,
+                    allHighlightedSymbols,
                     s,
                     contentToShow.length === 1
                 )
@@ -144,16 +225,12 @@ function NodeContent(props) {
 
         if (node.loading === true) {
             setHeight(Math.min(Constants.standardNodeHeight, maxSymbolHeight));
-            dispatchTransformation(
-                setNodeIsExpandableV(transformationId, node.uuid, false)
-            );
+            dispatchT(setNodeIsExpandableV(transformationId, node.uuid, false));
             return;
         }
         if (node.isExpandVAllTheWay) {
             setHeight(maxSymbolHeight);
-            dispatchTransformation(
-                setNodeIsExpandableV(transformationId, node.uuid, false)
-            );
+            dispatchT(setNodeIsExpandableV(transformationId, node.uuid, false));
         } else {
             // marked node is under the standard height fold
             if (
@@ -169,7 +246,7 @@ function NodeContent(props) {
                     ...markedItems.map((item) => item.fittingHeight)
                 );
                 setHeight(newHeight);
-                dispatchTransformation(
+                dispatchT(
                     setNodeIsExpandableV(
                         transformationId,
                         node.uuid,
@@ -181,7 +258,7 @@ function NodeContent(props) {
                 setHeight(
                     Math.min(Constants.standardNodeHeight, maxSymbolHeight)
                 );
-                dispatchTransformation(
+                dispatchT(
                     setNodeIsExpandableV(
                         transformationId,
                         node.uuid,
@@ -190,17 +267,15 @@ function NodeContent(props) {
                 );
             }
         }
-        dispatchTransformation(
-            checkTransformationExpandableCollapsible(transformationId)
-        );
+        dispatchT(checkTransformationExpandableCollapsible(transformationId));
     }, [
         contentToShow,
-        highlightedSymbol,
+        allHighlightedSymbols,
         setHeight,
         symbolShouldBeShown,
         symbolVisibilityManager,
         node.loading,
-        dispatchTransformation,
+        dispatchT,
         node.uuid,
         node.isExpandVAllTheWay,
         transformationId,
@@ -215,7 +290,7 @@ function NodeContent(props) {
         });
     }, [
         visibilityManager,
-        highlightedSymbol,
+        allHighlightedSymbols,
         state,
         node.isExpandVAllTheWay,
         activeFilters,

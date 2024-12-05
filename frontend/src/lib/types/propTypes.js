@@ -6,14 +6,12 @@ export const SYMBOL = PropTypes.exact({
     name: PropTypes.string,
     positive: PropTypes.bool
 })
-
 export const SYMBOLIDENTIFIER = PropTypes.exact({
     _type: PropTypes.oneOf(['SymbolIdentifier']),
     symbol: SYMBOL,
     has_reason: PropTypes.bool,
     uuid: PropTypes.string
 })
-
 export const SIGNATURE = PropTypes.exact({
     _type: PropTypes.oneOf(['Signature']),
     name: PropTypes.string,
@@ -99,3 +97,15 @@ export const MAPZOOMSTATE = PropTypes.exact({
     scale: PropTypes.number,
     translation: PropTypes.shape({ x: PropTypes.number, y: PropTypes.number }),
 })
+export const SEARCHRESULTSYMBOLWRAPPER = PropTypes.exact({
+    _type: PropTypes.oneOf(['SearchResultSymbolWrapper']),
+    repr: PropTypes.string,
+    includes: PropTypes.arrayOf(PropTypes.string),
+    isAutocomplete: PropTypes.bool,
+    awaitingInput: PropTypes.bool,
+    hideInSuggestions: PropTypes.bool,
+    color: PropTypes.string,
+    recent: PropTypes.bool,
+    selected: PropTypes.number,
+    scrollable: PropTypes.bool,
+});

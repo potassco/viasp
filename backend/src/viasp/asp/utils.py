@@ -5,31 +5,31 @@ from clingo.ast import ASTType, AST
 from typing import List, Sequence, Tuple, Dict, Set, FrozenSet, Optional
 
 from ..shared.simple_logging import warn
-from ..shared.model import Node, SymbolIdentifier, Transformation, RuleContainer
+from ..shared.model import Node, SymbolIdentifier, Transformation, RuleContainer, rule_container_from_ast
 from ..shared.util import pairwise, get_root_node_from_graph
 
 def is_constraint(rule: AST) -> bool:
     return rule.ast_type == ASTType.Rule and "atom" in rule.head.child_keys and rule.head.atom.ast_type == ASTType.BooleanConstant  # type: ignore
 
 
-def merge_constraints(g: nx.DiGraph) -> nx.DiGraph:
+def merge_constraints(g: nx.DiGraph, program_str: str) -> nx.DiGraph:
     mapping = {}
-    constraints = frozenset([
+    constraints = set([
         ruleset for ruleset in g.nodes for rule in ruleset.ast
         if is_constraint(rule)
     ])
     if constraints:
-        merge_node = merge_nodes(constraints)
+        merge_node = merge_nodes(constraints, program_str)
         mapping = {c: merge_node for c in constraints}
     return nx.relabel_nodes(g, mapping)
 
 
-def merge_cycles(g: nx.DiGraph) -> Tuple[nx.DiGraph, FrozenSet[RuleContainer]]:
+def merge_cycles(g: nx.DiGraph, program_str) -> Tuple[nx.DiGraph, FrozenSet[RuleContainer]]:
     mapping: Dict[AST, AST] = {}
     merge_node: RuleContainer
     where_recursion_happens = set()
     for cycle in nx.algorithms.components.strongly_connected_components(g):
-        merge_node = merge_nodes(cycle)
+        merge_node = merge_nodes(cycle, program_str)
         mapping.update({old_node: merge_node for old_node in cycle})
     # which nodes were merged
     for k, v in mapping.items():
@@ -38,11 +38,11 @@ def merge_cycles(g: nx.DiGraph) -> Tuple[nx.DiGraph, FrozenSet[RuleContainer]]:
     return nx.relabel_nodes(g, mapping), frozenset(where_recursion_happens)
 
 
-def merge_nodes(nodes: FrozenSet[RuleContainer]) -> RuleContainer:
+def merge_nodes(nodes: set[RuleContainer], program_str: str) -> RuleContainer:
     old = set()
     for x in nodes:
         old.update(x.ast)
-    return RuleContainer(tuple(old))
+    return rule_container_from_ast(tuple(old), program_str)
 
 
 def remove_loops(g: nx.DiGraph) -> Tuple[nx.DiGraph, FrozenSet[RuleContainer]]:
@@ -126,8 +126,8 @@ def get_identifiable_reason(g: nx.DiGraph,
     """
     Returns the SymbolIdentifier that is the reason for the given Symbol r.
     If the reason is not in the node, it returns recursively calls itself with the predecessor.
-    
-    
+
+
     :param g: The graph that contains the nodes
     :param v: The node that contains the symbol r
     :param r: The symbol that is the reason

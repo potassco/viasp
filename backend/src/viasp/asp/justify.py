@@ -1,6 +1,6 @@
 """This module is concerned with finding reasons for why a stable model is found."""
 from collections import defaultdict
-from logging import warn
+from logging import warning
 from typing import List, Collection, Dict, Iterable, Union, Set
 
 import networkx as nx
@@ -12,9 +12,10 @@ from clingo.ast import AST, ASTType
 from .reify import ProgramAnalyzer, reify_recursion_transformation, LiteralWrapper
 from .recursion import RecursionReasoner
 from .utils import insert_atoms_into_nodes, identify_reasons, calculate_spacing_factor
-from ..shared.model import Node, RuleContainer, Transformation, SymbolIdentifier
+from ..shared.model import Node, RuleContainer, Transformation, SymbolIdentifier, SearchResultSymbolWrapper
 from ..shared.simple_logging import info
 from ..shared.util import pairwise, get_leafs_from_graph
+from ..server.models import GraphSymbols
 
 
 def stringify_fact(fact: Symbol) -> str:
@@ -258,7 +259,7 @@ def get_recursion_subgraph(
                           conflict_free_h=conflict_free_h,
                           conflict_free_n=n_str).main()
     except RuntimeError:
-        warn(f"Could not analyze recursion for {transformation.rules}")
+        warning(f"Could not analyze recursion for {transformation.rules}")
         return []
 
     h_syms = collect_h_symbols_and_create_nodes(
@@ -272,3 +273,54 @@ def get_recursion_subgraph(
     insert_atoms_into_nodes(h_syms)
 
     return h_syms
+
+def index_of_symbolstr_in_results(results: List[SearchResultSymbolWrapper], symbol_str: str) -> int:
+    for i, result in enumerate(results):
+        if result.repr == symbol_str:
+            return i
+    return -1
+
+def search_nonground_term_in_symbols(query, db_graph_symbols):
+    model_atoms: List[str] = []
+    symbol_uuid_str: str = "SYMBOLUUID"
+    results: List[SearchResultSymbolWrapper] = []
+    for s in db_graph_symbols:
+        model_atoms.append(f'model({s.symbol}, "{s.symbol_uuid}").')
+
+    control = Control()
+    query_rule = f'result({query},{symbol_uuid_str}):-model({query},{symbol_uuid_str}).'
+
+    try:
+        control.add("base", [], query_rule)
+        control.add("base", [], "\n".join(model_atoms))
+        control.ground([("base", [])])
+
+        for x in control.symbolic_atoms.by_signature("result", 2):
+            index = index_of_symbolstr_in_results(results, str(x.symbol.arguments[0]))
+            if index == -1:
+                results.append(SearchResultSymbolWrapper(
+                    repr = str(x.symbol.arguments[0]),
+                    includes = [str(x.symbol.arguments[1].string)],
+                    is_autocomplete = False,
+                    awaiting_input = False,
+                ))
+            else:
+                results[index].includes.append(str(x.symbol.arguments[1].string))
+
+    except RuntimeError:
+        return [
+            SearchResultSymbolWrapper(
+                repr=query,
+                includes=[],
+                is_autocomplete=False,
+                awaiting_input=True,
+                hide_in_suggestions=True,
+            )
+        ]
+    return results if len(results) else [SearchResultSymbolWrapper(
+        repr = query,
+        includes = [],
+        is_autocomplete = False,
+        awaiting_input = False,
+        hide_in_suggestions=True,
+    )]

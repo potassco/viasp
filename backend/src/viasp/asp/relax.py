@@ -88,8 +88,7 @@ class ProgramRelaxer(TermRelaxer):
                 variables: List[AST] = []
                 _ = self.visit_sequence(rule.body, adder=variables.append)
                 variables = [v for i,v in enumerate(variables) if v not in variables[:i]]
-                if variables != []:
-                    args.append(Function(location, '', variables, 0))
+                args.append(Function(location, '', variables, 0))
 
             rule.head = Literal(location = location,
                         sign = 0,

@@ -1,59 +1,100 @@
-import React, {useState} from "react";
-import {useColorPalette} from "../contexts/ColorPalette";
-import {useHighlightedSymbol} from "../contexts/HighlightedSymbol";
-import './settings.css'
-import { darken } from 'polished';
-import {useTransformations} from "../contexts/transformations";
+import React from 'react';
+import PropTypes from 'prop-types';
+import {useColorPalette} from '../contexts/ColorPalette';
+import {
+    useTransformations,
+    clearExplanationHighlightedSymbol,
+    clearSearchResultHighlightedSymbol,
+} from '../contexts/transformations';
+import {useSearchUserInput} from '../contexts/SearchUserInput';
+import './settings.css';
+import {darken} from 'polished';
+import {Search} from './Search.react';
+import {styled} from 'styled-components';
+import * as Constants from '../constants';
 
+const ClearMarkedDiv = styled.div`
+    display: flex;
+    justify-content: end;
+`;
 
-function makeClassNameFromMarkedSymbol(highlightedSymbol) {
-    const className = `txt-elem noselect toggle_part unselected ${highlightedSymbol.length === 0 ? "fadeOut" : "fadeIn"}`;
-    return className;
-}
+const ClearMarkedSpan = styled.span`
+    background: ${({$colorPalette}) => $colorPalette.primary};
+    color: ${({$colorPalette}) => $colorPalette.light};
+    padding: 0.7em 0.9em;
+    transition: opacity 0.8s;
+    font-family: monospace;
+    border-radius: 0.7em;
+    z-index: 20;
+    cursor: pointer;
+    opacity: ${({$highlightedSymbol}) =>
+        $highlightedSymbol.length === 0 ? 0 : 1};
+
+    &:hover {
+        background: ${({$colorPalette}) =>
+            darken(Constants.hoverColorDarkenFactor, $colorPalette.primary)};
+    }
+
+    &:active {
+        background: ${({$colorPalette}) => $colorPalette.infoBackground};
+    }
+`;
 
 function ClearMarked() {
-    const {highlightedSymbol, clearHighlightedSymbol} = useHighlightedSymbol();
     const colorPalette = useColorPalette();
-    const className = makeClassNameFromMarkedSymbol(highlightedSymbol)
-    const [isHovered, setIsHovered] = useState(false);
-    const [isClicked, setIsClicked] = useState(false);
+    const {
+        dispatch: dispatchT,
+        state: {allHighlightedSymbols},
+    } = useTransformations();
+    const [, setSearchUserInput] = useSearchUserInput();
 
-    const hoverFactor = 0.08;
-    const style = {
-        background: colorPalette.primary,
-        color: colorPalette.light,
-        padding: "12px",
-    };
-
-    if (isHovered) {
-        style.background = darken(hoverFactor, style.background);
+    function onClick() {
+        dispatchT(clearExplanationHighlightedSymbol());
+        dispatchT(clearSearchResultHighlightedSymbol());
+        setSearchUserInput('');
     }
-    if (isClicked) {
-        style.background = colorPalette.infoBackground;
-    }
-
-    const handleMouseEnter = () => setIsHovered(true);
-    const handleMouseLeave = () => setIsHovered(false);
-    const handleMouseDown = () => setIsClicked(true);
-    const handleMouseUp = () => setIsClicked(false);
-
-    const onClick = () => {
-        clearHighlightedSymbol();
-    }
-
-    return <span onClick={onClick}
-                className={className}
-                style={style}
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
-                onMouseDown={handleMouseDown}
-                onMouseUp={handleMouseUp}>
-            clear</span>
+    return (
+        <ClearMarkedDiv className="clear_marked">
+            <ClearMarkedSpan
+                className="txt-elem noselect unselected"
+                onClick={onClick}
+                $colorPalette={colorPalette}
+                $highlightedSymbol={allHighlightedSymbols}
+            >
+                clear
+            </ClearMarkedSpan>
+        </ClearMarkedDiv>
+    );
 }
 
-export default function Settings() {
+function Header(props) {
+    const {text} = props;
+    return (
+        <tr>
+            <td className="settings_header" align="center" colSpan="3">
+                {text}
+            </td>
+        </tr>
+    );
+}
+Header.propTypes = {
+    /**
+     * The text to be displayed in the header
+     */
+    text: PropTypes.string,
+};
 
-    return <div className="settings noselect" >
-                <ClearMarked/>
+export default function Settings() {
+    return (
+        <div className="settings noselect">
+            <div className="drawer">
+                <div className="drawer_content">
+                    <Search />
+                </div>
+                <div className="drawer_content">
+                    <ClearMarked />
+                </div>
             </div>
+        </div>
+    );
 }

@@ -29,7 +29,6 @@ export function make_rules_string(rule) {
     return rule.join(' ');
 }
 
-
 export function make_default_nodes(oldNodes = []) {
     if (oldNodes.length > 0) {
         return oldNodes.map((node, i) => {
@@ -113,4 +112,78 @@ export function findChildByClass(element, className) {
 
 export function emToPixel(em) {
     return em * parseFloat(getComputedStyle(document.documentElement).fontSize);
+}
+
+export function pixelToEm(px) {
+    return px / parseFloat(getComputedStyle(document.documentElement).fontSize);
+}
+
+export function getNextColor(
+    currentExplanationHighlightedSymbol,
+    currentSearchResultHighlightedSymbol,
+    colorArray
+) {
+    const arrayOfAllHighlights = [];
+    const colorCounter = {};
+    colorArray.forEach((i) => (colorCounter[i] = 0));
+
+    currentExplanationHighlightedSymbol.forEach((item) => {
+        arrayOfAllHighlights.push({
+            src: item.src,
+            tgt: item.tgt,
+            color: item.color,
+        });
+    });
+    currentSearchResultHighlightedSymbol.forEach((item) => {
+        arrayOfAllHighlights.push({
+            src: item.symbol_id,
+            tgt: null,
+            srcNode: item.node_id,
+            color: item.color,
+        });
+    });
+
+    const distinctExplanationsColors = arrayOfAllHighlights.reduce(
+        (acc, item) => {
+            const key = `${item.src}-${item.color}`;
+            if (!acc.some((i) => `${i.src}-${i.color}` === key)) {
+                acc.push(item);
+            }
+            return acc;
+        },
+        []
+    );
+    distinctExplanationsColors.forEach((item) => {
+        colorCounter[item.color] = colorCounter[item.color] + 1;
+    });
+
+    let leastOccurences = Infinity;
+    let leastOccuringColor = '';
+    colorArray.forEach((color) => {
+        if (colorCounter[color] < leastOccurences) {
+            leastOccurences = colorCounter[color];
+            leastOccuringColor = color;
+        }
+    });
+    return leastOccuringColor;
+}
+
+export function getNextHoverColor(
+    currentExplanationHighlightedSymbol,
+    currentSearchResultHighlightedSymbol,
+    symbol,
+    colorArray
+) {
+    const searchSymbolSourceIndex = currentExplanationHighlightedSymbol
+        .map((item) => item.src)
+        .indexOf(symbol);
+    if (searchSymbolSourceIndex !== -1) {
+        return currentExplanationHighlightedSymbol[searchSymbolSourceIndex]
+            .color;
+    }
+    return getNextColor(
+        currentExplanationHighlightedSymbol,
+        currentSearchResultHighlightedSymbol,
+        colorArray
+    );
 }

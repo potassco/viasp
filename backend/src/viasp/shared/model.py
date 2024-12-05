@@ -2,15 +2,14 @@ from copy import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from inspect import Signature as inspect_Signature
-from re import U
 from typing import Any, Sequence, Dict, Union, FrozenSet, Collection, List, Tuple
 from types import MappingProxyType
 from uuid import UUID, uuid4
-import networkx as nx
 
 from clingo import Symbol, ModelType
-from clingo.ast import AST, Transformer
-from .util import DefaultMappingProxyType, hash_string, hash_transformation_rules, get_rules_from_input_program, get_ast_from_input_string
+from clingo.ast import AST, Transformer, Rule
+from .util import (DefaultMappingProxyType, hash_string, hash_transformation_rules, get_rules_from_input_program, get_ast_from_input_string,
+    append_hashtag_to_minimize, hash_from_sorted_transformations)
 
 @dataclass()
 class SymbolIdentifier:
@@ -23,12 +22,13 @@ class SymbolIdentifier:
             return self.symbol == other.symbol
         elif isinstance(other, Symbol):
             return self.symbol == other
+        return False
 
     def __hash__(self):
         return hash(self.symbol)
 
     def __repr__(self):
-        return f"{{symbol: {str(self.symbol)}, uuid: {self.uuid}}}"
+        return f"{{symbol: {str(self.symbol)}, uuid: {self.uuid}, hash_reason: {self.has_reason}}}"
 
 
 @dataclass()
@@ -108,6 +108,31 @@ class RuleContainer:
 
     def __repr__(self):
         return str(self.str_)
+
+def rule_container_from_ast(rules: Tuple[Rule], program_str: str) -> RuleContainer:  # ignore: type
+    rules_from_input_program: Sequence[str] = []
+    program = program_str.split("\n")
+
+    for rule in rules:
+        begin_line = rule.location.begin.line
+        begin_colu = rule.location.begin.column
+        end_line = rule.location.end.line
+        end_colu = rule.location.end.column
+        r = ""
+        if begin_line != end_line:
+            r += program[begin_line - 1][begin_colu-1:] + "\n"
+            for i in range(begin_line, end_line - 1):
+                r += program[i] + "\n"
+            r += program[end_line - 1][:end_colu]
+        else:
+            r += program[begin_line - 1][begin_colu - 1:end_colu-1]
+        r = append_hashtag_to_minimize(r, rule, program, begin_line, begin_colu)
+        rules_from_input_program.append(r)
+    return RuleContainer(
+        ast=rules,
+        str_=tuple(rules_from_input_program),
+        hash=tuple([hash_string(rule_str) for rule_str in rules_from_input_program])
+    )
 
 
 @dataclass(frozen=False)
@@ -202,6 +227,27 @@ class StableModel:
         return symbols
 
 
+
+@dataclass
+class SearchResultSymbolWrapper:
+    repr: str
+    includes: List[str]
+    is_autocomplete: bool = True
+    awaiting_input: bool = True
+    hide_in_suggestions: bool = False
+
+    def __eq__(self, o):
+        if not isinstance(o, type(self)):
+            if isinstance(o, str):
+                return self.repr == o
+            return False
+        return self.repr == o.repr and self.includes == o.includes and self.is_autocomplete == o.is_autocomplete and self.awaiting_input == o.awaiting_input
+
+    def __lt__(self, other):
+        if not isinstance(other, SearchResultSymbolWrapper):
+            return NotImplemented
+        return self.repr < other.repr
+
 class FailedReason(Enum):
     WARNING = "WARNING"
     FAILURE = "FAILURE"
@@ -214,10 +260,10 @@ class TransformationError:
 
 @dataclass
 class TransformerTransport:
-    transformer: Transformer
+    transformer: type[Transformer]
     imports: str
     path: str
 
     @classmethod
-    def merge(cls, transformer: Transformer, imports: str, path: str):
+    def merge(cls, transformer: type[Transformer], imports: str, path: str):
         return cls(transformer, imports, path)

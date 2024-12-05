@@ -24,9 +24,9 @@ import networkx as nx
 #     clingo_model_type_stable_model
 from clingo import Model as clingo_Model, ModelType, Symbol, Application
 from clingo.ast import AST, ASTType
-
+from flask.json.tag import TaggedJSONSerializer
 from .interfaces import ViaspClient
-from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer
+from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper
 from ..server.models import GraphEdges
 
 class DataclassJSONProvider(JSONProvider):
@@ -40,7 +40,10 @@ def model_to_json(model: Union[clingo_Model, Collection[clingo_Model]], *args, *
     return json.dumps(model, *args, cls=DataclassJSONEncoder, **kwargs)
 
 
+tagged_serializer = TaggedJSONSerializer()
 def object_hook(obj):
+    obj = tagged_serializer.untag(obj)
+
     if '_type' not in obj:
         return obj
     t = obj['_type']
@@ -56,8 +59,19 @@ def object_hook(obj):
     elif t == "Supremum":
         return clingo.Supremum
     elif t == "Node":
-        obj['atoms'] = frozenset(obj['atoms'])
-        obj['diff'] = frozenset(obj['diff'])
+        # obj['atoms'] = frozenset(obj['atoms'])
+        obj['atoms'] = frozenset(
+            map(lambda x: SymbolIdentifier(
+                symbol=x.symbol,
+                has_reason=x.has_reason,
+                uuid=UUID(x.uuid)), obj['atoms'])
+        )
+        # obj['diff'] = frozenset(obj['diff'])
+        obj['diff'] = frozenset(
+            map(
+                lambda x: SymbolIdentifier(symbol=x.symbol,
+                                           has_reason=x.has_reason,
+                                           uuid=UUID(x.uuid)), obj['diff']))
         obj['uuid'] = UUID(obj['uuid'])
         return Node(**obj)
     elif t == "ClingraphNode":
@@ -66,6 +80,11 @@ def object_hook(obj):
         return Transformation(**obj)
     elif t == "RuleContainer":
         return RuleContainer(str_=obj["str_"], hash=obj["hash"])
+    elif t == "SearchResultSymbolWrapper":
+        obj['is_autocomplete'] = obj.pop('isAutocomplete', False)
+        obj['awaiting_input'] = obj.pop('awaitingInput', False)
+        obj['hide_in_suggestions'] = obj.pop('hideInSuggestions', False)
+        return SearchResultSymbolWrapper(**obj)
     elif t == "Signature":
         return Signature(**obj)
     elif t == "Graph":
@@ -85,9 +104,14 @@ def object_hook(obj):
     return obj
 
 
+
+
 class DataclassJSONDecoder(JSONDecoder):
     def __init__(self, *args, **kwargs):
-        JSONDecoder.__init__(self, object_hook=object_hook, *args, **kwargs)
+        kwargs['object_hook'] = object_hook
+        super().__init__(*args, **kwargs)
+
+
 
 
 def dataclass_to_dict(o):
@@ -123,6 +147,15 @@ def dataclass_to_dict(o):
         }
     elif isinstance(o, RuleContainer):
         return {"_type": "RuleContainer", "ast": o.ast, "str_": o.str_, "hash": o.hash}
+    elif isinstance(o, SearchResultSymbolWrapper):
+        return {
+            "_type": "SearchResultSymbolWrapper",
+            "repr": o.repr,
+            "includes": o.includes,
+            "isAutocomplete": o.is_autocomplete,
+            "awaitingInput": o.awaiting_input,
+            "hideInSuggestions": o.hide_in_suggestions,
+        }
     elif isinstance(o, StableModel):
         return {"_type": "StableModel", "cost": o.cost, "optimality_proven": o.optimality_proven, "type": o.type,
                 "atoms": o.atoms, "terms": o.terms, "shown": o.shown, "theory": o.theory}
@@ -191,6 +224,8 @@ def encode_object(o):
         return str(o)
     elif isinstance(o, Iterable):
         return list(o)
+    else:
+        return tagged_serializer.tag(o)
 
 
 

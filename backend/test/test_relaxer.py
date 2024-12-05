@@ -34,9 +34,17 @@ def test_minimize_statement_no_variable_collection_add_correctly():
 
 def test_head_added_no_variables_to_collect():
     rule = "a(1).:-a(1)."
-    expected = "a(1).unsat(r1) :- a(1).:~ unsat(R,T). [1@0,R,T]"
+    expected = "a(1).unsat(r1,()) :- a(1).:~ unsat(R,T). [1@0,R,T]"
     visitor = ProgramRelaxer(head_name = "unsat", collect_variables = True)
     assertProgramEqual(relax_constraints(visitor,rule), parse_program_to_ast(expected))
+
+
+def test_head_added_no_variables_collected():
+    rule = "a(1).:-a(1)."
+    expected = "a(1).unsat(r1) :- a(1).:~ unsat(R). [1@0,R]"
+    visitor = ProgramRelaxer(head_name="unsat", collect_variables = False)
+    assertProgramEqual(relax_constraints(visitor, rule),
+                       parse_program_to_ast(expected))
 
 
 def test_simple_variable_collect_correctly():
@@ -60,7 +68,7 @@ def test_multiple_variable_collect_correctly():
 
 def test_unwanted_BooleanConstant():
     rule = "c(1..3).d(X):-c(X).:- #false."
-    expected = "c((1..3)).d(X) :- c(X).unsat(r1) :- #false.:~ unsat(R,T). [1,R,T]"
+    expected = "c((1..3)).d(X) :- c(X).unsat(r1,()) :- #false.:~ unsat(R,T). [1,R,T]"
     visitor = ProgramRelaxer(head_name = "unsat", collect_variables = True)
     assertProgramEqual(relax_constraints(visitor,rule), parse_program_to_ast(expected))
 
@@ -78,18 +86,18 @@ def test_unwanted_TheoryAtom():
 
 def test_unwanted_Conditional():
     rule = "c(1..3).d(X):-c(X).:- g(X): X=1..3."
-    expected = "c((1..3)).d(X) :- c(X).unsat(r1) :- g(X): X=1..3.:~ unsat(R,T). [1,R,T]"
+    expected = "c((1..3)).d(X) :- c(X).unsat(r1,()) :- g(X): X=1..3.:~ unsat(R,T). [1,R,T]"
     visitor = ProgramRelaxer(head_name = "unsat", collect_variables = True)
     assertProgramEqual(relax_constraints(visitor,rule), parse_program_to_ast(expected))
 
 def test_negation_literal():
     rule = "c(1..3).d(X):-c(X).:- not d(X)."
-    expected = "c((1..3)).d(X) :- c(X).unsat(r1) :- not d(X).:~ unsat(R,T). [1,R,T]"
+    expected = "c((1..3)).d(X) :- c(X).unsat(r1,()) :- not d(X).:~ unsat(R,T). [1,R,T]"
     visitor = ProgramRelaxer(head_name = "unsat", collect_variables = True)
     assertProgramEqual(relax_constraints(visitor,rule), parse_program_to_ast(expected))
 
 def test_double_negation_literal():
     rule = "c(1..3).d(X):-c(X).:- not not d(X)."
-    expected = "c((1..3)).d(X) :- c(X).unsat(r1) :- not not d(X).:~ unsat(R,T). [1,R,T]"
+    expected = "c((1..3)).d(X) :- c(X).unsat(r1,()) :- not not d(X).:~ unsat(R,T). [1,R,T]"
     visitor = ProgramRelaxer(head_name = "unsat", collect_variables = True)
     assertProgramEqual(relax_constraints(visitor,rule), parse_program_to_ast(expected))

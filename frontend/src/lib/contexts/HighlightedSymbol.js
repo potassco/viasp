@@ -4,6 +4,10 @@ import { useSettings } from "./Settings";
 import { useColorPalette } from "../contexts/ColorPalette";
 import { useMessages, showError } from "./UserMessages";
 import * as Constants from "../constants";
+import {
+    useTransformations,
+    toggleExplanationHighlightedSymbol,
+} from './transformations';
 
 function fetchReasonOf(backendURL, sourceId, nodeId) {
     return fetch(`${backendURL("graph/reason")}`, {
@@ -20,6 +24,9 @@ function fetchReasonOf(backendURL, sourceId, nodeId) {
     });
 }
 const defaultHighlightedSymbol = [];
+// HighlightedSymbol { src: string, tgt: string, srcNode: string, color: string }
+const defaultSearchResultHighlightedSymbol = [];
+// SearchResultHighlightedSymbol { node_id: string, symbol_id: string, color: string, recent: boolean }
 const defaultHighlightedRule = []; 
 // HighlightedRule { rule_hash: string, color: string, source_id: string }
 
@@ -30,6 +37,8 @@ export const HighlightedSymbolProvider = ({ children }) => {
     const [highlightedSymbol, setHighlightedSymbol] = React.useState(
         defaultHighlightedSymbol
     );
+    const [searchResultHighlightedSymbol, setSearchResultHighlightedSymbol] =
+        React.useState(defaultSearchResultHighlightedSymbol);
     const [highlightedRule, setHighlightedRule] = React.useState(
         defaultHighlightedRule
     );
@@ -37,6 +46,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
     const [ruleDotHighlightColor, setRuleDotHighlightColor] =
         React.useState({});
     const colorPalette = useColorPalette();
+    const {dispatch: dispatchT} = useTransformations();
     const colorArray = colorPalette.explanationHighlights;
     const [, message_dispatch] = useMessages();
     const messageDispatchRef = React.useRef(message_dispatch);
@@ -45,11 +55,29 @@ export const HighlightedSymbolProvider = ({ children }) => {
     const backendUrlRef = React.useRef(backendURL);
 
     const getNextColor = React.useCallback(
-        (currentHighlightedSymbol) => {
+        (currentHighlightedSymbol, currentSearchResultHighlightedSymbol) => {
+            const arrayOfAllHighlights = []
             const colorCounter = {};
             colorArray.forEach((i) => (colorCounter[i] = 0));
 
-            const distinctExplanationsColors = currentHighlightedSymbol.reduce(
+            currentHighlightedSymbol.forEach((item) => {
+                arrayOfAllHighlights.push({
+                    src: item.src,
+                    tgt: item.tgt,
+                    srcNode: item.srcNode,
+                    color: item.color,
+                });
+            });
+            currentSearchResultHighlightedSymbol.forEach((item) => {
+                arrayOfAllHighlights.push({
+                    src: item.symbol_id,
+                    tgt: null,
+                    srcNode: item.node_id,
+                    color: item.color,
+                });
+            });
+
+            const distinctExplanationsColors = arrayOfAllHighlights.reduce(
                 (acc, item) => {
                     const key = `${item.src}-${item.color}`;
                     if (!acc.some((i) => `${i.src}-${i.color}` === key)) {
@@ -77,7 +105,7 @@ export const HighlightedSymbolProvider = ({ children }) => {
     );
 
     const toggleHighlightedSymbol = React.useCallback(
-        (arrows, currentHighlightedSymbol) => {
+        (arrows, currentHighlightedSymbol, currentSearchResultHighlightedSymbol) => {
             var arrowsSrcTgt = [];
             var arrowsColors = [];
             currentHighlightedSymbol.forEach((item) => {
@@ -90,7 +118,10 @@ export const HighlightedSymbolProvider = ({ children }) => {
                 );
                 arrowsColors.push(item.color);
             });
-            var c = `${getNextColor(currentHighlightedSymbol)}`;
+            var c = `${getNextColor(
+                currentHighlightedSymbol,
+                currentSearchResultHighlightedSymbol
+            )}`;
 
             arrows.forEach((a) => {
                 var value = JSON.stringify(a);
@@ -190,7 +221,11 @@ export const HighlightedSymbolProvider = ({ children }) => {
     );
 
     const getNextHoverColor = React.useCallback(
-        (currentHighlightedSymbol, symbol) => {
+        (
+            currentHighlightedSymbol,
+            currentSearchResultHighlightedSymbol, 
+            symbol
+        ) => {
             const searchSymbolSourceIndex = currentHighlightedSymbol
                 .map((item) => item.src)
                 .indexOf(symbol);
@@ -200,7 +235,10 @@ export const HighlightedSymbolProvider = ({ children }) => {
                         currentHighlightedSymbol[searchSymbolSourceIndex].color,
                 };
             }
-            const g = getNextColor(currentHighlightedSymbol);
+            const g = getNextColor(
+                currentHighlightedSymbol,
+                currentSearchResultHighlightedSymbol
+            );
             return {backgroundColor: g};
         },
         [getNextColor]
@@ -211,9 +249,10 @@ export const HighlightedSymbolProvider = ({ children }) => {
             sourceid,
             nodeId,
             currentHighlightedSymbol,
+            currentSearchResultHighlightedSymbol,
             currentHighlightedRule,
             currentBackgroundHighlightColors,
-            currentRuleDotHighlightColor
+            currentRuleDotHighlightColor,
         ) => {
             fetchReasonOf(backendUrlRef.current, sourceid, nodeId)
                 .then((res) => {
@@ -224,7 +263,8 @@ export const HighlightedSymbolProvider = ({ children }) => {
                     if (reasons.every((tgt) => tgt !== null)) {
                         new_color = toggleHighlightedSymbol(
                             reasons,
-                            currentHighlightedSymbol
+                            currentHighlightedSymbol,
+                            currentSearchResultHighlightedSymbol
                         );
                     }
                     if (rule_hash !== '') {
@@ -245,6 +285,62 @@ export const HighlightedSymbolProvider = ({ children }) => {
                 });
         },
         [messageDispatchRef, toggleHighlightedSymbol, toggleHighlightedRule]
+    );
+
+    const setSearchResultSymbolHighlight = React.useCallback(
+        (
+            symbolid,
+            nodeid,
+            currentHighlightedSymbol,
+            currentSearchResultHighlightedSymbol,
+        ) => {
+            var symbolColor = [];
+            currentSearchResultHighlightedSymbol.forEach((item) => {
+                symbolColor.push(
+                    JSON.stringify({
+                        symbolid: item.symbol_id,
+                        nodeid: item.node_id,
+                        color: item.color,
+                        recent: item.recent,
+                    })
+                );
+            });
+
+            var c = `${getNextColor(currentHighlightedSymbol, currentSearchResultHighlightedSymbol)}`;
+
+            var value = JSON.stringify({
+                symbol_id: symbolid, 
+                node_id: nodeid, 
+                color: c, 
+                recent: true
+            });
+            var index = symbolColor.indexOf(value);
+            if (index === -1) {
+                symbolColor.push(value);
+            } else {
+                symbolColor.splice(index, 1);
+            }
+            setSearchResultHighlightedSymbol(symbolColor.map(
+                (item) => JSON.parse(item)
+            ));
+            setTimeout(() => {
+                setSearchResultHighlightedSymbol((prev) => {
+                    var new_searchResultHighlightedSymbol = [...prev];
+                    var thisSearchResultHighlightedSymbol =
+                        new_searchResultHighlightedSymbol.find(
+                            (item) =>
+                                item.symbol_id === symbolid &&
+                                item.node_id === nodeid
+                        );
+                    
+                    if (thisSearchResultHighlightedSymbol && thisSearchResultHighlightedSymbol.recent) {
+                        thisSearchResultHighlightedSymbol.recent = false;
+                    }
+                    return new_searchResultHighlightedSymbol;
+                });
+            }, Constants.searchResultHighlightDuration);
+        },
+        [setSearchResultHighlightedSymbol, getNextColor]
     );
 
     const clearHighlightedSymbol = React.useCallback(() => {
@@ -290,12 +386,14 @@ export const HighlightedSymbolProvider = ({ children }) => {
         <HighlightedSymbolContext.Provider
             value={{
                 highlightedSymbol,
+                searchResultHighlightedSymbol,
                 toggleHighlightedSymbol,
                 clearHighlightedSymbol,
                 highlightedRule,
                 backgroundHighlightColor,
                 ruleDotHighlightColor,
                 toggleReasonOf,
+                setSearchResultSymbolHighlight,
                 getNextHoverColor,
                 unmarkInsertedSymbolHighlightDot,
                 removeDeletedSymbolHighlightDot,

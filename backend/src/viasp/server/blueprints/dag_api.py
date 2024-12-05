@@ -6,18 +6,19 @@ import uuid
 import igraph
 import networkx as nx
 import numpy as np
-from flask import Blueprint, current_app, request, jsonify, abort, Response, send_file
+from flask import Blueprint, current_app, session, request, jsonify, abort, Response, send_file
 from clingo.ast import AST
 from sqlalchemy.exc import MultipleResultsFound
+from sqlalchemy import select, delete, update
 
 from ...asp.reify import ProgramAnalyzer, reify_list
-from ...asp.justify import build_graph
+from ...asp.justify import build_graph, search_nonground_term_in_symbols
 from ...shared.defaults import STATIC_PATH
-from ...shared.model import Transformation, Node, Signature
+from ...shared.model import SearchResultSymbolWrapper, Transformation, Node, Signature
 from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations, pairwise
 from ...shared.io import StableModel
 from ...shared.simple_logging import error
-from ..database import get_or_create_encoding_id, db_session
+from ..database import ensure_encoding_id, db_session
 from ..models import *
 
 
@@ -89,6 +90,11 @@ def clear_encoding_session_data(encoding_id: str):
     db_session.query(Models).filter_by(encoding_id = encoding_id).delete()
     db_session.query(Graphs).filter_by(encoding_id = encoding_id).delete()
     db_session.query(CurrentGraphs).filter_by(encoding_id = encoding_id).delete()
+    db_graph_node_uuids = db_session.execute(
+        select(GraphNodes.node_uuid).filter_by(
+            encoding_id=encoding_id,
+            recursive_supernode_uuid=None)).scalars().all()
+    db_session.execute(delete(GraphSymbols).filter(GraphSymbols.node.in_(db_graph_node_uuids)))
     db_session.query(GraphNodes).filter_by(encoding_id = encoding_id).delete()
     db_session.query(GraphEdges).filter_by(encoding_id = encoding_id).delete()
     db_session.query(DependencyGraphs).filter_by(encoding_id = encoding_id).delete()
@@ -96,15 +102,19 @@ def clear_encoding_session_data(encoding_id: str):
     db_session.query(Clingraphs).filter_by(encoding_id = encoding_id).delete()
     db_session.query(Transformers).filter_by(encoding_id = encoding_id).delete()
     db_session.query(Warnings).filter_by(encoding_id = encoding_id).delete()
+    db_session.execute(delete(AnalyzerNames).filter_by(encoding_id = encoding_id))
+    db_session.execute(delete(AnalyzerFacts).filter_by(encoding_id = encoding_id))
+    db_session.execute(delete(AnalyzerConstants).filter_by(encoding_id = encoding_id))
     db_session.commit()
 
 
 @bp.route("/graph/children/<transformation_hash>", methods=["GET"])
+@ensure_encoding_id
 def get_children(transformation_hash):
     if request.method == "GET":
         ids_only = request.args.get("ids_only", default=False, type=bool)
         to_be_returned = handle_request_for_children(transformation_hash,
-                                                     ids_only, get_or_create_encoding_id())
+                                                     ids_only, session['encoding_id'])
         return jsonify(to_be_returned)
     raise NotImplementedError
 
@@ -147,6 +157,7 @@ def get_src_tgt_mapping_from_graph(encoding_id: str,
             ))
     return db_edges
 
+
 def find_reason_by_uuid(symbolid, nodeid, encoding_id):
     node = find_node_by_uuid(nodeid, encoding_id)
 
@@ -176,7 +187,8 @@ def find_reason_rule_by_uuid(symbolid, nodeid, encoding_id) -> Optional[int]:
                 ]
 
     if len(matching_nodes) != 1:
-        raise ValueError(f"Couldn't find reason rule of {symbolid}.")
+        # raise ValueError(f"Couldn't find reason rule of {symbolid}.")
+        return None
     node = current_app.json.loads(matching_nodes[0].node)
 
     symbolstr = str(
@@ -186,8 +198,7 @@ def find_reason_rule_by_uuid(symbolid, nodeid, encoding_id) -> Optional[int]:
 
     return reasonrule
 
-def get_current_sort():
-    encoding_id = get_or_create_encoding_id()
+def get_current_sort(encoding_id):
     current_hash = get_current_graph_hash(encoding_id)
 
     db_current_sort = db_session.query(Graphs).filter_by(
@@ -199,6 +210,7 @@ def get_current_sort():
     return current_sort
 
 @bp.route("/graph/sorts", methods=["GET", "POST"])
+@ensure_encoding_id
 def handle_new_sort():
     if request.method == "POST":
         if request.json is None:
@@ -210,7 +222,7 @@ def handle_new_sort():
             return "Invalid Request", 400
         if moved_transformation["old_index"] == moved_transformation["new_index"]:
             return "ok", 200
-        encoding_id = get_or_create_encoding_id()
+        encoding_id = session['encoding_id']
 
         current_graph_hash = get_current_graph_hash(encoding_id)
         result = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=current_graph_hash).one_or_none()
@@ -255,12 +267,14 @@ def handle_new_sort():
             generate_graph(encoding_id, analyzer)
         return jsonify({"hash":new_hash})
     elif request.method == "GET":
-        result = get_current_sort()
+        encoding_id = session['encoding_id']
+        result = get_current_sort(encoding_id)
         return jsonify(result)
     raise NotImplementedError
 
 
 @bp.route("/graph/edges", methods=["GET", "POST"])
+@ensure_encoding_id
 def get_edges():
     to_be_returned = []
     if request.method == "POST":
@@ -271,17 +285,18 @@ def get_edges():
         shown_clingraph = request.json[
             "usingClingraph"] if "usingClingraph" in request.json else False
         to_be_returned = get_src_tgt_mapping_from_graph(
-            get_or_create_encoding_id(), shown_recursive_ids, shown_clingraph)
+            session['encoding_id'], shown_recursive_ids, shown_clingraph)
     elif request.method == "GET":
-        to_be_returned = get_src_tgt_mapping_from_graph(get_or_create_encoding_id())
+        to_be_returned = get_src_tgt_mapping_from_graph(session['encoding_id'])
 
     jsonified = jsonify(to_be_returned)
     return jsonified
 
 
 @bp.route("/graph/transformation/<uuid>", methods=["GET"])
+@ensure_encoding_id
 def get_rule(uuid):
-    graph = _get_graph(get_or_create_encoding_id())
+    graph = _get_graph(session['encoding_id'])
     for _, _, edge in graph.edges(data=True):
         transformation: Transformation = edge["transformation"]
         if str(transformation.id) == str(uuid):
@@ -290,8 +305,9 @@ def get_rule(uuid):
 
 
 @bp.route("/graph/model/<uuid>", methods=["GET"])
+@ensure_encoding_id
 def get_node(uuid):
-    graph_nodes = db_session.query(GraphNodes).filter_by(encoding_id=get_or_create_encoding_id()).order_by(GraphNodes.branch_position).all()
+    graph_nodes = db_session.query(GraphNodes).filter_by(encoding_id=session['encoding_id']).order_by(GraphNodes.branch_position).all()
     if graph_nodes is None:
         raise DatabaseInconsistencyError
 
@@ -303,8 +319,9 @@ def get_node(uuid):
 
 
 @bp.route("/graph/facts", methods=["GET"])
+@ensure_encoding_id
 def get_facts():
-    encoding_id = get_or_create_encoding_id()
+    encoding_id = session['encoding_id']
 
     current_graph_hash = get_current_graph_hash(encoding_id)
     facts = db_session.query(GraphNodes).filter_by(
@@ -317,14 +334,16 @@ def get_facts():
 
 
 @bp.route("/graph/sorted_progam", methods=["GET"])
+@ensure_encoding_id
 def get_sorted_program():
-    result = get_current_sort()
+    result = get_current_sort(session['encoding_id'])
     return jsonify(result)
 
 
 @bp.route("/graph/current", methods=["GET", "POST", "DELETE"])
+@ensure_encoding_id
 def current_graph():
-    encoding_id = get_or_create_encoding_id()
+    encoding_id = session['encoding_id']
     if request.method == "GET":
         try:
             current_hash = get_current_graph_hash(encoding_id)
@@ -362,6 +381,7 @@ def current_graph():
 
 
 @bp.route("/graph", methods=["POST", "GET", "DELETE"])
+@ensure_encoding_id
 def entire_graph():
     if request.method == "POST":
         if request.json is None:
@@ -372,18 +392,26 @@ def entire_graph():
         sort = request.json['sort']
         sort = current_app.json.loads(sort) if type(sort) == str else sort
 
-        # db_current_graph = CurrentGraphs(encoding_id=get_or_create_encoding_id(), hash=hash)
-        # db_session.add(db_current_graph)
+        current_hash = get_current_graph_hash(session['encoding_id'])
+        if current_hash == None:
+            db_session.add(CurrentGraphs(encoding_id=session['encoding_id'],
+                                         hash=hash))
+        else:
+            db_session.execute(
+                update(CurrentGraphs)
+                .where(CurrentGraphs.encoding_id == session['encoding_id'])
+                .values(hash=hash)
+            )
         db_session.commit()
-        save_graph(data, get_or_create_encoding_id(), sort)
+        save_graph(data, session['encoding_id'], sort)
         return "ok", 200
     elif request.method == "GET":
-        result = _get_graph(get_or_create_encoding_id())
+        result = _get_graph(session['encoding_id'])
         return jsonify(result)
     elif request.method == "DELETE":
         try:
             # clear_encoding_session_data(get_or_create_encoding_id())
-            encoding_id = get_or_create_encoding_id()
+            encoding_id = session['encoding_id']
             current_graph_hash = get_current_graph_hash(encoding_id)
             # db_session.query(Graphs).filter_by(
             #     encoding_id=encoding_id, hash=current_graph_hash).delete()
@@ -391,7 +419,7 @@ def entire_graph():
                 encoding_id=encoding_id, hash=current_graph_hash).first()
             if db_graph is not None and db_graph.data is not None and db_graph.data != "":
                 db_graph.data = ""
-            db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).delete()
+            # db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).delete()
             # db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_graph_hash).delete()
             db_session.commit()
         except Exception as e:
@@ -418,6 +446,7 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
 
     pos: Dict[Node, List[float]] = get_node_positions(graph)
     db_nodes = []
+    db_symbols = []
     db_edges = []
     for source, target, edge in graph.edges(data=True):
         db_edges.append(GraphEdges(
@@ -438,18 +467,28 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    node=current_app.json.dumps(target),
                    node_uuid=target.uuid.hex)
         )
+        for symbol in target.diff:
+            db_symbols.append(
+                GraphSymbols(node=target.uuid.hex,
+                             symbol_uuid=symbol.uuid.hex,
+                             symbol=str(symbol.symbol)))
 
         if len(target.recursive) > 0:
-            for n in target.recursive:
+            for subnode in target.recursive:
                 db_nodes.append(
                     GraphNodes(encoding_id=encoding_id,
                                graph_hash=graph_hash,
                                transformation_hash=edge["transformation"].hash,
                                branch_position=branch_position,
-                               node=current_app.json.dumps(n),
-                               node_uuid=n.uuid.hex,
+                               node=current_app.json.dumps(subnode),
+                               node_uuid=subnode.uuid.hex,
                                recursive_supernode_uuid=target.uuid.hex)
                 )
+                for symbol in subnode.diff:
+                    db_symbols.append(
+                        GraphSymbols(node=subnode.uuid.hex,
+                                     symbol_uuid=symbol.uuid.hex,
+                                     symbol=str(symbol.symbol)))
             db_edges.append(GraphEdges(
                 encoding_id=encoding_id,
                 graph_hash=graph_hash,
@@ -488,7 +527,13 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    branch_position=0,
                    node=current_app.json.dumps(fact_node),
                    node_uuid=fact_node.uuid.hex))
+    for symbol in fact_node.diff:
+        db_symbols.append(
+            GraphSymbols(node=fact_node.uuid.hex,
+                         symbol_uuid=symbol.uuid.hex,
+                         symbol=str(symbol.symbol)))
     db_session.add_all(db_nodes)
+    db_session.add_all(db_symbols)
     db_session.add_all(db_edges)
 
     db_session.commit()
@@ -543,20 +588,22 @@ def get_kind(uuid: str, encoding_id: str) -> str:
 
 
 @bp.route("/detail/<uuid>", methods=["GET"])
+@ensure_encoding_id
 def model(uuid):
     if uuid is None:
         abort(Response("Parameter 'key' required.", 400))
-    encoding_id = get_or_create_encoding_id()
+    encoding_id = session['encoding_id']
     kind = get_kind(uuid, encoding_id)
     path = get_atoms_in_path_by_signature(uuid, encoding_id)
     return jsonify((kind, path))
 
 
 @bp.route("/detail/explain/<uuid>", methods=["GET"])
+@ensure_encoding_id
 def explain(uuid):
     if uuid is None:
         abort(Response("Parameter 'key' required.", 400))
-    node = find_node_by_uuid(uuid, get_or_create_encoding_id())
+    node = find_node_by_uuid(uuid, session['encoding_id'])
     explain = node.reason
     return jsonify(explain)
 
@@ -569,24 +616,86 @@ def get_all_signatures(graph: nx.Graph):
     return signatures
 
 
+def get_all_atoms(graph: nx.Graph):
+    atoms = set()
+    for n in graph.nodes():
+        for a in n.diff:
+            atoms.add(a.symbol)
+    return atoms
+
+def get_atoms_from_nodes(nodes: List[Node]):
+    atoms = set()
+    for n in nodes:
+        for a in n.diff:
+            atoms.add(a.symbol)
+    return atoms
+
+
+def get_all_symbols_in_graph(encoding_id, current_graph_hash):
+    db_graph_node_uuids = db_session.execute(
+        select(GraphNodes.node_uuid).filter_by(
+            encoding_id=encoding_id,
+            graph_hash=current_graph_hash,
+            recursive_supernode_uuid=None)).scalars().all()
+    db_graph_symbols = db_session.execute(
+        select(GraphSymbols).filter(GraphSymbols.node.in_(db_graph_node_uuids))).scalars().all()
+    return db_graph_symbols
+
+
+def search_ground_term_in_symbols(query, db_graph_symbols):
+    all_filtered_symbols = list(
+        filter(lambda x: query in x.symbol, db_graph_symbols))
+    all_filtered_symbols.reverse()
+    symbols_results = []
+    for symbol in all_filtered_symbols:
+        if symbol.symbol not in symbols_results:
+            symbols_results.append(
+                SearchResultSymbolWrapper(symbol.symbol, [symbol.symbol_uuid]))
+        else:
+            symbols_results[symbols_results.index(
+                symbol.symbol)].includes.append(symbol.symbol_uuid)
+    return symbols_results
+
+
 @bp.route("/query", methods=["GET"])
+@ensure_encoding_id
 def search():
+    if request.method == "POST":
+        if request.json is None:
+            abort(Response("No json data provided.", 400))
+        shown_recursive_ids = request.json[
+            "shownRecursion"] if "shownRecursion" in request.json else []
+        query = request.json["query"] if "query" in request.json else ""
     if "q" in request.args.keys():
+        encoding_id = session['encoding_id']
+        current_graph_hash = get_current_graph_hash(encoding_id)
+
         query = request.args["q"]
-        graph = _get_graph(get_or_create_encoding_id())
-        result = []
-        signatures = get_all_signatures(graph)
-        result.extend(signatures)
-        for node in graph.nodes():
-            if any(query in str(atm.symbol)
-                   for atm in node.atoms) and node not in result:
-                result.append(node)
-        for _, _, edge in graph.edges(data=True):
-            transformation = edge["transformation"]
-            if any(query in rule for rule in
-                   transformation.rules.str_) and transformation not in result:
-                result.append(transformation)
-        return jsonify(result[:10])
+        query = query.replace(" ", "")
+        # signatures = get_all_signatures(graph)
+        # for signature in signatures:
+        #     if query in signature.name \
+        #         and signature not in result:
+        #         result.append(signature)
+
+        # for node in graph.nodes():
+        #     if any(query in str(atm.symbol)
+        #            for atm in node.atoms) and node not in result:
+        #         result.append(node)
+
+        # for _, _, edge in graph.edges(data=True):
+        #     transformation = edge["transformation"]
+        #     if any(query in rule for rule in
+        #            transformation.rules.str_) and transformation not in result:
+        #         result.append(transformation)
+
+        db_graph_symbols = get_all_symbols_in_graph(encoding_id, current_graph_hash)
+        results = search_ground_term_in_symbols(query, db_graph_symbols)
+        if len(results) == 0:
+            results = search_nonground_term_in_symbols(query, db_graph_symbols)
+        results.sort()
+        return jsonify(results)
+
     return jsonify([])
 
 
@@ -605,9 +714,10 @@ def last_nodes_in_graph(graph):
 
 
 @bp.route("/clingraph/children", methods=["POST", "GET"])
+@ensure_encoding_id
 def get_clingraph_children():
     if request.method == "GET":
-        db_clingraph = db_session.query(Clingraphs).filter_by(encoding_id=get_or_create_encoding_id()).all()
+        db_clingraph = db_session.query(Clingraphs).filter_by(encoding_id=session['encoding_id']).all()
         to_be_returned = [{
             "_type": "ClingraphNode",
             "uuid": c.filename
@@ -617,26 +727,41 @@ def get_clingraph_children():
 
 
 @bp.route("/graph/reason", methods=["POST"])
+@ensure_encoding_id
 def get_reasons_of():
     if request.method == "POST":
         if request.json is None:
             return jsonify({'error': 'Missing JSON in request'}), 400
         if "sourceid" not in request.json or "nodeid" not in request.json:
-            return jsonify({'error': 'Missing sourceid or nodeid in request'}), 400
-        source_uuid = request.json["sourceid"]
-        node_uuid = request.json["nodeid"]
-        encoding_id = get_or_create_encoding_id()
+            return jsonify({'error':
+                            'Missing sourceid or nodeid in request'}), 400
+        source_uuid = uuid.UUID(request.json["sourceid"])
+        node_uuid = uuid.UUID(request.json["nodeid"])
+        encoding_id = session['encoding_id']
         try:
-            reason_uuids = find_reason_by_uuid(source_uuid, node_uuid, encoding_id)
-            reason_rule_uuid = find_reason_rule_by_uuid(source_uuid, node_uuid, encoding_id)
+            reason_uuids = find_reason_by_uuid(source_uuid, node_uuid,
+                                               encoding_id)
+            print(f"1Reasons of {source_uuid} in {node_uuid}", flush=True)
+            reason_rule_uuid = find_reason_rule_by_uuid(
+                source_uuid, node_uuid, encoding_id)
+            print(f"2Reasons of {source_uuid} in {node_uuid}", flush=True)
         except Exception as e:
-            return jsonify({'error': str(e)}), 404
+            print(f"AReasons of {e}", flush=True)
+            return jsonify({
+                "symbols": [{
+                    "src": None,
+                    "tgt": None
+                }],
+                "rule": None
+            })
         return jsonify({
             "symbols": [{
                 "src": source_uuid,
                 "tgt": reason_uuid
             } for reason_uuid in reason_uuids],
-            "rule": reason_rule_uuid})
+            "rule":
+            reason_rule_uuid
+        })
     raise NotImplementedError
 
 
@@ -683,7 +808,7 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
     recursion_rules = {
         r.recursive_transformation_hash for r in db_recursions
     }
-    sorted_program = get_current_sort()
+    sorted_program = get_current_sort(encoding_id)
     reified: Collection[AST] = reify_list(
         sorted_program,
         h=analyzer.get_conflict_free_h(),
