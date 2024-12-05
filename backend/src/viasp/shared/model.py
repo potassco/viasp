@@ -2,7 +2,7 @@ from copy import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from inspect import Signature as inspect_Signature
-from typing import Any, Sequence, Dict, Union, FrozenSet, Collection, List, Tuple
+from typing import Any, Sequence, Dict, Union, FrozenSet, Collection, List, Tuple, Type
 from types import MappingProxyType
 from uuid import UUID, uuid4
 
@@ -260,10 +260,10 @@ class TransformationError:
 
 @dataclass
 class TransformerTransport:
-    transformer: type[Transformer]
+    transformer: Type[Transformer]
     imports: str
     path: str
 
     @classmethod
-    def merge(cls, transformer: type[Transformer], imports: str, path: str):
+    def merge(cls, transformer: Type[Transformer], imports: str, path: str):
         return cls(transformer, imports, path)

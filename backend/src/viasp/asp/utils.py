@@ -38,7 +38,7 @@ def merge_cycles(g: nx.DiGraph, program_str) -> Tuple[nx.DiGraph, FrozenSet[Rule
     return nx.relabel_nodes(g, mapping), frozenset(where_recursion_happens)
 
 
-def merge_nodes(nodes: set[RuleContainer], program_str: str) -> RuleContainer:
+def merge_nodes(nodes: Set[RuleContainer], program_str: str) -> RuleContainer:
     old = set()
     for x in nodes:
         old.update(x.ast)
