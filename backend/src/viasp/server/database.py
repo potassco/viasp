@@ -1,6 +1,3 @@
-from os.path import join, dirname, abspath
-from typing import Set, List
-from uuid import UUID, uuid4
 from functools import wraps
 from flask import session
 
@@ -17,8 +14,7 @@ try:
 except ImportError:
     from threading import get_ident as _get_ident  # type: ignore
 
-SQLALCHEMY_DATABASE_URL = "sqlite:////" + join(dirname(abspath(__file__)),
-                                               GRAPH_PATH)
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{GRAPH_PATH}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)#, connect_args={"check_same_thread": False})
 db_session = scoped_session(

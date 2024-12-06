@@ -23,8 +23,8 @@ sys.path.insert(0, os.path.abspath('..'))
 # sys.path.append(os.path.join(os.path.abspath(os.pardir)))
 autodoc_mock_imports = [
     "clingo", "_clingo", "graphviz", "networkx", "viasp.shared",
-    "viasp.wrapper", "viasp.clingoApiClient",
-    "viasp_dash", "dash"
+    "viasp.wrapper", "viasp.clingoApiClient", "viasp_dash", "dash",
+    "viasp.server", "viasp.asp", "viasp.locales"
 ]
 
 # -- General configuration ---------------------------------------------------

@@ -12,6 +12,7 @@ DEFAULT_LOCALE = "en" + ".json"
 LOCALES_PATH = pathlib.Path(__file__).parent.parent.resolve() / "locales" / DEFAULT_LOCALE
 SHARED_PATH = pathlib.Path(__file__).parent.resolve()
 GRAPH_PATH = SHARED_PATH / "viasp_graph_storage.db"
+print(f'Type of GRAPH_PATH: {type(GRAPH_PATH)}', flush=True)    
 SERVER_PATH =  pathlib.Path(__file__).parent.parent.resolve() / "server/"
 STATIC_PATH =  os.path.join(SERVER_PATH, "static")
 CLINGRAPH_PATH = os.path.join(STATIC_PATH, "clingraph")
