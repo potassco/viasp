@@ -23,7 +23,7 @@ from dash import Dash, jupyter_dash
 from dash._jupyter import _jupyter_config
 
 from viasp import clingoApiClient
-from viasp.shared.defaults import (DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT,
+from viasp.shared.defaults import (CONFIG_PATH, DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT,
                                    DEFAULT_BACKEND_PROTOCOL, CLINGRAPH_PATH,
                                    GRAPH_PATH, PROGRAM_STORAGE_PATH,
                                    STDIN_TMP_STORAGE_PATH, COLOR_PALETTE_PATH, DEFAULT_COLOR)
@@ -66,11 +66,14 @@ def run(host=DEFAULT_BACKEND_HOST,
     log = open('viasp.log', 'w', encoding="utf-8")
     viasp_backend = Popen(command, stdout=log, stderr=log)
 
-    color_palette = json.load(open(COLOR_PALETTE_PATH, "r")).pop("colorThemes").pop(primary_color)
+    color_palette = json.load(open(COLOR_PALETTE_PATH,
+                                   "r")).pop("colorThemes").pop(primary_color)
+    config_constants = json.load(open(CONFIG_PATH, "r"))
     app = Dash(__name__)
     app.layout = viasp_dash.ViaspDash(id="myID",
                                       backendURL=backend_url,
-                                      colorPalette=color_palette)
+                                      colorPalette=color_palette,
+                                      config=config_constants)
     app.title = "viASP"
     dash_logger = logging.getLogger('dash.dash')
     dash_logger.setLevel(logging.ERROR)

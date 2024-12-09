@@ -19,16 +19,19 @@ Keyword arguments:
     Object to set by the notifyDash callback.
 
 - colorPalette (dict; optional):
-    Colors to be used in the application."""
+    Colors to be used in the application.
+
+- config (dict; optional):
+    Constants to be used in the application."""
     _children_props = []
     _base_nodes = ['children']
     _namespace = 'viasp_dash'
     _type = 'ViaspDash'
     @_explicitize_args
-    def __init__(self, id=Component.UNDEFINED, colorPalette=Component.UNDEFINED, clickedOn=Component.UNDEFINED, backendURL=Component.UNDEFINED, **kwargs):
-        self._prop_names = ['id', 'backendURL', 'clickedOn', 'colorPalette']
+    def __init__(self, id=Component.UNDEFINED, colorPalette=Component.UNDEFINED, clickedOn=Component.UNDEFINED, backendURL=Component.UNDEFINED, config=Component.UNDEFINED, **kwargs):
+        self._prop_names = ['id', 'backendURL', 'clickedOn', 'colorPalette', 'config']
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['id', 'backendURL', 'clickedOn', 'colorPalette']
+        self.available_properties = ['id', 'backendURL', 'clickedOn', 'colorPalette', 'config']
         self.available_wildcard_properties =            []
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

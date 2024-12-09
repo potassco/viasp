@@ -1,6 +1,6 @@
 import React from 'react';
 import './search.css';
-import * as Constants from '../constants';
+import { Constants } from "../constants";
 import {Suggestion} from './SearchResult.react';
 import {useSettings} from '../contexts/Settings';
 import {darken, lighten} from 'polished';

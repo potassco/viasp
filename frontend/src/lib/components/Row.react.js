@@ -1,7 +1,7 @@
 import React from 'react';
 import {Node, RecursiveSuperNode} from './Node.react';
 import {OverflowButton} from './OverflowButton.react';
-import * as Constants from '../constants';
+import { Constants } from "../constants";
 import './row.css';
 import PropTypes from 'prop-types';
 import {RowHeader} from './RowHeader.react';

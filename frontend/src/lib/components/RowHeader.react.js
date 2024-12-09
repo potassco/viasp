@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import {RULEWRAPPER} from '../types/propTypes';
-import * as Constants from '../constants';
+import { Constants } from "../constants";
 import {useColorPalette} from '../contexts/ColorPalette';
 import {Transition} from 'react-transition-group';
 import { useTransformations } from '../contexts/transformations';

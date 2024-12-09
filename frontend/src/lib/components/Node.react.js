@@ -24,9 +24,9 @@ import {useFilters} from '../contexts/Filters';
 import AnimateHeight from 'react-animate-height';
 import {IconWrapper} from '../LazyLoader';
 import useResizeObserver from '@react-hook/resize-observer';
-import {findChildByClass} from '../utils';
+import {findChildByClass, emToPixel} from '../utils';
 import debounce from 'lodash.debounce';
-import * as Constants from '../constants';
+import { Constants } from '../constants';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 import {useAnimationUpdater} from '../contexts/AnimationUpdater';
 import {useMessages, showError} from '../contexts/UserMessages';
@@ -219,12 +219,12 @@ function NodeContent(props) {
             );
         var markedItems = allHeights.filter((item) => item.isMarked);
         var maxSymbolHeight = Math.max(
-            Constants.minimumNodeHeight,
+            emToPixel(Constants.minimumNodeHeight),
             ...allHeights.map((item) => item.fittingHeight)
         );
 
         if (node.loading === true) {
-            setHeight(Math.min(Constants.standardNodeHeight, maxSymbolHeight));
+            setHeight(Math.min(emToPixel(Constants.standardNodeHeight), maxSymbolHeight));
             dispatchT(setNodeIsExpandableV(transformationId, node.uuid, false));
             return;
         }
@@ -238,7 +238,7 @@ function NodeContent(props) {
                 any(
                     markedItems.map(
                         (item) =>
-                            item.fittingHeight > Constants.standardNodeHeight
+                            item.fittingHeight > emToPixel(Constants.standardNodeHeight)
                     )
                 )
             ) {
@@ -256,13 +256,13 @@ function NodeContent(props) {
             } else {
                 // marked node is not under the standard height fold
                 setHeight(
-                    Math.min(Constants.standardNodeHeight, maxSymbolHeight)
+                    Math.min(emToPixel(Constants.standardNodeHeight), maxSymbolHeight)
                 );
                 dispatchT(
                     setNodeIsExpandableV(
                         transformationId,
                         node.uuid,
-                        maxSymbolHeight > Constants.standardNodeHeight
+                        maxSymbolHeight > emToPixel(Constants.standardNodeHeight)
                     )
                 );
             }
@@ -470,12 +470,12 @@ function checkForOverflowE(
         const nodeBorder = findChildByClass(e, 'node_border');
         const wouldOverflowNow = setContainer
             ? setContainer.scrollWidth >
-              nodeBorder.offsetWidth - Constants.overflowThreshold
+              nodeBorder.offsetWidth - emToPixel(Constants.overflowThreshold)
             : false;
         // We overflowed previously but not anymore
         if (
             overflowBreakingPoint <=
-            e.offsetWidth - Constants.overflowThreshold
+            e.offsetWidth - emToPixel(Constants.overflowThreshold)
         ) {
             setShowMini(false);
         }
@@ -500,7 +500,7 @@ export function Node(props) {
     const {dispatch: dispatchShownNodes} = useShownNodes();
     const {dispatch: dispatchTransformation} = useTransformations();
     const classNames = useHighlightedNodeToCreateClassName(node);
-    const [height, setHeight] = React.useState(Constants.minimumNodeHeight);
+    const [height, setHeight] = React.useState(emToPixel(Constants.minimumNodeHeight));
     const {setShownDetail} = useShownDetail();
     const dispatchShownNodesRef = React.useRef(dispatchShownNodes);
     const nodeuuidRef = React.useRef(node.uuid);
@@ -526,7 +526,7 @@ export function Node(props) {
             setNodeIsCollapsibleV(
                 transformationId,
                 node.uuid,
-                height > Constants.standardNodeHeight
+                height > emToPixel(Constants.standardNodeHeight)
             )
         );
     }, [height, dispatchTransformation, node.uuid, transformationId]);

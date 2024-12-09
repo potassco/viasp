@@ -1,6 +1,6 @@
 import React from 'react';
 import {MAPZOOMSTATE} from '../types/propTypes';
-import * as Constants from '../constants';
+import { Constants } from "../constants";
 import { useColorPalette } from '../contexts/ColorPalette';
 import {Box} from './Box.react';
 import './boxrow.css';

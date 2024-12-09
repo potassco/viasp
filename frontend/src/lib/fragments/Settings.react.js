@@ -11,7 +11,7 @@ import './settings.css';
 import {darken} from 'polished';
 import {Search} from './Search.react';
 import {styled} from 'styled-components';
-import * as Constants from '../constants';
+import { Constants } from "../constants";
 
 const ClearMarkedDiv = styled.div`
     display: flex;

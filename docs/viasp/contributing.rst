@@ -14,7 +14,7 @@ Requirements
 Getting started
 ===============
 
-1. Clone the repository using :code:`git clone https://github.com/stephanzwicknagl/viasp.git`
+1. Clone the repository using :code:`git clone https://github.com/potassco/viasp.git`
 2. Create and activate a conda environment
 3. Install pip :code:`conda install pip`
 4. Install viASP in editable mode :code:`pip install -e viasp -e viasp/backend -e viasp/frontend`

@@ -157,6 +157,7 @@ export function Symbol(props) {
         searchResultHighlightedSymbols,
         explanationHighlightedSymbols,
         contentDivRef,
+        symbolElementRef
     ]);
 
     atomString = atomString.length === 0 ? '' : atomString;

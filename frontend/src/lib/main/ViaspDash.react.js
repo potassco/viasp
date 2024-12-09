@@ -39,7 +39,7 @@ import {
 import DraggableList from 'react-draggable-list';
 import {MapInteraction} from 'react-map-interaction';
 import useResizeObserver from '@react-hook/resize-observer';
-import * as Constants from '../constants';
+import {Constants} from '../constants';
 import debounce from 'lodash.debounce';
 
 function GraphContainer(props) {
@@ -421,11 +421,16 @@ MainWindow.propTypes = {
  * ViaspDash is the main dash component
  */
 export default function ViaspDash(props) {
-    const {id, backendURL, setProps, colorPalette} = props;
+    const {id, backendURL, setProps, colorPalette, config} = props;
 
     function notifyDash(clickedOn) {
         setProps({clickedOn: clickedOn});
     }
+
+    React.useEffect(() => {
+        // Update the constants with the config prop
+        Object.assign(Constants, config);
+    }, [config]);
 
     return (
         <div id={id}>
@@ -489,6 +494,10 @@ ViaspDash.propTypes = {
      * The url to the viasp backend server
      */
     backendURL: PropTypes.string,
+    /**
+     * Constants to be used in the application.
+     */
+    config: PropTypes.object,
 };
 
 ViaspDash.defaultProps = {

@@ -11,7 +11,8 @@ import {
 } from '../contexts/transformations';
 import {debounce} from 'lodash';
 import useResizeObserver from '@react-hook/resize-observer';
-import * as Constants from '../constants';
+import { Constants } from "../constants";
+import {emToPixel} from '../utils';
 
 function useHighlightedNodeToCreateClassName(node) {
     const [highlightedBox] = useHighlightedNode();
@@ -47,12 +48,12 @@ function checkForOverflowE(
         const e = branchSpace.current;
         const wouldOverflowNow =
             imageWidth > 0
-                ? imageWidth > e.offsetWidth - Constants.overflowThreshold
+                ? imageWidth > e.offsetWidth - emToPixel(Constants.overflowThreshold)
                 : false;
         // We overflowed previously but not anymore
         if (
             overflowBreakingPoint <=
-            e.offsetWidth - Constants.overflowThreshold
+            e.offsetWidth - emToPixel(Constants.overflowThreshold)
         ) {
             setShowMini(false);
         }

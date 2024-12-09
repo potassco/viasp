@@ -1,6 +1,6 @@
 import './facts.css';
 import React from 'react';
-import * as Constants from '../constants';
+import { Constants } from "../constants";
 import {MAPZOOMSTATE} from '../types/propTypes';
 import {Node} from './Node.react';
 import { useColorPalette} from '../contexts/ColorPalette';

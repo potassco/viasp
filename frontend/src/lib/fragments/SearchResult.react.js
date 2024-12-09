@@ -9,7 +9,7 @@ import {
 import {styled} from 'styled-components';
 import {useColorPalette} from '../contexts/ColorPalette';
 import {darken, lighten} from 'polished';
-import * as Constants from '../constants';
+import { Constants } from "../constants";
 import {NavigationArea} from './NavigationArea.react';
 
 const SuggestionTextSpan = styled.span`

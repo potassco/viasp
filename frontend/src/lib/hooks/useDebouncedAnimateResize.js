@@ -1,5 +1,5 @@
 import React from "react";
-import * as Constants from "../constants";
+import { Constants } from "../constants";
 import debounce from "lodash/debounce";
 import { useAnimationUpdater } from "../contexts/AnimationUpdater";
 import useResizeObserver from '@react-hook/resize-observer';

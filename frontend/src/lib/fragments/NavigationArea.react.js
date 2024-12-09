@@ -1,5 +1,5 @@
 import React from 'react';
-import * as Constants from '../constants';
+import { Constants } from "../constants";
 import PropTypes from 'prop-types';
 import {styled} from 'styled-components';
 import {SEARCHRESULTSYMBOLWRAPPER} from '../types/propTypes';

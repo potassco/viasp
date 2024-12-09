@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import { useSettings } from "./Settings";
 import { useColorPalette } from "../contexts/ColorPalette";
 import { useMessages, showError } from "./UserMessages";
-import * as Constants from "../constants";
+import { Constants } from "../constants";
 import {
     useTransformations,
     toggleExplanationHighlightedSymbol,

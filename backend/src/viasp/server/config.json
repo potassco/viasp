@@ -1,0 +1,22 @@
+{
+    "DEBOUNCETIMEOUT": 150,
+    "SMALLERDEBOUNCETIMEOUT": 50,
+    "rowAnimationIntervalInMs": 30,
+    "rowAnimationPickupThreshold": 0.01,
+    "awaitingInputSpinnerSpeed": 0.3,
+    "hoverColorDarkenFactor": 0.08,
+    "hoverColorLightenFactor": 0.15,
+    "opacityMultiplier": 0.8,
+    "ruleHighlightDuration": 3000,
+    "ruleHighlightFadeDuration": 1000,
+    "searchResultHighlightDuration": 4500,
+    "minimumNodeHeight": 2.5,
+    "standardNodeHeight": 6.5,
+    "overflowThreshold": 0.1,
+    "minSearchInputWidthInEm": 15,
+    "maxSearchInputWidthInEm": 40,
+    "ZOOMTOGGLEBUTTON": "Shift",
+    "KEY_DOWN": 40,
+    "KEY_UP": 38,
+    "KEY_ENTER": 13
+}

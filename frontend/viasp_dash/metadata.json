@@ -50,6 +50,13 @@
           "value": "DEFAULT_BACKEND_URL",
           "computed": true
         }
+      },
+      "config": {
+        "type": {
+          "name": "object"
+        },
+        "required": false,
+        "description": "Constants to be used in the application."
       }
     }
   }
