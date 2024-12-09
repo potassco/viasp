@@ -48,7 +48,11 @@ function scrollParentToChild(parent, child) {
 
     if (!isViewable) {
         parent.scrollTo({
-            top: childRect.top - parent.offsetTop,
+            top:
+                childRect.top -
+                parentRect.top +
+                parent.scrollTop -
+                parent.clientHeight / 2,
             behavior: 'smooth',
         });
     }

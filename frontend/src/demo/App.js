@@ -1,6 +1,7 @@
 /* eslint no-magic-numbers: 0 */
 import React from 'react';
 import colorPaletteData from '../../../backend/src/viasp/server/colorPalette.json';
+import config from '../../../backend/src/viasp/server/config.json';
 
 import { ViaspDash } from '../lib';
 
@@ -14,6 +15,7 @@ const App = () => {
                 backendURL={backend_url}
                 setProps={setClickedOn}
                 colorPalette={colorPaletteData.colorThemes.blue}
+                config={config}
             />
         </div>
     );
