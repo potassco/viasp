@@ -20,7 +20,6 @@ import {SearchUserInputProvider} from '../contexts/SearchUserInput';
 import {
     UserMessagesProvider,
 } from '../contexts/UserMessages';
-import {useShownDetail, ShownDetailProvider} from '../contexts/ShownDetail';
 import {Settings} from '../LazyLoader';
 import {UserMessages} from '../components/messages';
 import {
@@ -38,9 +37,9 @@ import {
 } from '../contexts/AnimationUpdater';
 import DraggableList from 'react-draggable-list';
 import {MapInteraction} from 'react-map-interaction';
-import useResizeObserver from '@react-hook/resize-observer';
 import {Constants} from '../constants';
 import debounce from 'lodash.debounce';
+import { emToPixel } from '../utils';
 
 function GraphContainer(props) {
     const {notifyDash, scrollContainer, transform} = props;
@@ -54,7 +53,6 @@ function GraphContainer(props) {
         dispatch: dispatchTransformation,
         setSortAndFetchGraph,
     } = useTransformations();
-    const {highlightedSymbol} = useHighlightedSymbol();
     const draggableListRef = React.useRef(null);
     const {clearHighlightedSymbol} = useHighlightedSymbol();
     const clingraphUsed = clingraphGraphics.length > 0;
@@ -116,7 +114,7 @@ function MainWindow(props) {
     const {notifyDash} = props;
     const {setAnimationState} = useAnimationUpdater();
     const setAnimationStateRef = React.useRef(setAnimationState);
-    const [ctrlPressed, setCtrlPressed] = React.useState(false);
+    const [zoomBtnPressed, setZoomBtnPressed] = React.useState(false);
     const [translationBounds, setTranslationBounds] = React.useState({
         scale: 1,
         translation: {xMin: 0, xMax: 0},
@@ -126,16 +124,6 @@ function MainWindow(props) {
         scale: 1,
     });
     const contentDivRef = useContentDiv();
-
-    // React.useEffect(() => {
-    //     fetch(backendURLRef.current('graph/sorts')).catch(() => {
-    //         dispatchRef.current(
-    //             showError(
-    //                 `Couldn't connect to server at ${backendURLRef.current('')}`
-    //             )
-    //         );
-    //     });
-    // }, []);
 
     React.useEffect(() => {
         const setAnimationState = setAnimationStateRef.current;
@@ -154,16 +142,92 @@ function MainWindow(props) {
         };
     }, []);
 
+    const setNewTranslationBounds = React.useCallback((newScale) => {
+        const contentWidth = contentDivRef.current.clientWidth;
+        const rowWidth = contentWidth * newScale;
+        setTranslationBounds({
+            scale: 1,
+            translation: {
+                xMax: 0,
+                xMin: contentWidth - rowWidth,
+            },
+        });
+    }, [contentDivRef]);
+
     React.useEffect(() => {
         const handleKeyDown = (event) => {
-            if (event.key === Constants.ZOOMTOGGLEBUTTON) {
-                setCtrlPressed(true);
+            if (event.keyCode === Constants.zoomToggleBtn) {
+                setZoomBtnPressed(true);
+            }
+            if (Constants.zoomInBtns.includes(event.key) && zoomBtnPressed) {
+                setMapShiftValue((oldShiftValue) => {
+                    setNewTranslationBounds(oldShiftValue.scale + Constants.zoomBtnDiff);
+                    return {
+                        ...oldShiftValue,
+                        scale: oldShiftValue.scale +
+                            Constants.zoomBtnDiff,
+                    };
+                });
+            }
+            if (Constants.zoomOutBtns.includes(event.key) && zoomBtnPressed) {
+                setMapShiftValue((oldShiftValue) => {
+                    setNewTranslationBounds(oldShiftValue.scale - Constants.zoomBtnDiff);
+                    return {
+                        ...oldShiftValue,
+                        scale: Math.max(1, 
+                            oldShiftValue.scale - 
+                            Constants.zoomBtnDiff),
+                    };
+                });
+            }
+            if (event.keyCode === Constants.KEY_RIGHT && 
+                zoomBtnPressed) {
+                event.preventDefault();
+                setMapShiftValue((oldShiftValue) => {
+                    const newShiftValue =
+                        oldShiftValue.translation.x - emToPixel(Constants.zoomBtnTranlsaltionDiff);
+                    if (newShiftValue < translationBounds.translation.xMin) {
+                        return oldShiftValue;
+                    }
+                    if (newShiftValue > translationBounds.translation.xMax) {
+                        return oldShiftValue;
+                    }
+                    return {
+                        ...oldShiftValue,
+                        translation: {
+                            ...oldShiftValue.translation,
+                            x: newShiftValue
+                        },
+                    };
+                });
+            }
+            if (event.keyCode === Constants.KEY_LEFT &&
+                zoomBtnPressed) {
+                event.preventDefault();
+                setMapShiftValue((oldShiftValue) => {
+                    const newShiftValue =
+                        oldShiftValue.translation.x +
+                        emToPixel(Constants.zoomBtnTranlsaltionDiff);
+                    if (newShiftValue < translationBounds.translation.xMin) {
+                        return oldShiftValue;
+                    }
+                    if (newShiftValue > translationBounds.translation.xMax) {
+                        return oldShiftValue;
+                    }
+                    return {
+                        ...oldShiftValue,
+                        translation: {
+                            ...oldShiftValue.translation,
+                            x: newShiftValue,
+                        },
+                    };
+                });
             }
         };
 
         const handleKeyUp = (event) => {
-            if (event.key === Constants.ZOOMTOGGLEBUTTON) {
-                setCtrlPressed(false);
+            if (event.keyCode === Constants.zoomToggleBtn) {
+                setZoomBtnPressed(false);
             }
         };
 
@@ -174,33 +238,16 @@ function MainWindow(props) {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, []);
+    }, [zoomBtnPressed, translationBounds, setNewTranslationBounds]);
 
-    // Manage Graph Zoom
-    const {shownDetail} = useShownDetail();
-    const prevShownDetail = React.useRef(null);
+
 
     const handleMapChange = ({translation, scale}) => {
-        if (ctrlPressed) {
+        if (zoomBtnPressed) {
             const newTranslation = {...translation};
             let newScale = scale;
 
-            const contentWidth = contentDivRef.current.clientWidth;
-            const rowWidth = contentWidth * newScale;
-            const detailOpenWidth =
-                shownDetail === null
-                    ? 0
-                    : Constants.detailOpenWidthRatio * contentWidth;
-            setTranslationBounds({
-                scale:
-                    shownDetail === null
-                        ? 1
-                        : 1 - Constants.detailOpenWidthRatio,
-                translation: {
-                    xMax: 0,
-                    xMin: contentWidth - rowWidth - detailOpenWidth,
-                },
-            });
+            setNewTranslationBounds(newScale);
 
             setMapShiftValue(() => {
                 if (newTranslation.x < translationBounds.translation.xMin) {
@@ -219,112 +266,6 @@ function MainWindow(props) {
             });
         }
     };
-
-    const handleMapChangeOnDetailChange = React.useCallback(() => {
-        if (shownDetail === null && prevShownDetail.current !== null) {
-            // close a potential gap between the right border of the graph
-            // and the right border of the content div
-            setMapShiftValue((oldShiftValue) => {
-                const rowWidth =
-                    contentDivRef.current.clientWidth * oldShiftValue.scale;
-                const distanceOfRightSideOfGraphFromRightBorderUnderDetailSidebar =
-                    contentDivRef.current.clientWidth -
-                    oldShiftValue.translation.x -
-                    rowWidth;
-                if (
-                    distanceOfRightSideOfGraphFromRightBorderUnderDetailSidebar <=
-                    0
-                ) {
-                    return {...oldShiftValue};
-                }
-                if (oldShiftValue.scale < 1) {
-                    return {
-                        scale: 1,
-                        translation: {
-                            ...oldShiftValue,
-                            x: 0,
-                        },
-                    };
-                }
-                return {
-                    ...oldShiftValue,
-                    translation: {
-                        ...oldShiftValue.translation,
-                        x:
-                            oldShiftValue.translation.x +
-                            distanceOfRightSideOfGraphFromRightBorderUnderDetailSidebar,
-                    },
-                };
-            });
-        }
-        if (shownDetail !== null && prevShownDetail.current === null) {
-            // if the graph is shifted all the way to the left
-            // and the zoom scale is > 1, shift the graph to the left
-            setMapShiftValue((oldShiftValue) => {
-                const rowWidth =
-                    contentDivRef.current.clientWidth * oldShiftValue.scale;
-                const distanceOfRightSideOfGraphFromRightBorder =
-                    rowWidth -
-                    contentDivRef.current.clientWidth +
-                    oldShiftValue.translation.x;
-                if (
-                    oldShiftValue.scale === 1 ||
-                    distanceOfRightSideOfGraphFromRightBorder >=
-                        Constants.detailOpenShiftThreshold *
-                            contentDivRef.current.clientWidth
-                ) {
-                    return {...oldShiftValue};
-                }
-                return {
-                    ...oldShiftValue,
-                    translation: {
-                        ...oldShiftValue.translation,
-                        x:
-                            oldShiftValue.translation.x -
-                            Constants.detailOpenWidthRatio *
-                                contentDivRef.current.clientWidth -
-                            distanceOfRightSideOfGraphFromRightBorder,
-                    },
-                };
-            });
-        }
-        prevShownDetail.current = shownDetail;
-    }, [setMapShiftValue, shownDetail, contentDivRef]);
-
-    React.useEffect(() => {
-        handleMapChangeOnDetailChange();
-    }, [shownDetail, handleMapChangeOnDetailChange]);
-
-    const shiftZoomOnResize = React.useCallback(() => {
-        setMapShiftValue((oldShiftValue) => {
-            const contentWidth = contentDivRef.current.clientWidth;
-            const detailWidth =
-                shownDetail === null
-                    ? 0
-                    : Constants.detailOpenWidthRatio * contentWidth;
-            const rowWidth = contentWidth * oldShiftValue.scale;
-            if (
-                translationBounds.translation.xMin +
-                    oldShiftValue.translation.x >=
-                Constants.detailOpenShiftThreshold * contentWidth
-            ) {
-                return {...oldShiftValue};
-            }
-            return {
-                ...oldShiftValue,
-                translation: {
-                    ...oldShiftValue.translation,
-                    x: contentWidth - rowWidth - detailWidth,
-                },
-            };
-        });
-    }, [shownDetail, translationBounds, contentDivRef]);
-
-    const debouncedShiftZoomOnResize = React.useMemo(
-        () => debounce(shiftZoomOnResize, Constants.SMALLERDEBOUNCETIMEOUT),
-        [shiftZoomOnResize]
-    );
-    useResizeObserver(contentDivRef, debouncedShiftZoomOnResize);
 
     // observe scroll position
     // Add a state for the scroll position
@@ -383,7 +324,7 @@ function MainWindow(props) {
                         }
                     >
                         {() => {
-                            return ctrlPressed ? (
+                            return zoomBtnPressed ? (
                                 <div
                                     className="scroll_overlay"
                                     style={{
@@ -437,7 +378,6 @@ export default function ViaspDash(props) {
             <ColorPaletteProvider colorPalette={colorPalette}>
                 <SettingsProvider backendURL={backendURL}>
                     <HighlightedNodeProvider>
-                        <ShownDetailProvider>
                             <FilterProvider>
                                 <AnimationUpdaterProvider>
                                     <UserMessagesProvider>
@@ -462,7 +402,6 @@ export default function ViaspDash(props) {
                                     </UserMessagesProvider>
                                 </AnimationUpdaterProvider>
                             </FilterProvider>
-                        </ShownDetailProvider>
                     </HighlightedNodeProvider>
                 </SettingsProvider>
             </ColorPaletteProvider>

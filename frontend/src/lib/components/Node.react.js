@@ -18,7 +18,6 @@ import {
     removeExplanationRuleBackgroundHighlight,
 } from '../contexts/transformations';
 import {useSettings} from '../contexts/Settings';
-import {useShownDetail} from '../contexts/ShownDetail';
 import {NODE} from '../types/propTypes';
 import {useFilters} from '../contexts/Filters';
 import AnimateHeight from 'react-animate-height';
@@ -501,7 +500,6 @@ export function Node(props) {
     const {dispatch: dispatchTransformation} = useTransformations();
     const classNames = useHighlightedNodeToCreateClassName(node);
     const [height, setHeight] = React.useState(emToPixel(Constants.minimumNodeHeight));
-    const {setShownDetail} = useShownDetail();
     const dispatchShownNodesRef = React.useRef(dispatchShownNodes);
     const nodeuuidRef = React.useRef(node.uuid);
     const animateHeightRef = React.useRef(null);
@@ -634,15 +632,10 @@ export function RecursiveSuperNode(props) {
     const colorPalette = useColorPalette();
     const {dispatch: dispatchShownNodes} = useShownNodes();
     const classNames = `node_border ${node.uuid}`;
-    const {setShownDetail} = useShownDetail();
     const {dispatch: dispatchTransformation} = useTransformations();
 
     const dispatchShownNodesRef = React.useRef(dispatchShownNodes);
     const nodeuuidRef = React.useRef(node.uuid);
-
-    const notifyClick = (node) => {
-        setShownDetail(node.uuid);
-    };
 
     React.useEffect(() => {
         const dispatch = dispatchShownNodesRef.current;
@@ -687,7 +680,6 @@ export function RecursiveSuperNode(props) {
             id={node.uuid}
             onClick={(e) => {
                 e.stopPropagation();
-                notifyClick(node);
             }}
         >
             {node.showMini ? (
@@ -706,7 +698,6 @@ export function RecursiveSuperNode(props) {
                             <Node
                                 key={subnode.uuid}
                                 node={subnode}
-                                notifyClick={notifyClick}
                                 isSubnode={true}
                                 transformationId={transformationId}
                             />

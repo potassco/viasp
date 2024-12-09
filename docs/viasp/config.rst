@@ -27,13 +27,21 @@ The configuration of constants used for sizing and animating the viASP graph is 
         // graph sizing constants (in em)
         "minimumNodeHeight": 2.5,
         "standardNodeHeight": 6.5,
-        "overflowThreshold": 0.1,
         "minSearchInputWidthInEm": 15,
         "maxSearchInputWidthInEm": 40,
+        "zoomBtnTranlsaltionDiff": 1,
+
+        // graph resizing / zooming constants
+        "overflowThreshold": 0.1,
+        "zoomBtnDiff": 0.1,
 
         // keys
-        "ZOOMTOGGLEBUTTON": "Shift",
+        "zoomToggleBtn": 16,
+        "zoomInBtns": "+*",
+        "zoomOutBtns": "-_",
         "KEY_DOWN": 40,
         "KEY_UP": 38,
+        "KEY_LEFT": 37,
+        "KEY_RIGHT": 39,
         "KEY_ENTER": 13
     }
