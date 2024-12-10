@@ -13,7 +13,7 @@ viASP allows you to explore the visualization in a variety of ways:
 * Inspect iterations of recursive rules
 * Visualize unsatisfiable programs
 * Move rules to follow a preferred order
-* Zoom in and out of parts of the graph (press `Shift` and scroll)
+* Zoom in and out of parts of the graph (press `Shift` and scroll or +/-)
 
 ## Installation
 

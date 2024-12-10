@@ -20,7 +20,7 @@ Explore ASP programs and their answer sets with viASP:
 * Inspect iterations of recursive rules
 * Relax and visualize unsatisfiable programs
 * Reorder rules
-* Zoom in and out with Shift + mouse wheel
+* Zoom in and out of parts of the graph (press `Shift` and scroll or +/-)
 
 .. toctree::
    :maxdepth: 2

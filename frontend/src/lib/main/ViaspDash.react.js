@@ -9,6 +9,7 @@ import {Edges} from '../components/Edges.react';
 import {Arrows} from '../components/Arrows.react';
 import {ShownNodesProvider} from '../contexts/ShownNodes';
 import {ContentDivProvider, useContentDiv} from '../contexts/ContentDivContext';
+import { MapShiftProvider, useMapShift } from '../contexts/MapShiftContext';
 import {
     TransformationProvider,
     useTransformations,
@@ -115,14 +116,14 @@ function MainWindow(props) {
     const {setAnimationState} = useAnimationUpdater();
     const setAnimationStateRef = React.useRef(setAnimationState);
     const [zoomBtnPressed, setZoomBtnPressed] = React.useState(false);
-    const [translationBounds, setTranslationBounds] = React.useState({
-        scale: 1,
-        translation: {xMin: 0, xMax: 0},
-    });
-    const [mapShiftValue, setMapShiftValue] = React.useState({
-        translation: {x: 0, y: 0},
-        scale: 1,
-    });
+    const {
+        mapShiftValue,
+        setMapShiftValue,
+        translationBounds,
+        setTranslationBounds,
+        doKeyZoomScale,
+        doKeyZoomTranslate,
+    } = useMapShift();
     const contentDivRef = useContentDiv();
 
     React.useEffect(() => {
@@ -152,7 +153,7 @@ function MainWindow(props) {
                 xMin: contentWidth - rowWidth,
             },
         });
-    }, [contentDivRef]);
+    }, [contentDivRef, setTranslationBounds]);
 
     React.useEffect(() => {
         const handleKeyDown = (event) => {
@@ -160,68 +161,20 @@ function MainWindow(props) {
                 setZoomBtnPressed(true);
             }
             if (Constants.zoomInBtns.includes(event.key) && zoomBtnPressed) {
-                setMapShiftValue((oldShiftValue) => {
-                    setNewTranslationBounds(oldShiftValue.scale + Constants.zoomBtnDiff);
-                    return {
-                        ...oldShiftValue,
-                        scale: oldShiftValue.scale +
-                            Constants.zoomBtnDiff,
-                    };
-                });
+                event.preventDefault();
+                doKeyZoomScale(+1);
             }
             if (Constants.zoomOutBtns.includes(event.key) && zoomBtnPressed) {
-                setMapShiftValue((oldShiftValue) => {
-                    setNewTranslationBounds(oldShiftValue.scale - Constants.zoomBtnDiff);
-                    return {
-                        ...oldShiftValue,
-                        scale: Math.max(1, 
-                            oldShiftValue.scale - 
-                            Constants.zoomBtnDiff),
-                    };
-                });
-            }
-            if (event.keyCode === Constants.KEY_RIGHT && 
-                zoomBtnPressed) {
                 event.preventDefault();
-                setMapShiftValue((oldShiftValue) => {
-                    const newShiftValue =
-                        oldShiftValue.translation.x - emToPixel(Constants.zoomBtnTranlsaltionDiff);
-                    if (newShiftValue < translationBounds.translation.xMin) {
-                        return oldShiftValue;
-                    }
-                    if (newShiftValue > translationBounds.translation.xMax) {
-                        return oldShiftValue;
-                    }
-                    return {
-                        ...oldShiftValue,
-                        translation: {
-                            ...oldShiftValue.translation,
-                            x: newShiftValue
-                        },
-                    };
-                });
+                doKeyZoomScale(-1);
             }
-            if (event.keyCode === Constants.KEY_LEFT &&
-                zoomBtnPressed) {
+            if (event.keyCode === Constants.KEY_RIGHT && zoomBtnPressed) {
                 event.preventDefault();
-                setMapShiftValue((oldShiftValue) => {
-                    const newShiftValue =
-                        oldShiftValue.translation.x +
-                        emToPixel(Constants.zoomBtnTranlsaltionDiff);
-                    if (newShiftValue < translationBounds.translation.xMin) {
-                        return oldShiftValue;
-                    }
-                    if (newShiftValue > translationBounds.translation.xMax) {
-                        return oldShiftValue;
-                    }
-                    return {
-                        ...oldShiftValue,
-                        translation: {
-                            ...oldShiftValue.translation,
-                            x: newShiftValue,
-                        },
-                    };
-                });
+                doKeyZoomTranslate(-1);
+            }
+            if (event.keyCode === Constants.KEY_LEFT && zoomBtnPressed) {
+                event.preventDefault();
+                doKeyZoomTranslate(1);
             }
         };
 
@@ -238,7 +191,13 @@ function MainWindow(props) {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [zoomBtnPressed, translationBounds, setNewTranslationBounds]);
+    }, [
+        zoomBtnPressed,
+        translationBounds,
+        setNewTranslationBounds,
+        setMapShiftValue,
+        doKeyZoomScale,
+        doKeyZoomTranslate]);
 
 
 
@@ -378,11 +337,12 @@ export default function ViaspDash(props) {
             <ColorPaletteProvider colorPalette={colorPalette}>
                 <SettingsProvider backendURL={backendURL}>
                     <HighlightedNodeProvider>
+                        <ContentDivProvider>
+                        <MapShiftProvider>
                             <FilterProvider>
                                 <AnimationUpdaterProvider>
                                     <UserMessagesProvider>
                                         <ShownNodesProvider>
-                                            <ContentDivProvider>
                                                 <TransformationProvider>
                                                     <HighlightedSymbolProvider>
                                                         <SearchUserInputProvider>
@@ -397,11 +357,12 @@ export default function ViaspDash(props) {
                                                         </SearchUserInputProvider>
                                                     </HighlightedSymbolProvider>
                                                 </TransformationProvider>
-                                            </ContentDivProvider>
                                         </ShownNodesProvider>
                                     </UserMessagesProvider>
                                 </AnimationUpdaterProvider>
                             </FilterProvider>
+                        </MapShiftProvider>
+                        </ContentDivProvider>
                     </HighlightedNodeProvider>
                 </SettingsProvider>
             </ColorPaletteProvider>
