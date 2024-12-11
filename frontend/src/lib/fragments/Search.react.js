@@ -1,21 +1,22 @@
+import { darken, lighten } from 'polished';
 import React from 'react';
-import './search.css';
-import { Constants } from "../constants";
-import {Suggestion} from './SearchResult.react';
-import {useSettings} from '../contexts/Settings';
-import {darken, lighten} from 'polished';
-import {
-    useTransformations,
-    addSearchResultHighlightedSymbol,
-    unsetRecentSearchResultHighlightedSymbol,
-    clearSearchResultHighlightedSymbol,
-} from '../contexts/transformations';
-import {useColorPalette} from '../contexts/ColorPalette';
-import {useSearchUserInput} from '../contexts/SearchUserInput';
-import {styled} from 'styled-components';
+import PropTypes from 'prop-types';
 import PulseLoader from 'react-spinners/PulseLoader';
-import {NavigationArea, CloseButton} from './NavigationArea.react';
-import {pixelToEm} from '../utils';
+import { styled } from 'styled-components';
+import { Constants } from "../constants";
+import { useColorPalette } from '../contexts/ColorPalette';
+import { useSearchUserInput } from '../contexts/SearchUserInput';
+import { useSettings } from '../contexts/Settings';
+import {
+    addSearchResultHighlightedSymbol,
+    clearSearchResultHighlightedSymbol,
+    unsetRecentSearchResultHighlightedSymbol,
+    useTransformations,
+} from '../contexts/transformations';
+import { pixelToEm } from '../utils';
+import { NavigationArea } from './NavigationArea.react';
+import './search.css';
+import { Suggestion } from './SearchResult.react';
 
 function middlewareAddSearchResultHighlightedSymbol(
     dispatchT,
@@ -64,6 +65,11 @@ const ResultsListUL = styled.ul`
     overflow-y: auto;
     max-height: ${(props) => (props.$isVisible ? '8em' : '0')};
     transition: max-height 0.3s ease-out;
+    -ms-overflow-style: none; /* Internet Explorer 10+ */
+    scrollbar-width: none; /* Firefox */
+    &::-webkit-scrollbar { /* Safari and Chrome */
+        display: none;
+    }
 `;
 
 const AutocompleteResultsUL = styled(ResultsListUL)`
@@ -109,6 +115,74 @@ function calculateTextWidth(text) {
     return width;
 }
 
+function SearchInputComponent(props) {
+    const {
+        awaitingInput,
+        searchResultHighlightedSymbols,
+        searchInputRef,
+        userInput,
+        onChange,
+        onKeyDown,
+        inputWidth,
+    } = props;
+    const colorPalette = useColorPalette();
+    const [isHovered, setIsHovered] = React.useState(false);
+
+    return (
+        <SearchInputContainerDiv
+            className="search_input_container"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            <SearchInput
+                className="txt-elem"
+                ref={searchInputRef}
+                onChange={onChange}
+                onKeyDown={onKeyDown}
+                value={userInput}
+                $colorPalette={colorPalette}
+                $isHovered={isHovered}
+                $inputWidth={inputWidth}
+                placeholder="query"
+                type="text"
+            />
+            <PulseLoader
+                color={colorPalette.light}
+                loading={awaitingInput}
+                cssOverride={{
+                    position: 'absolute',
+                    marginRight: '0.8em',
+                }}
+                size={'0.25em'}
+                speedMultiplier={Constants.awaitingInputSpinnerSpeed}
+            />
+            <NavigationArea
+                visible={
+                    searchResultHighlightedSymbols.length > 0 &&
+                    searchResultHighlightedSymbols.some((s) => s.isAutocomplete)
+                }
+                searchResult={
+                    searchResultHighlightedSymbols.length
+                        ? searchResultHighlightedSymbols[0]
+                        : null
+                }
+                searchInputAreaRef={searchInputRef}
+            />
+        </SearchInputContainerDiv>
+    );
+}
+
+SearchInputComponent.propTypes = {
+    awaitingInput: PropTypes.bool,
+    searchResultHighlightedSymbols: PropTypes.array,
+    searchInputRef: PropTypes.object,
+    userInput: PropTypes.string,
+    onChange: PropTypes.func,
+    onKeyDown: PropTypes.func,
+    inputWidth: PropTypes.number,
+};
+
+
 export function Search() {
     const [activeSuggestion, setActiveSuggestion] = React.useState(0);
     const [filteredSuggestions, setFilteredSuggestions] = React.useState([]);
@@ -117,7 +191,6 @@ export function Search() {
         React.useState(true);
     const [showSuggestions, setShowSuggestions] = React.useState(false);
     const [userInput, setUserInput] = useSearchUserInput();
-    const [isHovered, setIsHovered] = React.useState(false);
     const [inputWidth, setInputWidth] = React.useState(
         Constants.minSearchInputWidthInEm
     );
@@ -131,41 +204,54 @@ export function Search() {
     const searchInputRef = React.useRef(null);
 
     let suggestionsListComponent;
+    let abortController = new AbortController();
+
+    const fetchSuggestions = (userInput) => {
+        abortController.abort();
+        abortController = new AbortController();
+        fetch(`${backendURL('query')}?q=${encodeURIComponent(userInput)}`, {
+            signal: abortController.signal,
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                const indexOfUserInputInSuggestions = data.findIndex(
+                    (s) => s.repr === userInput
+                );
+                if (
+                    indexOfUserInputInSuggestions !== -1 &&
+                    !data[indexOfUserInputInSuggestions].hideInSuggestions
+                ) {
+                    // exact match
+                    setFilteredSuggestions([]);
+                    selectAutocomplete(data[indexOfUserInputInSuggestions]);
+                } else {
+                    // show suggestions
+                    setIsAutocompleteVisible(
+                        data.some((s) => s.isAutocomplete)
+                    );
+                    setAwaitingInput(data.some((s) => s.awaitingInput));
+                    setActiveSuggestion(0);
+                    if (searchResultHighlightedSymbols.length > 0) {
+                        dispatchT(clearSearchResultHighlightedSymbol());
+                    }
+                    setFilteredSuggestions(
+                    data.filter((s) => !s.hideInSuggestions)
+                    );
+                    setShowSuggestions(true);
+                }
+            });
+    };
+
 
     function onChange(e) {
         const userInput = e.currentTarget.value;
         setUserInput(userInput);
+
         if (userInput === '') {
             setAwaitingInput(false);
             setFilteredSuggestions([]);
         } else {
-            fetch(`${backendURL('query')}?q=${encodeURIComponent(userInput)}`)
-                .then((r) => r.json())
-                .then((data) => {
-                    const indexOfUserInputInSuggestions = data.findIndex(
-                        (s) => s.repr === userInput
-                    );
-                    if (
-                        indexOfUserInputInSuggestions !== -1 &&
-                        !data[indexOfUserInputInSuggestions].hideInSuggestions
-                    ) {
-                        // exact match
-                        setFilteredSuggestions([]);
-                        selectAutocomplete(data[indexOfUserInputInSuggestions]);
-                    } else {
-                        // show suggestions
-                        setIsAutocompleteVisible(
-                            data.some((s) => s.isAutocomplete)
-                        );
-                        setAwaitingInput(data.some((s) => s.awaitingInput));
-                        setActiveSuggestion(0);
-                        dispatchT(clearSearchResultHighlightedSymbol());
-                        setFilteredSuggestions(
-                            data.filter((s) => !s.hideInSuggestions)
-                        );
-                        setShowSuggestions(true);
-                    }
-                });
+            fetchSuggestions(userInput);
         }
     }
 
@@ -332,48 +418,15 @@ export function Search() {
     return (
         <SearchDiv className="search">
             <SearchBarDiv className="search_bar" $inputWidth={inputWidth}>
-                <SearchInputContainerDiv
-                    className="search_input_container"
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
-                >
-                    <SearchInput
-                        className="txt-elem"
-                        ref={searchInputRef}
-                        onChange={onChange}
-                        onKeyDown={onKeyDown}
-                        value={userInput}
-                        $colorPalette={colorPalette}
-                        $isHovered={isHovered}
-                        $inputWidth={inputWidth}
-                        placeholder="query"
-                        type="text"
+                <SearchInputComponent
+                    awaitingInput={awaitingInput}
+                    searchResultHighlightedSymbols={searchResultHighlightedSymbols}
+                    searchInputRef={searchInputRef}
+                    userInput={userInput}
+                    onChange={onChange}
+                    onKeyDown={onKeyDown}
+                    inputWidth={inputWidth}
                     />
-                    <PulseLoader
-                        color={colorPalette.light}
-                        loading={awaitingInput}
-                        cssOverride={{
-                            position: 'absolute',
-                            marginRight: '0.8em',
-                        }}
-                        size={'0.25em'}
-                        speedMultiplier={Constants.awaitingInputSpinnerSpeed}
-                    />
-                    <NavigationArea
-                        visible={
-                            searchResultHighlightedSymbols.length > 0 &&
-                            searchResultHighlightedSymbols.some(
-                                (s) => s.isAutocomplete
-                            )
-                        }
-                        searchResult={
-                            searchResultHighlightedSymbols.length
-                                ? searchResultHighlightedSymbols[0]
-                                : null
-                        }
-                        searchInputAreaRef={searchInputRef}
-                    />
-                </SearchInputContainerDiv>
                 {suggestionsListComponent}
             </SearchBarDiv>
         </SearchDiv>
