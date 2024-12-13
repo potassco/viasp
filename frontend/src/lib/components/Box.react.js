@@ -76,6 +76,7 @@ export function Box(props) {
         React.useState(null);
     const colorPalette = useColorPalette();
     const {backendURL} = useSettings();
+    const backendURLRef = React.useRef(backendURL);
     const classNames = useHighlightedNodeToCreateClassName(node);
     const [imageSize, setImageSize] = React.useState({width: 0, height: 0});
     const {dispatch: dispatchTransformation} = useTransformations();
@@ -85,14 +86,14 @@ export function Box(props) {
         if (mounted && node.uuid && !node.loading) {
             const img = new Image();
             img.onload = function () {
-                setImageSize({width: this.width, height: this.height});
+                setImageSize({width: img.width, height: img.height});
             };
-            img.src = `${backendURL('clingraph')}/${node.uuid}`;
+            img.src = `${backendURLRef.current('clingraph')}/${node.uuid}`;
         }
         return () => {
             mounted = false;
         };
-    }, [backendURL, node.uuid, node.loading]);
+    }, [node.uuid, node.loading]);
 
     const checkForOverflow = React.useCallback(() => {
         checkForOverflowE(
@@ -107,8 +108,7 @@ export function Box(props) {
                 );
             }
         );
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [branchSpace, overflowBreakingPoint, node.showMini]);
+    }, [branchSpace, overflowBreakingPoint, node.showMini, imageSize.width, dispatchTransformation, node.uuid]);
 
     const debouncedCheckForOverflow = React.useMemo(() => {
         return debounce(checkForOverflow, Constants.DEBOUNCETIMEOUT);

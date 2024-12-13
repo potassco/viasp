@@ -1,7 +1,6 @@
 import './facts.css';
 import React from 'react';
 import { Constants } from "../constants";
-import {MAPZOOMSTATE} from '../types/propTypes';
 import {Node} from './Node.react';
 import { useColorPalette} from '../contexts/ColorPalette';
 import {OverflowButton} from './OverflowButton.react';
@@ -9,8 +8,7 @@ import {useTransformations} from '../contexts/transformations';
 import {make_default_nodes} from '../utils';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 
-export function Facts(props) {
-    const {transform} = props;
+export function Facts() {
     const {
         state: {transformationDropIndices, transformationNodesMap},
     } = useTransformations();
@@ -19,6 +17,7 @@ export function Facts(props) {
     const [style, setStyle] = React.useState({
         background: colorPalette.rowShading[0],
         opacity: 1.0,
+        width: '100%',
     });
     const branchSpaceRef = React.useRef(null);
     const rowbodyRef = React.useRef(null);
@@ -43,19 +42,6 @@ export function Facts(props) {
         }
     }, [transformationDropIndices]);
 
-    React.useEffect(() => {
-        if (transform.scale < 1) {
-            setStyle((prevStyle) => ({
-                ...prevStyle,
-                width: `${transform.scale * 100}%`,
-            }));
-        } else {
-            setStyle((prevStyle) => ({
-                ...prevStyle,
-                width: '100%',
-            }));
-        }
-    }, [transform.scale]);
 
     if (fact === null) {
         return <div className="row_container"></div>;
@@ -87,6 +73,4 @@ export function Facts(props) {
     );
 }
 
-Facts.propTypes = {
-    transform: MAPZOOMSTATE,
-};
+Facts.propTypes = {};

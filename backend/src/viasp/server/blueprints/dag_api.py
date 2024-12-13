@@ -339,6 +339,17 @@ def get_sorted_program():
     result = get_current_sort(session['encoding_id'])
     return jsonify(result)
 
+@bp.route("/transformations/current", methods=["GET"])
+@ensure_encoding_id
+def number_of_transformations():
+    encoding_id = session['encoding_id']
+    current_graph_hash = get_current_graph_hash(encoding_id)
+    db_graph = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=current_graph_hash).one_or_none()
+    if db_graph is None:
+        return jsonify({"number_of_transformations": 0})
+    sorted_program = current_app.json.loads(db_graph.sort)
+    return jsonify({"number_of_transformations": len(sorted_program)})
+
 
 @bp.route("/graph/current", methods=["GET", "POST", "DELETE"])
 @ensure_encoding_id

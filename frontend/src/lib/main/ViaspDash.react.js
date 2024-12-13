@@ -26,6 +26,7 @@ import {UserMessages} from '../components/messages';
 import {
     DEFAULT_BACKEND_URL,
     SettingsProvider,
+    useSettings,
 } from '../contexts/Settings';
 import {FilterProvider} from '../contexts/Filters';
 import {
@@ -40,10 +41,15 @@ import DraggableList from 'react-draggable-list';
 import {MapInteraction} from 'react-map-interaction';
 import {Constants} from '../constants';
 import debounce from 'lodash.debounce';
-import { emToPixel } from '../utils';
+import { RecoilRoot, useRecoilState } from 'recoil';
+import {
+    currentSortState,
+    numberOfTransformationsState,
+} from '../recoil/currentSortState';
+import { zoomButtonPressedState } from '../recoil/zoomState';
 
 function GraphContainer(props) {
-    const {notifyDash, scrollContainer, transform} = props;
+    const {notifyDash, scrollContainer} = props;
     const {
         state: {
             transformations,
@@ -57,6 +63,9 @@ function GraphContainer(props) {
     const draggableListRef = React.useRef(null);
     const {clearHighlightedSymbol} = useHighlightedSymbol();
     const clingraphUsed = clingraphGraphics.length > 0;
+    const {backendURL} = useSettings();
+    const [currentSort, setCurrentSort] = useRecoilState(currentSortState)
+    const [numberOfTransformations, setNumberOfTransformations] = useRecoilState(numberOfTransformationsState)
 
     function onMoveEnd(newList, movedItem, oldIndex, newIndex) {
         if (
@@ -64,15 +73,68 @@ function GraphContainer(props) {
             newIndex <= transformationDropIndices.upper_bound
         ) {
             clearHighlightedSymbol();
+            setNewSortAndSetRecoil(oldIndex, newIndex);
             setSortAndFetchGraph(oldIndex, newIndex);
         }
         dispatchTransformation(setTransformationDropIndices(null));
     }
 
+    async function fetchCurrentSortAndSetRecoil() {
+        try {
+            const response = await fetch(`${backendURL('graph/current')}`);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            setCurrentSort(data)
+        } catch (error) {
+            console.error('Error fetching current sort', error);
+        }
+        try {
+            const response = await fetch(`${backendURL('transformations/current')}`);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            setNumberOfTransformations(data.number_of_transformations);
+        } catch (error) {
+            console.error('Error fetching number of Transformations', error);
+        }
+    }
+
+    async function setNewSortAndSetRecoil(oldIndex,newIndex) {
+        try {
+            const response = await fetch(`${backendURL('graph/sorts')}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    moved_transformation: {
+                        old_index: oldIndex,
+                        new_index: newIndex,
+                    },
+                }),
+            });
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            setCurrentSort(data.hash);
+        } catch (error) {
+            console.error('Error setting new sort', error);
+        }
+    }
+
+    React.useEffect(() => {
+        fetchCurrentSortAndSetRecoil()
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+
     const graphContainerRef = React.useRef(null);
     return (
         <div className="graph_container" ref={graphContainerRef}>
-            <Facts transform={transform} />
+            <Facts />
             <Suspense fallback={<div>Loading...</div>}>
                 <Settings />
             </Suspense>
@@ -86,9 +148,8 @@ function GraphContainer(props) {
                 autoScrollRegionSize={200}
                 padding={0}
                 unsetZIndex={true}
-                commonProps={{transform}}
             />
-            {clingraphUsed ? <Boxrow transform={transform} /> : null}
+            {clingraphUsed ? <Boxrow /> : null}
             {explanationHighlightedSymbols.length === 0 ? null : <Arrows />}
             {transformations.length === 0 ? null : <Edges />}
         </div>
@@ -105,17 +166,12 @@ GraphContainer.propTypes = {
      * This is used to calculate the scroll region for the draggable list
      */
     scrollContainer: PropTypes.object,
-    /**
-     * The current zoom transformation of the graph
-     */
-    transform: MAPZOOMSTATE,
 };
 
-function MainWindow(props) {
-    const {notifyDash} = props;
-    const {setAnimationState} = useAnimationUpdater();
-    const setAnimationStateRef = React.useRef(setAnimationState);
-    const [zoomBtnPressed, setZoomBtnPressed] = React.useState(false);
+function ZoomInteraction() {
+    const [zoomBtnPressed, setZoomBtnPressed] = useRecoilState(
+        zoomButtonPressedState
+    );
     const {
         mapShiftValue,
         setMapShiftValue,
@@ -124,6 +180,9 @@ function MainWindow(props) {
         doKeyZoomScale,
         doKeyZoomTranslate,
     } = useMapShift();
+    const {setAnimationState} = useAnimationUpdater();
+    const setAnimationStateRef = React.useRef(setAnimationState);
+
     const contentDivRef = useContentDiv();
 
     React.useEffect(() => {
@@ -143,17 +202,20 @@ function MainWindow(props) {
         };
     }, []);
 
-    const setNewTranslationBounds = React.useCallback((newScale) => {
-        const contentWidth = contentDivRef.current.clientWidth;
-        const rowWidth = contentWidth * newScale;
-        setTranslationBounds({
-            scale: 1,
-            translation: {
-                xMax: 0,
-                xMin: contentWidth - rowWidth,
-            },
-        });
-    }, [contentDivRef, setTranslationBounds]);
+    const setNewTranslationBounds = React.useCallback(
+        (newScale) => {
+            const contentWidth = contentDivRef.current.clientWidth;
+            const rowWidth = contentWidth * newScale;
+            setTranslationBounds({
+                scale: 1,
+                translation: {
+                    xMax: 0,
+                    xMin: contentWidth - rowWidth,
+                },
+            });
+        },
+        [contentDivRef, setTranslationBounds]
+    );
 
     React.useEffect(() => {
         const handleKeyDown = (event) => {
@@ -197,9 +259,9 @@ function MainWindow(props) {
         setNewTranslationBounds,
         setMapShiftValue,
         doKeyZoomScale,
-        doKeyZoomTranslate]);
-
-
+        doKeyZoomTranslate,
+        setZoomBtnPressed
+    ]);
 
     const handleMapChange = ({translation, scale}) => {
         if (zoomBtnPressed) {
@@ -226,30 +288,6 @@ function MainWindow(props) {
         }
     };
 
-    // observe scroll position
-    // Add a state for the scroll position
-    const [scrollPosition, setScrollPosition] = React.useState(0);
-
-    // Add an effect to update the scroll position state when the contentDiv scrolls
-    React.useEffect(() => {
-        const contentDiv = contentDivRef.current;
-        const handleScroll = debounce((event) => {
-            requestAnimationFrame(() => {
-                setScrollPosition(event.target.scrollTop);
-            });
-        }, 100);
-
-        if (contentDiv) {
-            contentDiv.addEventListener('scroll', handleScroll);
-        }
-
-        return () => {
-            if (contentDiv) {
-                contentDiv.removeEventListener('scroll', handleScroll);
-            }
-        };
-    }, [contentDivRef]);
-
     React.useEffect(() => {
         setAnimationState((oldValue) => ({
             ...oldValue,
@@ -257,53 +295,61 @@ function MainWindow(props) {
                 ...oldValue.graph_zoom,
                 translation: {
                     x: mapShiftValue.translation.x,
-                    y: scrollPosition,
                 },
             },
         }));
-    }, [mapShiftValue, scrollPosition, setAnimationState]);
+    }, [mapShiftValue, setAnimationState]);
+
+    return (
+        <div
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+            }}
+        >
+            <MapInteraction
+                minScale={translationBounds.scale}
+                value={mapShiftValue}
+                onChange={({translation, scale}) =>
+                    handleMapChange({translation, scale})
+                }
+            >
+                {() => {
+                    return zoomBtnPressed ? (
+                        <div
+                            className="scroll_overlay"
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                backgroundColor: 'transparent',
+                                zIndex: 1,
+                            }}
+                        ></div>
+                    ) : null;
+                }}
+            </MapInteraction>
+        </div>
+    );
+}
+
+function MainWindow(props) {
+    const {notifyDash} = props;
+    const contentDivRef = useContentDiv();
+
 
     return (
         <>
             <div className="content" id="content" ref={contentDivRef}>
-                <div
-                    style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                    }}
-                >
-                    <MapInteraction
-                        minScale={translationBounds.scale}
-                        value={mapShiftValue}
-                        onChange={({translation, scale}) =>
-                            handleMapChange({translation, scale})
-                        }
-                    >
-                        {() => {
-                            return zoomBtnPressed ? (
-                                <div
-                                    className="scroll_overlay"
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
-                                        height: '100%',
-                                        backgroundColor: 'transparent',
-                                        zIndex: 1,
-                                    }}
-                                ></div>
-                            ) : null;
-                        }}
-                    </MapInteraction>
-                </div>
+                <ZoomInteraction/>
                 <GraphContainer
                     notifyDash={notifyDash}
                     scrollContainer={contentDivRef}
-                    transform={mapShiftValue}
                 />
             </div>
         </>
@@ -334,15 +380,16 @@ export default function ViaspDash(props) {
 
     return (
         <div id={id}>
+            <RecoilRoot>
             <ColorPaletteProvider colorPalette={colorPalette}>
                 <SettingsProvider backendURL={backendURL}>
                     <HighlightedNodeProvider>
                         <ContentDivProvider>
-                        <MapShiftProvider>
-                            <FilterProvider>
-                                <AnimationUpdaterProvider>
-                                    <UserMessagesProvider>
-                                        <ShownNodesProvider>
+                            <MapShiftProvider>
+                                <FilterProvider>
+                                    <AnimationUpdaterProvider>
+                                        <UserMessagesProvider>
+                                            <ShownNodesProvider>
                                                 <TransformationProvider>
                                                     <HighlightedSymbolProvider>
                                                         <SearchUserInputProvider>
@@ -357,15 +404,16 @@ export default function ViaspDash(props) {
                                                         </SearchUserInputProvider>
                                                     </HighlightedSymbolProvider>
                                                 </TransformationProvider>
-                                        </ShownNodesProvider>
-                                    </UserMessagesProvider>
-                                </AnimationUpdaterProvider>
-                            </FilterProvider>
-                        </MapShiftProvider>
+                                            </ShownNodesProvider>
+                                        </UserMessagesProvider>
+                                    </AnimationUpdaterProvider>
+                                </FilterProvider>
+                            </MapShiftProvider>
                         </ContentDivProvider>
                     </HighlightedNodeProvider>
                 </SettingsProvider>
             </ColorPaletteProvider>
+            </RecoilRoot>
         </div>
     );
 }

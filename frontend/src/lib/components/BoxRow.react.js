@@ -1,13 +1,13 @@
 import React from 'react';
-import {MAPZOOMSTATE} from '../types/propTypes';
 import { Constants } from "../constants";
 import { useColorPalette } from '../contexts/ColorPalette';
 import {Box} from './Box.react';
 import './boxrow.css';
 import {useTransformations} from '../contexts/transformations';
+import {useMapShift} from '../contexts/MapShiftContext';
 
-export function Boxrow(props) {
-    const {transform} = props;
+export function Boxrow() {
+    const {mapShiftValue: transform} = useMapShift();
     const boxrowRef = React.useRef(null);
     const colorPalette = useColorPalette();
     const {
@@ -66,6 +66,4 @@ export function Boxrow(props) {
     );
 }
 
-Boxrow.propTypes = {
-    transform: MAPZOOMSTATE
-};
+Boxrow.propTypes = {};

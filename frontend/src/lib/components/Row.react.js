@@ -16,6 +16,7 @@ import {make_default_nodes} from '../utils';
 import {AnimationUpdater} from '../contexts/AnimationUpdater';
 import {DragHandle} from './DragHandle.react';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
+import {useMapShift} from '../contexts/MapShiftContext';
 
 
 export class RowTemplate extends React.Component {
@@ -88,7 +89,7 @@ export class RowTemplate extends React.Component {
     }
 
     render() {
-        const {item: transformation, itemSelected, anySelected, dragHandleProps, commonProps} = this.props;
+        const {item: transformation, itemSelected, anySelected, dragHandleProps} = this.props;
 
         return (
             <AnimationUpdater.Consumer>
@@ -154,7 +155,6 @@ export class RowTemplate extends React.Component {
                                                             dragHandleProps={
                                                                 dragHandleProps
                                                             }
-                                                            transform = {commonProps.transform}
                                                         />
                                                     )}
                                                 </div>
@@ -189,16 +189,10 @@ RowTemplate.propTypes = {
      * The whole item will be draggable by the wrapped element.
      **/
     dragHandleProps: PropTypes.object,
-    /**
-     * The common props for all rows
-     **/
-    commonProps: PropTypes.shape({
-        transform: MAPZOOMSTATE
-    }),
 };
 
 export function Row(props) {
-    const {transformation, dragHandleProps, transform} = props;
+    const {transformation, dragHandleProps} = props;
     const {
         state: {transformations, transformationNodesMap},
     } = useTransformations();
@@ -207,6 +201,7 @@ export function Row(props) {
     const headerRef = React.useRef(null);
     const handleRef = React.useRef(null);
     const transformationIdRef = React.useRef(transformation.id);
+    const {mapShiftValue: transform} = useMapShift();
 
     useDebouncedAnimateResize(rowbodyRef, transformationIdRef);
 
@@ -334,8 +329,4 @@ Row.propTypes = {
      * It starts at 0, and quickly increases to 1 when the item is picked up by the user.
      */
     itemSelected: PropTypes.number,
-    /**
-     * The current zoom transformation of the graph
-     */
-    transform: MAPZOOMSTATE,
 };
