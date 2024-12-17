@@ -4,6 +4,11 @@
     line-height: 18pt;
     min-height: 18pt;
     cursor: pointer;
+    
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
 }
 
 .node_border {
@@ -60,6 +65,11 @@
     flex-flow: row wrap;
     justify-content: center;
     align-items: center;
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
 }
 
 .mini {

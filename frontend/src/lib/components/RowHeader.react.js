@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {Suspense} from 'react';
 import PropTypes from 'prop-types';
 import {RULEWRAPPER} from '../types/propTypes';
 import { Constants } from "../constants";
@@ -6,6 +6,13 @@ import {useColorPalette} from '../contexts/ColorPalette';
 import {Transition} from 'react-transition-group';
 import { useTransformations } from '../contexts/transformations';
 import {styled, keyframes, css} from 'styled-components';
+import { useRecoilValue, waitForAll, waitForNone } from 'recoil';
+import {
+    ruleWrapperByHashStateFamily,
+    ruleBackgroundHighlightsByTransformationStateFamily,
+    ruleDotHighlightsByTransformationStateFamily,
+    transformationStateFamily,
+} from '../atoms/transformationsState';
 
 
 const RuleHighlightDotDiv = styled.span`
@@ -62,34 +69,41 @@ RuleHighlightDot.propTypes = {
 
 
 function RuleHighlightDotContainer(props) {
-    const {hash, thisRuleExplanationHighlights} = props;
+    const {transformationId, ruleHash} = props;
+
+    const ruleDotHighlights = useRecoilValue(
+        ruleDotHighlightsByTransformationStateFamily(transformationId)
+    );
 
     return (
-        <RuleHighlightDotContainerDiv>
-            {thisRuleExplanationHighlights.map((dot, i) => (
-                <Transition
-                    key={`${hash}_${dot.color}_${i}`}
-                    mountOnEnter
-                    unmountOnExit
-                    appear={true}
-                    in={dot.shown}
-                    timeout={{enter: 0, appear:0, exit: Constants.ruleHighlightFadeDuration}}
-                >
-                    {(state) => (
-                        <RuleHighlightDot
-                            state={state}
-                            color={dot.color}
-                        />
-                    )}
-                </Transition>
-            ))}
-        </RuleHighlightDotContainerDiv>
+        <Suspense fallback={<div></div>}>
+            <RuleHighlightDotContainerDiv>
+                {ruleDotHighlights[ruleHash]?.map((dot, i) => (
+                    <Transition
+                        key={`${ruleHash}_${dot.color}_${i}`}
+                        mountOnEnter
+                        unmountOnExit
+                        appear={true}
+                        in={dot.shown}
+                        timeout={{
+                            enter: 0,
+                            appear: 0,
+                            exit: Constants.ruleHighlightFadeDuration,
+                        }}
+                    >
+                        {(state) => (
+                            <RuleHighlightDot state={state} color={dot.color} />
+                        )}
+                    </Transition>
+                ))}
+            </RuleHighlightDotContainerDiv>
+        </Suspense>
     );
 }
 
 RuleHighlightDotContainer.propTypes = {
-    hash: PropTypes.string,
-    thisRuleExplanationHighlights: PropTypes.array,
+    transformationId: PropTypes.number,
+    ruleHash: PropTypes.string,
 };
 
 const highlightAnimation = keyframes`
@@ -125,36 +139,25 @@ const RuleTextDiv = styled.div`
 
 function Rule(props) {
     const {
-        ruleWrapper: {hash, rule},
+        transformationId,
+        ruleHash,
         multipleRules,
     } = props;
-    const {state: {explanationHighlightedRules}} = useTransformations();
-    const [thisRuleExplanationHighlights, setThisRuleExplanationHighlights] = React.useState([]);
+    const ruleWrapper = useRecoilValue(
+        ruleWrapperByHashStateFamily({
+            transformationId,
+            ruleHash,
+        })
+    );
+    const ruleHighlights = useRecoilValue(
+        ruleBackgroundHighlightsByTransformationStateFamily(transformationId)
+    );
 
-    React.useEffect(() => {
-        if (explanationHighlightedRules) {
-            setThisRuleExplanationHighlights(explanationHighlightedRules.filter(
-                (rh) => rh.rule_hash === hash
-            ));
-        }
-    }, [explanationHighlightedRules, hash, setThisRuleExplanationHighlights]);
-
-    const [highlightColor, setHighlightColor] = React.useState(null);
-    React.useEffect(() => {
-        if (multipleRules && thisRuleExplanationHighlights.length > 0) {
-            const latestHighlight = thisRuleExplanationHighlights
-                .map((rh) => rh.ruleBackgroundHighlight)
-                .filter((h) => h !== 'transparent')
-                .pop();
-            setHighlightColor(latestHighlight);
-        }
-        return () => {};
-    }, [thisRuleExplanationHighlights, multipleRules]);
-
+    
     return (
         <div
-            key={hash}
-            className={`rule ${hash}`}
+            key={ruleWrapper.hash}
+            className={`rule ${ruleWrapper.hash}`}
             style={{
                 position: 'relative',
                 width: 'fit-content',
@@ -162,9 +165,9 @@ function Rule(props) {
         >
             <RuleTextDiv
                 className="rule_text txt-elem"
-                $highlight={highlightColor}
+                $highlight={ruleHighlights[ruleWrapper.hash][0]?.color}
                 dangerouslySetInnerHTML={{
-                    __html: rule
+                    __html: ruleWrapper.str_
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;')
                         .replace(/\n/g, '<br>'),
@@ -172,10 +175,8 @@ function Rule(props) {
             />
             {multipleRules ? (
                 <RuleHighlightDotContainer
-                    hash={hash}
-                    thisRuleExplanationHighlights={
-                        thisRuleExplanationHighlights
-                    }
+                    transformationId={transformationId}
+                    ruleHash={ruleHash}
                 />
             ) : null}
         </div>
@@ -183,14 +184,19 @@ function Rule(props) {
 }
 
 Rule.propTypes = {
-    ruleWrapper: RULEWRAPPER,
+    transformationId: PropTypes.number,
+    ruleHash: PropTypes.string,
     multipleRules: PropTypes.bool,
 };
 
 export function RowHeader(props) {
-    const {ruleWrappers} = props;
+    const {transformationId} = props;
     const colorPalette = useColorPalette();
-
+    const [recoilTransformation] = useRecoilValue(
+        waitForAll([transformationStateFamily(transformationId)])
+    );
+    const ruleHashes = recoilTransformation.rules.hash;
+        
     return (
         <div
             style={{
@@ -200,15 +206,20 @@ export function RowHeader(props) {
             }}
             className="txt-elem row_header"
         >
-            {ruleWrappers.map((rw) => {
-                return (
-                    <Rule
-                        key={rw.hash}
-                        ruleWrapper={rw}
-                        multipleRules={ruleWrappers.length > 1}
-                    />
-                );
-            })}
+            {typeof transformationId === 'undefined' ? null : (
+                <Suspense fallback={<div>Loading...</div>}>
+                    {ruleHashes.map((rh) => {
+                        return (
+                            <Rule
+                                key={rh}
+                                transformationId={transformationId}
+                                ruleHash={rh}
+                                multipleRules={true}
+                            />
+                        );
+                    })}
+                </Suspense>
+            )}
         </div>
     );
 }
@@ -217,5 +228,5 @@ RowHeader.propTypes = {
     /**
      * The rule wrapper of the transformation
      */
-    ruleWrappers: PropTypes.arrayOf(RULEWRAPPER),
+    transformationId: PropTypes.number,
 };

@@ -27,6 +27,12 @@ export const RULEWRAPPER = PropTypes.exact({
     rule: PropTypes.string,
     hash: PropTypes.string
 })
+export const RULEWRAPPER_RECOIL = PropTypes.exact({
+    _type: PropTypes.oneOf(['RuleWrapper_RECOIL']),
+    rule: PropTypes.string,
+    highlights: PropTypes.arrayOf(PropTypes.string),
+    hash: PropTypes.string,
+});
 export const TRANSFORMATION = PropTypes.exact({
     _type: PropTypes.oneOf(['Transformation']),
     id: PropTypes.number,

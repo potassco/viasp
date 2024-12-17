@@ -29,6 +29,8 @@ import { Constants } from '../constants';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 import {useAnimationUpdater} from '../contexts/AnimationUpdater';
 import {useMessages, showError} from '../contexts/UserMessages';
+import { useRecoilState, waitForAll } from 'recoil';
+import {ruleWrapperByHashStateFamily} from '../atoms/transformationsState';
 
 function any(iterable) {
     for (let index = 0; index < iterable.length; index++) {
@@ -161,7 +163,7 @@ function NodeContent(props) {
                                     rule_hash: result.rule,
                                     source_symbol_id: src.uuid,
                                     colors: colorPalette.explanationHighlights,
-                                }
+                                },
                             );
                         } else {
                             middlewareRemoveExplanationHighlightedSymbol(
@@ -340,6 +342,8 @@ function NodeContent(props) {
                     symbolIdentifier={s}
                     isSubnode={isSubnode}
                     handleClick={handleClick}
+                    nodeUuid={node.uuid}
+                    transformationId={transformationId}
                 />
             );
         });

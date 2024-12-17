@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import {Node, RecursiveSuperNode} from './Node.react';
 import {OverflowButton} from './OverflowButton.react';
 import { Constants } from "../constants";
@@ -17,6 +17,8 @@ import {AnimationUpdater} from '../contexts/AnimationUpdater';
 import {DragHandle} from './DragHandle.react';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 import {useMapShift} from '../contexts/MapShiftContext';
+import {useRecoilValue} from 'recoil';
+import {proxyTransformationStateFamily} from '../atoms/transformationsState';
 
 
 export class RowTemplate extends React.Component {
@@ -147,7 +149,7 @@ export class RowTemplate extends React.Component {
                                                     null ? null : (
                                                         <Row
                                                             key={
-                                                                transformation.hash
+                                                                transformation
                                                             }
                                                             transformation={
                                                                 transformation
@@ -175,7 +177,7 @@ RowTemplate.propTypes = {
     /**
      * The Transformation object to be displayed
      **/
-    item: TRANSFORMATIONWRAPPER,
+    item: PropTypes.object,
     /**
      * It starts at 0, and quickly increases to 1 when the item is picked up by the user.
      */
@@ -203,6 +205,18 @@ export function Row(props) {
     const transformationIdRef = React.useRef(transformation.id);
     const {mapShiftValue: transform} = useMapShift();
 
+    // debug
+    const recoiltransformation = useRecoilValue(
+        proxyTransformationStateFamily(transformation.id)
+    );
+    // React.useEffect(() => {
+    //     console.log('recoiltransformation', {
+    //         id: transformation.id,
+    //         recoiltransformation,
+    //     });
+    // }, [recoiltransformation, transformation.id]);
+    // *debug
+
     useDebouncedAnimateResize(rowbodyRef, transformationIdRef);
 
     React.useEffect(() => {
@@ -216,16 +230,16 @@ export function Row(props) {
     React.useEffect(() => {
         if (
             transformationNodesMap &&
-            transformationNodesMap[transformation.id]
+            transformationNodesMap[recoiltransformation.id]
         ) {
-            setNodes(transformationNodesMap[transformation.id]);
+            setNodes(transformationNodesMap[recoiltransformation.id]);
         }
-    }, [transformationNodesMap, transformation.id]);
+    }, [transformationNodesMap, recoiltransformation.id]);
 
 
     const showNodes =
         transformations.find(
-            ({shown, id}) => id === transformation.id && shown
+            ({shown, id}) => id === recoiltransformation.id && shown
         ) !== null;
 
     const branchSpaceRefs = React.useRef([]);
@@ -236,15 +250,18 @@ export function Row(props) {
     }, [nodes]);
 
 
+
     return (
-        <div className={`row_container ${transformation.hash}`}>
-            {transformation.rules.length === 0 ? null : (
-                <RowHeader ruleWrappers={transformation.rules} />
+        <Suspense fallback={<div>Loading...</div>}>
+        <div className={`row_container ${recoiltransformation.hash}`}>
+            {recoiltransformation.rules.length === 0 || typeof transformation.id === 'undefined' ? null : (
+            <RowHeader transformationId={transformation.id} />
             )}
             {dragHandleProps === null ||
-            transformation.adjacent_sort_indices === null ||
-            transformation.adjacent_sort_indices.lower_bound ===
-                transformation.adjacent_sort_indices.upper_bound ? null : (
+            recoiltransformation.adjacent_sort_indices === null ||
+            recoiltransformation.adjacent_sort_indices.lower_bound ===
+                recoiltransformation.adjacent_sort_indices
+                    .upper_bound ? null : (
                 <DragHandle ref={handleRef} dragHandleProps={dragHandleProps} />
             )}
             {!showNodes ? null : (
@@ -279,7 +296,9 @@ export function Row(props) {
                                         branchSpace={
                                             branchSpaceRefs.current[index]
                                         }
-                                        transformationId={transformation.id}
+                                        transformationId={
+                                            recoiltransformation.id
+                                        }
                                     />
                                 </div>
                             );
@@ -296,22 +315,23 @@ export function Row(props) {
                                     node={child}
                                     isSubnode={false}
                                     branchSpace={branchSpaceRefs.current[index]}
-                                    transformationId={transformation.id}
+                                    transformationId={recoiltransformation.id}
                                 />
                             </div>
                         );
                     })}
                 </div>
             )}
-            {!transformation.allNodesShowMini &&
-            (transformation.isExpandableV ||
-                transformation.isCollapsibleV) ? (
+            {!recoiltransformation.allNodesShowMini &&
+            (recoiltransformation.isExpandableV ||
+                recoiltransformation.isCollapsibleV) ? (
                 <OverflowButton
-                    transformationId={transformation.id}
+                    transformationId={recoiltransformation.id}
                     nodes={nodes}
                 />
             ) : null}
         </div>
+        </Suspense>
     );
 }
 
@@ -319,7 +339,7 @@ Row.propTypes = {
     /**
      * The Transformation wrapper object to be displayed
      */
-    transformation: TRANSFORMATIONWRAPPER,
+    transformation: PropTypes.object,
     /**
      * an object which should be spread as props on the HTML element to be used as the drag handle.
      * The whole item will be draggable by the wrapped element.

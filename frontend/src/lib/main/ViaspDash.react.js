@@ -40,13 +40,14 @@ import {
 import DraggableList from 'react-draggable-list';
 import {MapInteraction} from 'react-map-interaction';
 import {Constants} from '../constants';
-import debounce from 'lodash.debounce';
 import { RecoilRoot, useRecoilState } from 'recoil';
 import {
     currentSortState,
     numberOfTransformationsState,
-} from '../recoil/currentSortState';
-import { zoomButtonPressedState } from '../recoil/zoomState';
+} from '../atoms/currentSortState';
+import { transformationStateFamily } from '../atoms/transformationsState';
+import { zoomButtonPressedState } from '../atoms/zoomState';
+import {backendURLState} from '../atoms/settingsState'
 
 function GraphContainer(props) {
     const {notifyDash, scrollContainer} = props;
@@ -64,8 +65,13 @@ function GraphContainer(props) {
     const {clearHighlightedSymbol} = useHighlightedSymbol();
     const clingraphUsed = clingraphGraphics.length > 0;
     const {backendURL} = useSettings();
-    const [currentSort, setCurrentSort] = useRecoilState(currentSortState)
+    // const [currentSort, setCurrentSort] = useRecoilState(currentSortState)
     const [numberOfTransformations, setNumberOfTransformations] = useRecoilState(numberOfTransformationsState)
+
+
+    // function manageNewAtomsAfterMoving(oldIndex, newIndex) {
+    //     setNewSortAndSetRecoil(oldIndex, newIndex);
+    // };
 
     function onMoveEnd(newList, movedItem, oldIndex, newIndex) {
         if (
@@ -73,63 +79,86 @@ function GraphContainer(props) {
             newIndex <= transformationDropIndices.upper_bound
         ) {
             clearHighlightedSymbol();
-            setNewSortAndSetRecoil(oldIndex, newIndex);
+            // manageNewAtomsAfterMoving(oldIndex, newIndex);
             setSortAndFetchGraph(oldIndex, newIndex);
         }
         dispatchTransformation(setTransformationDropIndices(null));
     }
 
-    async function fetchCurrentSortAndSetRecoil() {
-        try {
-            const response = await fetch(`${backendURL('graph/current')}`);
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            const data = await response.json();
-            setCurrentSort(data)
-        } catch (error) {
-            console.error('Error fetching current sort', error);
-        }
-        try {
-            const response = await fetch(`${backendURL('transformations/current')}`);
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            const data = await response.json();
-            setNumberOfTransformations(data.number_of_transformations);
-        } catch (error) {
-            console.error('Error fetching number of Transformations', error);
-        }
-    }
+    // async function fetchCurrentSortAndSetRecoil() {
+    //     // get current sort hash
+    //     try {
+    //         const response = await fetch(`${backendURL('graph/current')}`);
+    //         if (!response.ok) {
+    //             throw new Error('Network response was not ok');
+    //         }
+    //         const data = await response.json();
+    //         setCurrentSort(data)
+    //     } catch (error) {
+    //         console.error('Error fetching current sort', error);
+    //     }
+    //     // get number of transformations
+    //     try {
+    //         const response = await fetch(`${backendURL('transformations/current')}`);
+    //         if (!response.ok) {
+    //             throw new Error('Network response was not ok');
+    //         }
+    //         const data = await response.json();
+    //         setNumberOfTransformations(data.number_of_transformations);
+    //     } catch (error) {
+    //         console.error('Error fetching number of Transformations', error);
+    //     }
+    //     // for each transformation, get the nodes
+    //     for (let i = 0; i < numberOfTransformations; i++) {
+    //         try {
+    //             const response = await fetch(
+    //                 `${backendURL('graph/transformation/' + i)}`
+    //             );
+    //             if (!response.ok) {
+    //                 throw new Error('Network response was not ok');
+    //             }
+    //             const data = await response.json();
+    //             transformationStateFamily({
+    //                 type: 'add',
+    //                 transformation: data,
+    //             });
+    //         } catch (error) {
+    //             console.error('Error fetching transformation', error);
+    //         }
+    //     }
+    // }
 
-    async function setNewSortAndSetRecoil(oldIndex,newIndex) {
-        try {
-            const response = await fetch(`${backendURL('graph/sorts')}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    moved_transformation: {
-                        old_index: oldIndex,
-                        new_index: newIndex,
-                    },
-                }),
-            });
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            const data = await response.json();
-            setCurrentSort(data.hash);
-        } catch (error) {
-            console.error('Error setting new sort', error);
-        }
-    }
+    // async function setNewSortAndSetRecoil(oldIndex,newIndex) {
+    //     try {
+    //         const response = await fetch(`${backendURL('graph/sorts')}`, {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //             },
+    //             body: JSON.stringify({
+    //                 moved_transformation: {
+    //                     old_index: oldIndex,
+    //                     new_index: newIndex,
+    //                 },
+    //             }),
+    //         });
+    //         if (!response.ok) {
+    //             throw new Error('Network response was not ok');
+    //         }
+    //         const data = await response.json();
+    //         setCurrentSort(data.hash);
+    //     } catch (error) {
+    //         console.error('Error setting new sort', error);
+    //     }
+    // }
 
-    React.useEffect(() => {
-        fetchCurrentSortAndSetRecoil()
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // React.useEffect(() => {
+    //     fetchCurrentSortAndSetRecoil()
+    // }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // if the numberOfTransformations still returns an unresolved promise, 
+
+    const arrayofobjects = Array.from({length: numberOfTransformations}, (_, i) => ({id: i}));
 
     const graphContainerRef = React.useRef(null);
     return (
@@ -137,18 +166,19 @@ function GraphContainer(props) {
             <Facts />
             <Suspense fallback={<div>Loading...</div>}>
                 <Settings />
-            </Suspense>
             <DraggableList
                 ref={draggableListRef}
-                itemKey="hash"
+                itemKey="id"
                 template={RowTemplate}
-                list={transformations}
+                // list={transformations}
+                list={arrayofobjects}
                 onMoveEnd={onMoveEnd}
                 container={() => scrollContainer.current}
                 autoScrollRegionSize={200}
                 padding={0}
                 unsetZIndex={true}
-            />
+                />
+            </Suspense>
             {clingraphUsed ? <Boxrow /> : null}
             {explanationHighlightedSymbols.length === 0 ? null : <Arrows />}
             {transformations.length === 0 ? null : <Edges />}
@@ -339,18 +369,25 @@ function ZoomInteraction() {
 }
 
 function MainWindow(props) {
-    const {notifyDash} = props;
+    const {notifyDash, backendURL} = props;
     const contentDivRef = useContentDiv();
+    const [backendURLRecoil, setBackendURLRecoil] = useRecoilState(backendURLState);
 
+    React.useLayoutEffect(() => {
+        console.log('Setting backendURLRecoil', backendURL);
+        setBackendURLRecoil(backendURL);
+    }, [backendURL]);
 
     return (
         <>
             <div className="content" id="content" ref={contentDivRef}>
                 <ZoomInteraction/>
-                <GraphContainer
-                    notifyDash={notifyDash}
-                    scrollContainer={contentDivRef}
-                />
+                <Suspense fallback={<div>Loading...</div>}>
+                    <GraphContainer
+                        notifyDash={notifyDash}
+                        scrollContainer={contentDivRef}
+                    />
+                </Suspense>
             </div>
         </>
     );
@@ -361,6 +398,10 @@ MainWindow.propTypes = {
      * Objects passed to this functions will be available to Dash callbacks.
      */
     notifyDash: PropTypes.func,
+    /**
+     * The url to the viasp backend server
+     */
+    backendURL: PropTypes.string,
 };
 
 /**
@@ -374,7 +415,6 @@ export default function ViaspDash(props) {
     }
 
     React.useEffect(() => {
-        // Update the constants with the config prop
         Object.assign(Constants, config);
     }, [config]);
 
@@ -399,6 +439,7 @@ export default function ViaspDash(props) {
                                                                     notifyDash={
                                                                         notifyDash
                                                                     }
+                                                                    backendURL={backendURL}
                                                                 />
                                                             </div>
                                                         </SearchUserInputProvider>

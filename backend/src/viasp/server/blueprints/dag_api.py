@@ -1,5 +1,6 @@
 import os
 from collections import defaultdict
+import re
 from typing import Union, Collection, Dict, List, Iterable, Optional
 import uuid
 
@@ -198,9 +199,7 @@ def find_reason_rule_by_uuid(symbolid, nodeid, encoding_id) -> Optional[int]:
 
     return reasonrule
 
-def get_current_sort(encoding_id):
-    current_hash = get_current_graph_hash(encoding_id)
-
+def get_current_sort_by_hash(encoding_id, current_hash):
     db_current_sort = db_session.query(Graphs).filter_by(
         encoding_id=encoding_id, hash=current_hash).one_or_none()
     if db_current_sort is None or db_current_sort.sort is None:
@@ -208,6 +207,10 @@ def get_current_sort(encoding_id):
     current_sort = current_app.json.loads(db_current_sort.sort)
     current_sort.sort(key=lambda x: x.id)
     return current_sort
+
+def get_current_sort(encoding_id):
+    current_hash = get_current_graph_hash(encoding_id)
+    return get_current_sort_by_hash(encoding_id, current_hash)
 
 @bp.route("/graph/sorts", methods=["GET", "POST"])
 @ensure_encoding_id
@@ -303,6 +306,24 @@ def get_rule(uuid):
             return jsonify(transformation)
     abort(404)
 
+@bp.route("/graph/transformations/by/id", methods=["POST"])
+@ensure_encoding_id
+def get_transformation_by_id_and_current_sort():
+    if request.method == "POST":
+        if request.json is None:
+            return jsonify({'error': 'Missing JSON in request'}), 400
+        if "id" not in request.json:
+            return jsonify({'error': 'Missing id in request'}), 400
+        if "currentSort" not in request.json:
+            return jsonify({'error': 'Missing current_sort in request'}), 400.
+        id = request.json["id"]
+        current_hash = request.json["currentSort"]
+
+        current_sort = get_current_sort_by_hash(session['encoding_id'], current_hash)
+        for t in current_sort:
+            if t.id == id:
+                return jsonify(t)
+    raise NotImplementedError
 
 @bp.route("/graph/model/<uuid>", methods=["GET"])
 @ensure_encoding_id
@@ -346,9 +367,9 @@ def number_of_transformations():
     current_graph_hash = get_current_graph_hash(encoding_id)
     db_graph = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=current_graph_hash).one_or_none()
     if db_graph is None:
-        return jsonify({"number_of_transformations": 0})
+        return jsonify(0)
     sorted_program = current_app.json.loads(db_graph.sort)
-    return jsonify({"number_of_transformations": len(sorted_program)})
+    return jsonify(len(sorted_program))
 
 
 @bp.route("/graph/current", methods=["GET", "POST", "DELETE"])
