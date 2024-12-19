@@ -2,6 +2,7 @@ import os
 from collections import defaultdict
 import re
 from typing import Union, Collection, Dict, List, Iterable, Optional
+from unittest import result
 import uuid
 
 import igraph
@@ -86,6 +87,16 @@ def handle_request_for_children(
         ordered_children = [node.uuid for node in ordered_children]
     return ordered_children
 
+
+def handle_request_for_children_with_sortHash(
+        transformation_hash: str,
+        current_hash: str,
+        encoding_id: str) -> Collection[Union[Node, uuid.UUID]]:
+    result = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_hash, transformation_hash=transformation_hash, recursive_supernode_uuid = None).order_by(GraphNodes.branch_position).all()
+    ordered_children = [current_app.json.loads(n.node) for n in result]
+    return ordered_children
+
+
 def clear_encoding_session_data(encoding_id: str):
     db_session.query(Encodings).filter_by(id = encoding_id).delete()
     db_session.query(Models).filter_by(encoding_id = encoding_id).delete()
@@ -115,7 +126,28 @@ def get_children(transformation_hash):
     if request.method == "GET":
         ids_only = request.args.get("ids_only", default=False, type=bool)
         to_be_returned = handle_request_for_children(transformation_hash,
-                                                     ids_only, session['encoding_id'])
+                                                     ids_only,
+                                                     session['encoding_id'])
+        return jsonify(to_be_returned)
+    raise NotImplementedError
+
+
+@bp.route("/graph/children", methods=["POST"])
+@ensure_encoding_id
+def get_children_of_transformation_hash_and_current_Sort():
+    if request.method == "POST":
+        if request.json is None:
+            return jsonify({'error': 'Missing JSON in request'}), 400
+        if "transformationHash" not in request.json:
+            return jsonify({'error':
+                            'Missing transformation_hash in request'}), 400
+        transformation_hash = request.json["transformationHash"]
+        if "currentSort" not in request.json:
+            return jsonify({'error': 'Missing current_sort in request'}), 400
+        current_hash = request.json["currentSort"]
+
+        to_be_returned = handle_request_for_children_with_sortHash(
+            transformation_hash, current_hash, session['encoding_id'])
         return jsonify(to_be_returned)
     raise NotImplementedError
 

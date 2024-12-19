@@ -170,7 +170,6 @@ function GraphContainer(props) {
                 ref={draggableListRef}
                 itemKey="id"
                 template={RowTemplate}
-                // list={transformations}
                 list={arrayofobjects}
                 onMoveEnd={onMoveEnd}
                 container={() => scrollContainer.current}

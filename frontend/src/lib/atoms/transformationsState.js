@@ -96,6 +96,7 @@ export const ruleWrapperByHashStateFamily = selectorFamily({
 export const ruleBackgroundHighlightsByTransformationStateFamily = atomFamily({
     key: 'ruleBackgroundHighlightsByTransformationState',
     default: selectorFamily({
+        key: 'ruleBackgroundHighlightsByTransformationState/Default',
         get:
             (transformationId) =>
             ({get}) => {

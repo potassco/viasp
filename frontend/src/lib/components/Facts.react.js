@@ -1,5 +1,5 @@
 import './facts.css';
-import React from 'react';
+import React, {useRef, useEffect, useState, Suspense} from 'react';
 import { Constants } from "../constants";
 import {Node} from './Node.react';
 import { useColorPalette} from '../contexts/ColorPalette';
@@ -8,30 +8,37 @@ import {useTransformations} from '../contexts/transformations';
 import {make_default_nodes} from '../utils';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 
+import { useRecoilValue } from 'recoil';
+import { nodeUuidsByTransforamtionStateFamily } from '../atoms/nodesState';    
+import { BranchSpace } from './BranchSpace.react';
+
 export function Facts() {
     const {
         state: {transformationDropIndices, transformationNodesMap},
     } = useTransformations();
+    const [nodeUuid] = useRecoilValue(
+        nodeUuidsByTransforamtionStateFamily("-1")
+    )
+
     const colorPalette = useColorPalette();
-    const [fact, setFact] = React.useState(make_default_nodes()[0]);
-    const [style, setStyle] = React.useState({
+    const [fact, setFact] = useState(make_default_nodes()[0]);
+    const [style, setStyle] = useState({
         background: colorPalette.rowShading[0],
         opacity: 1.0,
         width: '100%',
     });
-    const branchSpaceRef = React.useRef(null);
-    const rowbodyRef = React.useRef(null);
-    const transformationIdRef = React.useRef('-1');
+    const rowbodyRef = useRef(null);
+    const transformationIdRef = useRef('-1');
 
     useDebouncedAnimateResize(rowbodyRef, transformationIdRef);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (transformationNodesMap && transformationNodesMap['-1']) {
             setFact(transformationNodesMap['-1'][0]);
         }
     }, [transformationNodesMap]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (transformationDropIndices !== null) {
             setStyle((prevStyle) => ({
                 ...prevStyle,
@@ -47,28 +54,23 @@ export function Facts() {
         return <div className="row_container"></div>;
     }
     return (
-        <div className="row_container facts_banner" >
+        <div className="row_container facts_banner">
             <div className="row_row" style={style} ref={rowbodyRef}>
-                <div
-                    className="branch_space"
-                    key={fact.uuid}
-                    style={{flex: '0 0 100%'}}
-                    ref={branchSpaceRef}
-                >
-                    <Node
-                        key={fact.uuid}
-                        node={fact}
-                        isSubnode={false}
-                        branchSpace={branchSpaceRef}
-                        transformationId={transformationIdRef.current}
+                <Suspense fallback={<div>Loading...</div>}>
+                    <BranchSpace
+                        key={`branch_space_${nodeUuid}`}
+                        transformationHash={'-1'}
+                        transformationId={'-1'}
+                        nodeUuid={nodeUuid}
                     />
-                </div>
+                </Suspense>
             </div>
-            { !fact.showMini && (fact.isExpandableV || fact.isCollapsibleV) ?  (
-            <OverflowButton
-                transformationId={transformationIdRef.current}
-                nodes={[fact]}
-            /> ) : null }
+            {!fact.showMini && (fact.isExpandableV || fact.isCollapsibleV) ? (
+                <OverflowButton
+                    transformationId={transformationIdRef.current}
+                    nodes={[fact]}
+                />
+            ) : null}
         </div>
     );
 }

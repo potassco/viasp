@@ -1,10 +1,8 @@
 import React, {Suspense} from 'react';
 import PropTypes from 'prop-types';
-import {RULEWRAPPER} from '../types/propTypes';
 import { Constants } from "../constants";
 import {useColorPalette} from '../contexts/ColorPalette';
 import {Transition} from 'react-transition-group';
-import { useTransformations } from '../contexts/transformations';
 import {styled, keyframes, css} from 'styled-components';
 import { useRecoilValue, waitForAll, waitForNone } from 'recoil';
 import {
@@ -165,7 +163,7 @@ function Rule(props) {
         >
             <RuleTextDiv
                 className="rule_text txt-elem"
-                $highlight={ruleHighlights[ruleWrapper.hash][0]?.color}
+                $highlight={!multipleRules? 'transparent' : ruleHighlights[ruleWrapper.hash][0]?.color}
                 dangerouslySetInnerHTML={{
                     __html: ruleWrapper.str_
                         .replace(/</g, '&lt;')
@@ -214,7 +212,7 @@ export function RowHeader(props) {
                                 key={rh}
                                 transformationId={transformationId}
                                 ruleHash={rh}
-                                multipleRules={true}
+                                multipleRules={ruleHashes.length > 1}
                             />
                         );
                     })}

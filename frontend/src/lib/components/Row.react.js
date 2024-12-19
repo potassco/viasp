@@ -1,10 +1,10 @@
-import React, { Suspense } from 'react';
-import {Node, RecursiveSuperNode} from './Node.react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import {OverflowButton} from './OverflowButton.react';
 import { Constants } from "../constants";
 import './row.css';
 import PropTypes from 'prop-types';
 import {RowHeader} from './RowHeader.react';
+import {BranchSpace} from './BranchSpace.react';
 import {
     useTransformations,
     setTransformationDropIndices,
@@ -19,6 +19,7 @@ import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 import {useMapShift} from '../contexts/MapShiftContext';
 import {useRecoilValue} from 'recoil';
 import {proxyTransformationStateFamily} from '../atoms/transformationsState';
+import { nodeUuidsByTransforamtionStateFamily, nodeAtomByNodeUuidStateFamily } from '../atoms/nodesState';
 
 
 export class RowTemplate extends React.Component {
@@ -198,24 +199,20 @@ export function Row(props) {
     const {
         state: {transformations, transformationNodesMap},
     } = useTransformations();
-    const [nodes, setNodes] = React.useState(make_default_nodes());
-    const rowbodyRef = React.useRef(null);
-    const headerRef = React.useRef(null);
-    const handleRef = React.useRef(null);
-    const transformationIdRef = React.useRef(transformation.id);
+    const [nodes, setNodes] = useState(make_default_nodes());
+    const rowbodyRef = useRef(null);
+    const headerRef = useRef(null);
+    const handleRef = useRef(null);
+    const transformationIdRef = useRef(transformation.id);
     const {mapShiftValue: transform} = useMapShift();
-
-    // debug
+    
     const recoiltransformation = useRecoilValue(
         proxyTransformationStateFamily(transformation.id)
     );
-    // React.useEffect(() => {
-    //     console.log('recoiltransformation', {
-    //         id: transformation.id,
-    //         recoiltransformation,
-    //     });
-    // }, [recoiltransformation, transformation.id]);
-    // *debug
+
+    const recoilNodes = useRecoilValue(
+        nodeUuidsByTransforamtionStateFamily(recoiltransformation.hash)
+    )
 
     useDebouncedAnimateResize(rowbodyRef, transformationIdRef);
 
@@ -236,21 +233,6 @@ export function Row(props) {
         }
     }, [transformationNodesMap, recoiltransformation.id]);
 
-
-    const showNodes =
-        transformations.find(
-            ({shown, id}) => id === recoiltransformation.id && shown
-        ) !== null;
-
-    const branchSpaceRefs = React.useRef([]);
-    React.useEffect(() => {
-        branchSpaceRefs.current = nodes.map(
-            (_, i) => branchSpaceRefs.current[i] ?? React.createRef()
-        );
-    }, [nodes]);
-
-
-
     return (
         <Suspense fallback={<div>Loading...</div>}>
         <div className={`row_container ${recoiltransformation.hash}`}>
@@ -264,64 +246,29 @@ export function Row(props) {
                     .upper_bound ? null : (
                 <DragHandle ref={handleRef} dragHandleProps={dragHandleProps} />
             )}
-            {!showNodes ? null : (
+            <Suspense fallback={<div>Loading...</div>}>
                 <div
                     ref={rowbodyRef}
                     className="row_row"
                     style={{
                         width: `${
-                            nodes.length === 1 ? 100 : transform.scale * 100
+                            recoilNodes.length === 1 ? 100 : transform.scale * 100
                         }%`,
                         transform: `translateX(${
-                            nodes.length === 1 ? 0 : transform.translation.x
+                            recoilNodes.length === 1 ? 0 : transform.translation.x
                         }px)`,
                     }}
                 >
-                    {nodes.map((child, index) => {
-                        const space_multiplier = child.space_multiplier * 100;
-                        if (
-                            child.recursive.length > 0 &&
-                            child.shownRecursion
-                        ) {
-                            return (
-                                <div
-                                    className="branch_space"
-                                    key={child.uuid}
-                                    style={{flex: `0 0 ${space_multiplier}%`}}
-                                    ref={branchSpaceRefs.current[index]}
-                                >
-                                    <RecursiveSuperNode
-                                        key={child.uuid}
-                                        node={child}
-                                        branchSpace={
-                                            branchSpaceRefs.current[index]
-                                        }
-                                        transformationId={
-                                            recoiltransformation.id
-                                        }
-                                    />
-                                </div>
-                            );
-                        }
-                        return (
-                            <div
-                                className="branch_space"
-                                key={child.uuid}
-                                style={{flex: `0 0 ${space_multiplier}%`}}
-                                ref={branchSpaceRefs.current[index]}
-                            >
-                                <Node
-                                    key={child.uuid}
-                                    node={child}
-                                    isSubnode={false}
-                                    branchSpace={branchSpaceRefs.current[index]}
-                                    transformationId={recoiltransformation.id}
-                                />
-                            </div>
-                        );
-                    })}
+                    {recoilNodes.map(node => (
+                        <BranchSpace
+                            key={`branch_space_${node}`}
+                            transformationHash={recoiltransformation.hash}
+                            transforamtionId={recoiltransformation.id}
+                            nodeUuid={node}
+                        />
+                    ))}
                 </div>
-            )}
+            </Suspense>
             {!recoiltransformation.allNodesShowMini &&
             (recoiltransformation.isExpandableV ||
                 recoiltransformation.isCollapsibleV) ? (
@@ -350,3 +297,5 @@ Row.propTypes = {
      */
     itemSelected: PropTypes.number,
 };
+
+
