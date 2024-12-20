@@ -9,6 +9,7 @@ import {make_default_nodes} from '../utils';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 
 import { useRecoilValue } from 'recoil';
+import { transformationStateFamily } from '../atoms/transformationsState';
 import { nodeUuidsByTransforamtionStateFamily } from '../atoms/nodesState';    
 import { BranchSpace } from './BranchSpace.react';
 
@@ -18,7 +19,7 @@ export function Facts() {
     } = useTransformations();
     const [nodeUuid] = useRecoilValue(
         nodeUuidsByTransforamtionStateFamily("-1")
-    )
+    );
 
     const colorPalette = useColorPalette();
     const [fact, setFact] = useState(make_default_nodes()[0]);

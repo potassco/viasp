@@ -373,7 +373,6 @@ function MainWindow(props) {
     const [backendURLRecoil, setBackendURLRecoil] = useRecoilState(backendURLState);
 
     React.useLayoutEffect(() => {
-        console.log('Setting backendURLRecoil', backendURL);
         setBackendURLRecoil(backendURL);
     }, [backendURL]);
 

@@ -14,7 +14,8 @@ const getNodesFromServer = async (backendUrl, transformationHash, currentSort) =
         }
     )
 }
-const nodesByTransforamtionStateFamily = selectorFamily({
+
+export const nodesByTransforamtionStateFamily = selectorFamily({
     key: 'nodesByTransformation',
     get: (transformationHash) => async ({get}) => {
         const currentSort = get(currentSortState);
@@ -57,9 +58,9 @@ export const nodeAtomByNodeUuidStateFamily = atomFamily({
                     shownRecursion: false,
                     isExpandableV: false,
                     isCollapsibleV: false,
-                    isExpandAllTheWay: false,
+                    isExpandVAllTheWay: false,
                     showMini: false,
-                }
+                };
             }
     })
 })

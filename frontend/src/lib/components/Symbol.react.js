@@ -1,4 +1,4 @@
-import React, {useState, useRef} from 'react';
+import React, {useState, useRef, Suspense} from 'react';
 import {make_atoms_string, getNextHoverColor} from '../utils/index';
 import './symbol.css';
 import PropTypes from 'prop-types';
@@ -10,13 +10,19 @@ import {useContentDiv} from '../contexts/ContentDivContext';
 import {Constants} from '../constants';
 import {useMessages, showError} from '../contexts/UserMessages';
 
-import {useRecoilValue, useRecoilState, useSetRecoilState} from 'recoil';
+import {useRecoilValue, useRecoilCallback, useSetRecoilState, waitForAll, useRecoilState} from 'recoil';
 import {backendURLState} from '../atoms/settingsState';
 import {currentSortState} from '../atoms/currentSortState';
 import {
     ruleBackgroundHighlightsByTransformationStateFamily,
     ruleDotHighlightsByTransformationStateFamily,
 } from '../atoms/transformationsState';
+import {symoblsByNodeStateFamily} from '../atoms/symbolsState';
+import {
+    symbolHighlightsStateFamily,
+    ruleDotHighlightsStateFamily,
+    ruleBackgroundHighlightsStateFamily,
+} from '../atoms/highlightsState';
 
 const symbolPulsate = ($pulsatingColor) => keyframes`
     0% {
@@ -90,13 +96,35 @@ function scrollParentToChild(parent, child) {
 
 export function Symbol(props) {
     const {
-        symbolIdentifier,
+        symbolUuid,
         isSubnode,
-        handleClick,
         nodeUuid,
+        transformationHash,
         transformationId,
     } = props;
-    const symbolIdentifierRef = useRef(symbolIdentifier.uuid);
+    const recoilSymbol= useRecoilValue(
+        symoblsByNodeStateFamily({
+            transformationHash,
+            nodeUuid,
+            symbolUuid,
+        })
+    );
+    const [thisSymbolHighlights, setThisSymbolHighlights] = useRecoilState(
+        symbolHighlightsStateFamily(symbolUuid)
+    );
+    const setThisSymbolRuleDotHighlights = useSetRecoilState(
+        ruleDotHighlightsStateFamily(transformationHash)
+    );
+    const setThisSymbolRuleBackgroundHighlights = useSetRecoilState(
+        ruleBackgroundHighlightsStateFamily(transformationHash)
+    );
+    // React.useEffect(() => {
+    //     console.log(recoilSymbol);
+    // }, [recoilSymbol]);
+    // React.useEffect(() => {
+    //     console.log(thisSymbolHighlights);
+    // }, [thisSymbolHighlights]);
+    const symbolIdentifierRef = useRef(symbolUuid);
     const symbolElementRef = useRef(null);
     const [isHovered, setIsHovered] = useState(false);
     const colorPalette = useColorPalette();
@@ -109,98 +137,23 @@ export function Symbol(props) {
     const [isPulsating, setIsPulsating] = useState(false);
     const [pulsatingColor, setPulsatingColor] = useState('transparent');
 
-    let atomString = make_atoms_string(symbolIdentifier.symbol);
+    let atomString = make_atoms_string(recoilSymbol.symbol);
     const suffix = `_${isSubnode ? 'sub' : 'main'}`;
     const contentDivRef = useContentDiv();
     const backendURL = useRecoilValue(backendURLState);
     const currentSort = useRecoilValue(currentSortState);
-    const setRuleBackgroundHighlights = useSetRecoilState(
-        ruleBackgroundHighlightsByTransformationStateFamily(transformationId)
-    );
-    const setRuleDotHighlights = useSetRecoilState(
-        ruleDotHighlightsByTransformationStateFamily(transformationId)
-    );
     const isShowingExplanation = useRef(false);
-    const timeoutIdRef = useRef(null);
     const [, messageDispatch] = useMessages();
-
-
-    function middlewareAddExplanationHighlightedSymbol(data) {
-        const explanationRuleOfSymbol = {
-            shown: true,
-            sourceId: data.source_symbol_id,
-            color: 'red',
-        };
-        setRuleBackgroundHighlights((old) => ({
-            ...old,
-            [data.rule_hash]: old[data.rule_hash].toSpliced(
-                0,
-                0,
-                explanationRuleOfSymbol
-            ),
-        }));
-        setRuleDotHighlights((old) => ({
-            ...old,
-            [data.rule_hash]: old[data.rule_hash].concat(
-                explanationRuleOfSymbol
-            ),
-        }));
-
-        timeoutIdRef.current = setTimeout(() => {
-            setRuleBackgroundHighlights((old) => ({
-                ...old,
-                [data.rule_hash]: old[data.rule_hash].filter(
-                    (explanationRuleOfSymbol) =>
-                        explanationRuleOfSymbol.sourceId !==
-                        data.source_symbol_id
-                ),
-            }));
-        }, Constants.ruleHighlightFadeDuration);
-    }
-
-    function middlewareRemoveExplanationHighlightedSymbol(data) {
-        console.log('removing explanation', data);
-        setRuleBackgroundHighlights((old) => ({
-            ...old,
-            [data.rule_hash]: old[data.rule_hash].filter(
-                (explanationRuleOfSymbol) =>
-                    explanationRuleOfSymbol.sourceId !== data.source_symbol_id
-            ),
-        }));
-        setRuleDotHighlights((old) => {
-            return {
-                ...old,
-                [data.rule_hash]: old[data.rule_hash].map((dot) => {
-                    if (dot.sourceId === data.source_symbol_id) {
-                        console.log('removing explanation');
-                        return {
-                            ...dot,
-                            shown: false,
-                        };
-                    }
-                    return dot;
-                }),
-            };
-        });
-        setTimeout(() => {
-            setRuleDotHighlights((old) => ({
-                ...old,
-                [data.rule_hash]: old[data.rule_hash].filter((dot) => {
-                    return dot.sourceId !== data.source_symbol_id;
-                }),
-            }));
-        }, Constants.ruleHighlightFadeDuration);
-    }
 
     const handleClickWithinSymbol = async (e) => {
         e.stopPropagation();
-        if (!symbolIdentifier.has_reason) {
+        if (!recoilSymbol.has_reason) {
             return;
         }
         try {
             const data = await fetchReasonOf(
                 backendURL,
-                symbolIdentifier.uuid,
+                symbolUuid,
                 nodeUuid,
                 currentSort
             );
@@ -208,24 +161,57 @@ export function Symbol(props) {
                 return;
             }
             if (!isShowingExplanation.current) {
-                middlewareAddExplanationHighlightedSymbol(
-                    {
-                        arrows: data.symbols,
-                        rule_hash: data.rule,
-                        source_symbol_id: symbolIdentifier.uuid,
-                        colors: colorPalette.explanationHighlights,
-                    },
-                );
+                setThisSymbolHighlights((old) => [...old, {
+                    _type: 'SymbolHighlights_RECOIL',
+                    symbolUuid,
+                    origin: 'reason',
+                    color: colorPalette.explanationHighlights[0],
+                    recent: true,
+                    selectedIndex: null,
+                    scrollable: null}]);
+                setThisSymbolRuleBackgroundHighlights((old) => [...old, {
+                    _type: 'RuleBackgroundHighlights_RECOIL',
+                    symbolUuid,
+                    transformationHash,
+                    ruleHash: data.rule,
+                    color: colorPalette.explanationHighlights[0],
+                    shown: true,
+                }]);
+                setTimeout(() => {
+                    setThisSymbolRuleBackgroundHighlights((old) =>
+                        old.filter((h) => {
+                            return !(h.symbolUuid === symbolUuid);
+                        })
+                    );
+                }, Constants.ruleHighlightDuration);
+
+                setThisSymbolRuleDotHighlights((old) => [...old, {
+                    _type: 'RuleDotHighlights_RECOIL',
+                    symbolUuid,
+                    transformationHash,
+                    ruleHash: data.rule,
+                    color: colorPalette.explanationHighlights[0],
+                    shown: true,
+                }]);
                 isShowingExplanation.current = true;
             } else {
-                middlewareRemoveExplanationHighlightedSymbol(
-                    {
-                        arrows: data.symbols,
-                        rule_hash: data.rule,
-                        source_symbol_id: symbolIdentifier.uuid,
-                        colors: colorPalette.explanationHighlights,
-                    },
-                );
+                setThisSymbolHighlights((old) => old.filter((h) => {
+                    return !(h.symbolUuid === symbolUuid && h.origin === 'reason');
+                }));
+                setThisSymbolRuleDotHighlights((old) => old.map((rd) => {
+                    if (rd.symbolUuid === symbolUuid) {
+                        return {
+                            ...rd,
+                            shown: false,
+                        };
+                    }
+                    return rd;
+                }));
+                setTimeout(() => {
+                    setThisSymbolRuleDotHighlights((old) => old.filter((h) => {
+                        return !(h.symbolUuid === symbolUuid);
+                    }));
+                }, Constants.ruleHighlightFadeDuration);
                 isShowingExplanation.current = false;
             }
         } catch (error) {
@@ -233,92 +219,92 @@ export function Symbol(props) {
         }
     };
 
-    React.useEffect(() => {
-        if (isHovered) {
-            return;
-        }
-        const symbolid = symbolIdentifierRef.current;
-        const searchResultHighlightIndices = searchResultHighlightedSymbols
-            .flatMap((item, index) =>
-                [item.includes[item.selected]].includes(symbolid) ? index : []
-            )
-            .filter((value, index, self) => self.indexOf(value) === index);
-        const reasonHighlightIndices = explanationHighlightedSymbols
-            .flatMap((item, index) =>
-                [item.tgt, item.src].includes(symbolid) ? index : []
-            )
-            .filter((value, index, self) => self.indexOf(value) === index);
+    // React.useEffect(() => {
+    //     if (isHovered) {
+    //         return;
+    //     }
+    //     const symbolid = symbolIdentifierRef.current;
+    //     const searchResultHighlightIndices = searchResultHighlightedSymbols
+    //         .flatMap((item, index) =>
+    //             [item.includes[item.selected]].includes(symbolid) ? index : []
+    //         )
+    //         .filter((value, index, self) => self.indexOf(value) === index);
+    //     const reasonHighlightIndices = explanationHighlightedSymbols
+    //         .flatMap((item, index) =>
+    //             [item.tgt, item.src].includes(symbolid) ? index : []
+    //         )
+    //         .filter((value, index, self) => self.indexOf(value) === index);
 
-        if (
-            searchResultHighlightIndices.some(
-                (index) => searchResultHighlightedSymbols[index].recent
-            )
-        ) {
-            setIsPulsating(true);
-            setPulsatingColor(
-                searchResultHighlightedSymbols.filter((s) => s.recent)[0].color
-            );
-        } else {
-            setIsPulsating(false);
-            setPulsatingColor('transparent');
-        }
-        if (
-            searchResultHighlightIndices.length > 0 ||
-            reasonHighlightIndices.length > 0
-        ) {
-            const searchResultUniqueColors = [
-                ...new Set(
-                    searchResultHighlightIndices
-                        .map(
-                            (index) =>
-                                searchResultHighlightedSymbols[index].color
-                        )
-                        .reverse()
-                ),
-            ];
-            const reasonUniqueColors = [
-                ...new Set(
-                    reasonHighlightIndices
-                        .map(
-                            (index) =>
-                                explanationHighlightedSymbols[index].color
-                        )
-                        .reverse()
-                ),
-            ];
+    //     if (
+    //         searchResultHighlightIndices.some(
+    //             (index) => searchResultHighlightedSymbols[index].recent
+    //         )
+    //     ) {
+    //         setIsPulsating(true);
+    //         setPulsatingColor(
+    //             searchResultHighlightedSymbols.filter((s) => s.recent)[0].color
+    //         );
+    //     } else {
+    //         setIsPulsating(false);
+    //         setPulsatingColor('transparent');
+    //     }
+    //     if (
+    //         searchResultHighlightIndices.length > 0 ||
+    //         reasonHighlightIndices.length > 0
+    //     ) {
+    //         const searchResultUniqueColors = [
+    //             ...new Set(
+    //                 searchResultHighlightIndices
+    //                     .map(
+    //                         (index) =>
+    //                             searchResultHighlightedSymbols[index].color
+    //                     )
+    //                     .reverse()
+    //             ),
+    //         ];
+    //         const reasonUniqueColors = [
+    //             ...new Set(
+    //                 reasonHighlightIndices
+    //                     .map(
+    //                         (index) =>
+    //                             explanationHighlightedSymbols[index].color
+    //                     )
+    //                     .reverse()
+    //             ),
+    //         ];
 
-            const gradientStops = searchResultUniqueColors
-                .concat(reasonUniqueColors)
-                .map((color, index, array) => {
-                    const start = (index / array.length) * 100;
-                    const end = ((index + 1) / array.length) * 100;
-                    return `${color} ${start}%, ${color} ${end}%`;
-                })
-                .join(', ');
-            setBackgroundColorStyle(
-                `linear-gradient(-45deg, ${gradientStops})`
-            );
-        } else {
-            setBackgroundColorStyle('transparent');
-        }
+    //         const gradientStops = searchResultUniqueColors
+    //             .concat(reasonUniqueColors)
+    //             .map((color, index, array) => {
+    //                 const start = (index / array.length) * 100;
+    //                 const end = ((index + 1) / array.length) * 100;
+    //                 return `${color} ${start}%, ${color} ${end}%`;
+    //             })
+    //             .join(', ');
+    //         setBackgroundColorStyle(
+    //             `linear-gradient(-45deg, ${gradientStops})`
+    //         );
+    //     } else {
+    //         setBackgroundColorStyle('transparent');
+    //     }
 
-        if (
-            searchResultHighlightIndices.some(
-                (index) => searchResultHighlightedSymbols[index].recent
-            )
-        ) {
-            scrollParentToChild(
-                contentDivRef.current,
-                symbolElementRef.current
-            );
-        }
-    }, [
-        isHovered,
-        searchResultHighlightedSymbols,
-        explanationHighlightedSymbols,
-        contentDivRef,
-        symbolElementRef,
-    ]);
+    //     if (
+    //         searchResultHighlightIndices.some(
+    //             (index) => searchResultHighlightedSymbols[index].recent
+    //         )
+    //     ) {
+    //         scrollParentToChild(
+    //             contentDivRef.current,
+    //             symbolElementRef.current
+    //         );
+    //     }
+    // }, [
+    //     isHovered,
+    //     searchResultHighlightedSymbols,
+    //     explanationHighlightedSymbols,
+    //     contentDivRef,
+    //     symbolElementRef,
+    // ]);
 
     atomString = atomString.length === 0 ? '' : atomString;
 
@@ -327,7 +313,7 @@ export function Symbol(props) {
 
     const handleMouseEnter = React.useCallback(() => {
         setIsHovered(true);
-        if (symbolIdentifier.has_reason) {
+        if (recoilSymbol.has_reason) {
             setBackgroundColorStyle((prev) => {
                 setPreviousBackgroundColorStyle(prev);
                 return getNextHoverColor(
@@ -342,7 +328,7 @@ export function Symbol(props) {
         explanationHighlightedSymbols,
         searchResultHighlightedSymbols,
         colorPalette.explanationHighlights,
-        symbolIdentifier.has_reason,
+        recoilSymbol.has_reason,
     ]);
 
     const handleMouseLeave = React.useCallback(() => {
@@ -354,26 +340,28 @@ export function Symbol(props) {
     // const handleMouseLeave = () => setIsHovered(false);
 
     return (
-        <SymbolElementSpan
-            id={symbolIdentifier.uuid + suffix}
-            $pulsate={isPulsating}
-            $pulsatingColor={pulsatingColor}
-            $backgroundColorStyle={backgroundColorStyle}
-            onClick={handleClickWithinSymbol}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            ref={symbolElementRef}
-        >
-            {atomString}
-        </SymbolElementSpan>
+        <Suspense fallback={<div>Loading...</div>}>
+            <SymbolElementSpan
+                id={symbolUuid + suffix}
+                $pulsate={isPulsating}
+                $pulsatingColor={pulsatingColor}
+                $backgroundColorStyle={backgroundColorStyle}
+                onClick={handleClickWithinSymbol}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                ref={symbolElementRef}
+            >
+                {atomString}
+            </SymbolElementSpan>
+        </Suspense>
     );
 }
 
 Symbol.propTypes = {
     /**
-     * The symbolidentifier of the symbol to display
+     * The symbolidentifier Uuid of the symbol to display
      */
-    symbolIdentifier: SYMBOLIDENTIFIER,
+    symbolUuid: PropTypes.string,
     /**
      * If the symbol is a subnode
      */
@@ -394,4 +382,8 @@ Symbol.propTypes = {
      * The id of the transformation that the symbol is in
      */
     transformationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    /**
+     * The hash of the transformation that the symbol is in
+     */
+    transformationHash: PropTypes.string,
 };

@@ -7,11 +7,12 @@ import {styled, keyframes, css} from 'styled-components';
 import { useRecoilValue, waitForAll, waitForNone } from 'recoil';
 import {
     ruleWrapperByHashStateFamily,
-    ruleBackgroundHighlightsByTransformationStateFamily,
-    ruleDotHighlightsByTransformationStateFamily,
     transformationStateFamily,
 } from '../atoms/transformationsState';
-
+import {
+    ruleBackgroundHighlightsStateFamily,
+    ruleDotHighlightsStateFamily,
+} from '../atoms/highlightsState';
 
 const RuleHighlightDotDiv = styled.span`
     display: inline-block;
@@ -67,16 +68,16 @@ RuleHighlightDot.propTypes = {
 
 
 function RuleHighlightDotContainer(props) {
-    const {transformationId, ruleHash} = props;
+    const {transformationHash, ruleHash} = props;
 
     const ruleDotHighlights = useRecoilValue(
-        ruleDotHighlightsByTransformationStateFamily(transformationId)
-    );
+        ruleDotHighlightsStateFamily(transformationHash)
+    ).filter((highlight) => highlight.ruleHash === ruleHash);
 
     return (
         <Suspense fallback={<div></div>}>
             <RuleHighlightDotContainerDiv>
-                {ruleDotHighlights[ruleHash]?.map((dot, i) => (
+                {ruleDotHighlights?.map((dot, i) => (
                     <Transition
                         key={`${ruleHash}_${dot.color}_${i}`}
                         mountOnEnter
@@ -100,7 +101,7 @@ function RuleHighlightDotContainer(props) {
 }
 
 RuleHighlightDotContainer.propTypes = {
-    transformationId: PropTypes.number,
+    transformationHash: PropTypes.string,
     ruleHash: PropTypes.string,
 };
 
@@ -138,6 +139,7 @@ const RuleTextDiv = styled.div`
 function Rule(props) {
     const {
         transformationId,
+        transformationHash,
         ruleHash,
         multipleRules,
     } = props;
@@ -148,10 +150,9 @@ function Rule(props) {
         })
     );
     const ruleHighlights = useRecoilValue(
-        ruleBackgroundHighlightsByTransformationStateFamily(transformationId)
-    );
+        ruleBackgroundHighlightsStateFamily(transformationHash)
+    ).filter((highlight) => highlight.ruleHash === ruleHash);
 
-    
     return (
         <div
             key={ruleWrapper.hash}
@@ -163,7 +164,11 @@ function Rule(props) {
         >
             <RuleTextDiv
                 className="rule_text txt-elem"
-                $highlight={!multipleRules? 'transparent' : ruleHighlights[ruleWrapper.hash][0]?.color}
+                $highlight={
+                    !multipleRules
+                        ? 'transparent'
+                        : ruleHighlights[0]?.color
+                }
                 dangerouslySetInnerHTML={{
                     __html: ruleWrapper.str_
                         .replace(/</g, '&lt;')
@@ -173,7 +178,7 @@ function Rule(props) {
             />
             {multipleRules ? (
                 <RuleHighlightDotContainer
-                    transformationId={transformationId}
+                    transformationHash={transformationHash}
                     ruleHash={ruleHash}
                 />
             ) : null}
@@ -183,12 +188,13 @@ function Rule(props) {
 
 Rule.propTypes = {
     transformationId: PropTypes.number,
+    transformationHash: PropTypes.string,
     ruleHash: PropTypes.string,
     multipleRules: PropTypes.bool,
 };
 
 export function RowHeader(props) {
-    const {transformationId} = props;
+    const {transformationId, transformationHash} = props;
     const colorPalette = useColorPalette();
     const [recoilTransformation] = useRecoilValue(
         waitForAll([transformationStateFamily(transformationId)])
@@ -211,6 +217,7 @@ export function RowHeader(props) {
                             <Rule
                                 key={rh}
                                 transformationId={transformationId}
+                                transformationHash={transformationHash}
                                 ruleHash={rh}
                                 multipleRules={ruleHashes.length > 1}
                             />
@@ -227,4 +234,8 @@ RowHeader.propTypes = {
      * The rule wrapper of the transformation
      */
     transformationId: PropTypes.number,
+    /**
+     * The rule hash of the transformation
+     */
+    transformationHash: PropTypes.string,
 };

@@ -13,6 +13,7 @@ export function BranchSpace(props) {
     );
     const branchSpaceRef = useRef(null);
 
+
     return (
         <div
             className="branch_space"
@@ -23,7 +24,8 @@ export function BranchSpace(props) {
             {node.recursive.length > 0 && node.shownRecursion ? (
                 <RecursiveSuperNode
                     key={node.uuid}
-                    node={node}
+                    transformationHash={transformationHash}
+                    nodeUuid={nodeUuid}
                     branchSpace={branchSpaceRef}
                     transformationId={transformationId}
                 />
@@ -31,7 +33,7 @@ export function BranchSpace(props) {
                 <Node
                     key={node.uuid}
                     transformationHash={transformationHash}
-                    nodeUuid={node}
+                    nodeUuid={nodeUuid}
                     isSubnode={false}
                     branchSpace={branchSpaceRef}
                     transformationId={transformationId}
@@ -43,6 +45,6 @@ export function BranchSpace(props) {
 
 BranchSpace.propTypes = {
     transformationHash: PropTypes.string,
-    transformationId: PropTypes.number,
+    transformationId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     nodeUuid: PropTypes.string,
 };

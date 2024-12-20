@@ -1,4 +1,4 @@
-import React, {Suspense} from 'react';
+import React, {Suspense, useEffect} from 'react';
 import './node.css';
 import PropTypes from 'prop-types';
 import {Symbol} from './Symbol.react';
@@ -29,7 +29,8 @@ import { Constants } from '../constants';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 import {useAnimationUpdater} from '../contexts/AnimationUpdater';
 import {useMessages, showError} from '../contexts/UserMessages';
-import { useRecoilState, waitForAll } from 'recoil';
+import {useRecoilState, useRecoilValue, waitForAll} from 'recoil';
+import {nodeAtomByNodeUuidStateFamily} from '../atoms/nodesState';
 import {ruleWrapperByHashStateFamily} from '../atoms/transformationsState';
 
 function any(iterable) {
@@ -94,8 +95,15 @@ function middlewareAddExplanationHighlightedSymbol(dispatch, action) {
 }
 
 function NodeContent(props) {
+    const {
+        nodeUuid,
+        setHeight,
+        parentID,
+        isSubnode,
+        transformationId,
+        transformationHash,
+    } = props;
     const {state} = useSettings();
-    const {node, setHeight, parentID, isSubnode, transformationId} = props;
     const colorPalette = useColorPalette();
     const [{activeFilters}] = useFilters();
     const {
@@ -105,11 +113,15 @@ function NodeContent(props) {
     const {backendURL} = useSettings();
     const [, messageDispatch] = useMessages();
 
+    const recoilNode = useRecoilValue(
+        nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
+    );
+
     let contentToShow;
     if (state.show_all) {
-        contentToShow = node.atoms;
+        contentToShow = recoilNode.atom.map(s => s.uuid);
     } else {
-        contentToShow = node.diff;
+        contentToShow = recoilNode.diff.map(s => s.uuid);
     }
 
     const isMounted = React.useRef(true);
@@ -121,28 +133,10 @@ function NodeContent(props) {
         };
     }, []);
 
-    const symbolShouldBeShown = React.useCallback(
-        (symbolId) => {
-            return (
-                activeFilters.length === 0 ||
-                any(
-                    activeFilters
-                        .filter((filter) => filter._type === 'Signature')
-                        .map(
-                            (filter) =>
-                                filter.name === symbolId.symbol.name &&
-                                filter.args === symbolId.symbol.arguments.length
-                        )
-                )
-            );
-        },
-        [activeFilters]
-    );
-
     function handleClick(e, src) {
         e.stopPropagation();
         if (src.has_reason) {
-            fetchReasonOf(backendURL, src.uuid, node.uuid)
+            fetchReasonOf(backendURL, src.uuid, nodeUuid)
                 .then((result) => {
                     if (result.symbols.every((tgt) => tgt !== null)) {
                         const existingArrows =
@@ -210,7 +204,6 @@ function NodeContent(props) {
 
     const visibilityManager = React.useCallback(() => {
         var allHeights = contentToShow
-            .filter((symbol) => symbolShouldBeShown(symbol))
             .map((s) =>
                 symbolVisibilityManager(
                     allHighlightedSymbols,
@@ -224,14 +217,19 @@ function NodeContent(props) {
             ...allHeights.map((item) => item.fittingHeight)
         );
 
-        if (node.loading === true) {
-            setHeight(Math.min(emToPixel(Constants.standardNodeHeight), maxSymbolHeight));
-            dispatchT(setNodeIsExpandableV(transformationId, node.uuid, false));
+        if (recoilNode.loading === true) {
+            setHeight(
+                Math.min(
+                    emToPixel(Constants.standardNodeHeight),
+                    maxSymbolHeight
+                )
+            );
+            dispatchT(setNodeIsExpandableV(transformationId, nodeUuid, false));
             return;
         }
-        if (node.isExpandVAllTheWay) {
+        if (recoilNode.isExpandVAllTheWay) {
             setHeight(maxSymbolHeight);
-            dispatchT(setNodeIsExpandableV(transformationId, node.uuid, false));
+            dispatchT(setNodeIsExpandableV(transformationId, nodeUuid, false));
         } else {
             // marked node is under the standard height fold
             if (
@@ -239,7 +237,8 @@ function NodeContent(props) {
                 any(
                     markedItems.map(
                         (item) =>
-                            item.fittingHeight > emToPixel(Constants.standardNodeHeight)
+                            item.fittingHeight >
+                            emToPixel(Constants.standardNodeHeight)
                     )
                 )
             ) {
@@ -250,20 +249,24 @@ function NodeContent(props) {
                 dispatchT(
                     setNodeIsExpandableV(
                         transformationId,
-                        node.uuid,
+                        nodeUuid,
                         maxSymbolHeight > newHeight
                     )
                 );
             } else {
                 // marked node is not under the standard height fold
                 setHeight(
-                    Math.min(emToPixel(Constants.standardNodeHeight), maxSymbolHeight)
+                    Math.min(
+                        emToPixel(Constants.standardNodeHeight),
+                        maxSymbolHeight
+                    )
                 );
                 dispatchT(
                     setNodeIsExpandableV(
                         transformationId,
-                        node.uuid,
-                        maxSymbolHeight > emToPixel(Constants.standardNodeHeight)
+                        nodeUuid,
+                        maxSymbolHeight >
+                            emToPixel(Constants.standardNodeHeight)
                     )
                 );
             }
@@ -273,27 +276,26 @@ function NodeContent(props) {
         contentToShow,
         allHighlightedSymbols,
         setHeight,
-        symbolShouldBeShown,
         symbolVisibilityManager,
-        node.loading,
+        recoilNode.loading,
         dispatchT,
-        node.uuid,
-        node.isExpandVAllTheWay,
+        nodeUuid,
+        recoilNode.isExpandVAllTheWay,
         transformationId,
     ]);
 
     React.useEffect(() => {
-        visibilityManager();
+        // visibilityManager();
         onFullyLoaded(() => {
             if (isMounted.current) {
-                visibilityManager();
+                // visibilityManager();
             }
         });
     }, [
         visibilityManager,
         allHighlightedSymbols,
         state,
-        node.isExpandVAllTheWay,
+        recoilNode.isExpandVAllTheWay,
         activeFilters,
     ]);
 
@@ -302,47 +304,18 @@ function NodeContent(props) {
             requestAnimationFrame(callback);
         });
     }
-    useResizeObserver(setContainerRef, visibilityManager);
-
-    // const nodeUuidRef = React.useRef(node.uuid);
-    // const {setAnimationState} = useAnimationUpdater();
-    // const setAnimationStateRef = React.useRef(setAnimationState);
-    // const animateResize = React.useCallback((entry) => {
-    //     const nodeUuid = nodeUuidRef.current;
-    //     const setAnimationState = setAnimationStateRef.current;
-    //     setAnimationState((oldValue) => ({
-    //         [nodeUuid]: {
-    //             ...oldValue[nodeUuid],
-    //             width: entry.contentRect.width,
-    //             height: entry.contentRect.height,
-    //             top: entry.contentRect.top,
-    //             left: entry.contentRect.left,
-    //         },
-    //     }));
-    // }, []);
-
-    // const debouncedAnimateResize = React.useCallback(
-    //     (entry) => {
-    //         return debounce(
-    //             () => animateResize(entry),
-    //             Constants.DEBOUNCETIMEOUT
-    //         );
-    //     },
-    //     [animateResize]
-    // );
-    // useResizeObserver(setContainerRef, debouncedAnimateResize);
+    // useResizeObserver(setContainerRef, visibilityManager);
 
     const classNames2 = `set_value`;
     const renderedSymbols = contentToShow
-        .filter((symbol) => symbolShouldBeShown(symbol))
         .map((s) => {
             return (
                 <Symbol
                     key={JSON.stringify(s)}
-                    symbolIdentifier={s}
+                    symbolUuid={s}
                     isSubnode={isSubnode}
-                    handleClick={handleClick}
-                    nodeUuid={node.uuid}
+                    nodeUuid={nodeUuid}
+                    transformationHash={transformationHash}
                     transformationId={transformationId}
                 />
             );
@@ -350,7 +323,9 @@ function NodeContent(props) {
 
     return (
         <div
-            className={`set_container ${node.loading === true ? 'hidden' : ''}`}
+            className={`set_container ${
+                recoilNode.loading === true ? 'hidden' : ''
+            }`}
             style={{color: colorPalette.dark}}
             ref={setContainerRef}
         >
@@ -363,9 +338,9 @@ function NodeContent(props) {
 
 NodeContent.propTypes = {
     /**
-     * object containing the node data to be displayed
+     * The id of the node
      */
-    node: NODE,
+    nodeUuid: PropTypes.string,
     /**
      * The function to be called to set the node height
      */
@@ -381,7 +356,11 @@ NodeContent.propTypes = {
     /**
      * The id of the transformation the node belongs to
      */
-    transformationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    transformationId: PropTypes.string,
+    /**
+     * The transformation hash
+     */
+    transformationHash: PropTypes.string,
 };
 
 function RecursionButton(props) {
@@ -496,7 +475,11 @@ function checkForOverflowE(
 }
 
 export function Node(props) {
-    const {node, isSubnode, branchSpace, transformationId} = props;
+    const {transformationHash, nodeUuid, isSubnode, branchSpace, transformationId} = props;
+    const node = useRecoilValue(
+        nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
+    );
+
     const [overflowBreakingPoint, setOverflowBreakingPoint] =
         React.useState(null);
     const colorPalette = useColorPalette();
@@ -509,11 +492,9 @@ export function Node(props) {
     const animateHeightRef = React.useRef(null);
     const {animationState} = useAnimationUpdater();
 
+
     useDebouncedAnimateResize(animateHeightRef, nodeuuidRef);
 
-    const notifyClick = (node) => {
-        // setShownDetail(node.uuid);
-    };
     React.useEffect(() => {
         const dispatch = dispatchShownNodesRef.current;
         const nodeuuid = nodeuuidRef.current;
@@ -574,10 +555,6 @@ export function Node(props) {
                 color: colorPalette.primary,
             }}
             id={node.uuid}
-            onClick={(e) => {
-                e.stopPropagation();
-                notifyClick(node);
-            }}
         >
             {node.showMini ? (
                 <div
@@ -598,11 +575,12 @@ export function Node(props) {
                     }`}
                 >
                     <NodeContent
-                        node={node}
+                        nodeUuid={nodeUuid}
                         setHeight={setHeight}
                         parentID={divID}
                         isSubnode={isSubnode}
                         transformationId={transformationId}
+                        transformationHash={transformationHash}
                     />
                     <RecursionButton node={node} />
                 </AnimateHeight>
@@ -613,9 +591,13 @@ export function Node(props) {
 
 Node.propTypes = {
     /**
-     * object containing the node data to be displayed
+     * String containing the transformation hash
      */
-    node: NODE,
+    transformationHash: PropTypes.string,
+    /**
+     * String containing the node uuid
+     */
+    nodeUuid: PropTypes.string,
     /**
      * If the node is a subnode of a recursive node
      */
@@ -631,7 +613,10 @@ Node.propTypes = {
 };
 
 export function RecursiveSuperNode(props) {
-    const {node, branchSpace, transformationId} = props;
+    const {transformationHash,nodeUuid, branchSpace, transformationId} = props;
+    const node = useRecoilValue(
+        nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
+    );
     const [overflowBreakingPoint, setOverflowBreakingPoint] = React.useState();
     const colorPalette = useColorPalette();
     const {dispatch: dispatchShownNodes} = useShownNodes();
@@ -641,14 +626,14 @@ export function RecursiveSuperNode(props) {
     const dispatchShownNodesRef = React.useRef(dispatchShownNodes);
     const nodeuuidRef = React.useRef(node.uuid);
 
-    React.useEffect(() => {
-        const dispatch = dispatchShownNodesRef.current;
-        const nodeuuid = nodeuuidRef.current;
-        dispatch(showNode(nodeuuid));
-        return () => {
-            dispatch(hideNode(nodeuuid));
-        };
-    }, []);
+    // React.useEffect(() => {
+    //     const dispatch = dispatchShownNodesRef.current;
+    //     const nodeuuid = nodeuuidRef.current;
+    //     dispatch(showNode(nodeuuid));
+    //     return () => {
+    //         dispatch(hideNode(nodeuuid));
+    //     };
+    // }, []);
 
     const checkForOverflow = React.useCallback(() => {
         checkForOverflowE(
@@ -701,8 +686,10 @@ export function RecursiveSuperNode(props) {
                         return (
                             <Node
                                 key={subnode.uuid}
-                                node={subnode}
+                                transformationHash={transformationHash}
+                                nodeUuid={nodeUuid}
                                 isSubnode={true}
+                                branchSpace={branchSpace}
                                 transformationId={transformationId}
                             />
                         );
@@ -715,9 +702,13 @@ export function RecursiveSuperNode(props) {
 
 RecursiveSuperNode.propTypes = {
     /**
-     * object containing the node data to be displayed
+     * The transformation hash
      */
-    node: NODE,
+    transformationHash: PropTypes.string,
+    /**
+     * The node uuid
+     */
+    nodeUuid: PropTypes.string,
     /**
      * The ref to the branch space
      */

@@ -115,3 +115,28 @@ export const SEARCHRESULTSYMBOLWRAPPER = PropTypes.exact({
     selected: PropTypes.number,
     scrollable: PropTypes.bool,
 });
+export const SYMBOLHIGHLIGHTS_RECOIL = PropTypes.exact({
+    _type: PropTypes.oneOf(['SymbolHighlights_RECOIL']),
+    symbolUuid: PropTypes.string,
+    origin: PropTypes.oneOf(['reason', 'query']),
+    color: PropTypes.string,
+    recent: PropTypes.bool,
+    selectedIndex: PropTypes.number,
+    scrollable: PropTypes.bool,
+});
+export const RULEDOTHIGHLIGHTS_RECOIL = PropTypes.exact({
+    _type: PropTypes.oneOf(['RuleDotHighlights_RECOIL']),
+    symbolUuid: PropTypes.string,
+    transformationHash: PropTypes.string,
+    ruleHash: PropTypes.string,
+    color: PropTypes.string,
+    shown: PropTypes.bool,
+});
+export const RULEBACKGROUNDHIGHLIGHTS_RECOIL = PropTypes.exact({
+    _type: PropTypes.oneOf(['RuleBackgroundHighlights_RECOIL']),
+    symbolUuid: PropTypes.string,
+    transformationHash: PropTypes.string,
+    ruleHash: PropTypes.string,
+    color: PropTypes.string,
+    shown: PropTypes.bool,
+});

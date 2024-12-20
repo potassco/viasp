@@ -235,49 +235,60 @@ export function Row(props) {
 
     return (
         <Suspense fallback={<div>Loading...</div>}>
-        <div className={`row_container ${recoiltransformation.hash}`}>
-            {recoiltransformation.rules.length === 0 || typeof transformation.id === 'undefined' ? null : (
-            <RowHeader transformationId={transformation.id} />
-            )}
-            {dragHandleProps === null ||
-            recoiltransformation.adjacent_sort_indices === null ||
-            recoiltransformation.adjacent_sort_indices.lower_bound ===
-                recoiltransformation.adjacent_sort_indices
-                    .upper_bound ? null : (
-                <DragHandle ref={handleRef} dragHandleProps={dragHandleProps} />
-            )}
-            <Suspense fallback={<div>Loading...</div>}>
-                <div
-                    ref={rowbodyRef}
-                    className="row_row"
-                    style={{
-                        width: `${
-                            recoilNodes.length === 1 ? 100 : transform.scale * 100
-                        }%`,
-                        transform: `translateX(${
-                            recoilNodes.length === 1 ? 0 : transform.translation.x
-                        }px)`,
-                    }}
-                >
-                    {recoilNodes.map(node => (
-                        <BranchSpace
-                            key={`branch_space_${node}`}
-                            transformationHash={recoiltransformation.hash}
-                            transforamtionId={recoiltransformation.id}
-                            nodeUuid={node}
-                        />
-                    ))}
-                </div>
-            </Suspense>
-            {!recoiltransformation.allNodesShowMini &&
-            (recoiltransformation.isExpandableV ||
-                recoiltransformation.isCollapsibleV) ? (
-                <OverflowButton
-                    transformationId={recoiltransformation.id}
-                    nodes={nodes}
-                />
-            ) : null}
-        </div>
+            <div className={`row_container ${recoiltransformation.hash}`}>
+                {recoiltransformation.rules.length === 0 ||
+                typeof transformation.id === 'undefined' ? null : (
+                    <RowHeader
+                        transformationId={transformation.id}
+                        transformationHash={recoiltransformation.hash}
+                    />
+                )}
+                {dragHandleProps === null ||
+                recoiltransformation.adjacent_sort_indices === null ||
+                recoiltransformation.adjacent_sort_indices.lower_bound ===
+                    recoiltransformation.adjacent_sort_indices
+                        .upper_bound ? null : (
+                    <DragHandle
+                        ref={handleRef}
+                        dragHandleProps={dragHandleProps}
+                    />
+                )}
+                <Suspense fallback={<div>Loading...</div>}>
+                    <div
+                        ref={rowbodyRef}
+                        className="row_row"
+                        style={{
+                            width: `${
+                                recoilNodes.length === 1
+                                    ? 100
+                                    : transform.scale * 100
+                            }%`,
+                            transform: `translateX(${
+                                recoilNodes.length === 1
+                                    ? 0
+                                    : transform.translation.x
+                            }px)`,
+                        }}
+                    >
+                        {recoilNodes.map((node) => (
+                            <BranchSpace
+                                key={`branch_space_${node}`}
+                                transformationHash={recoiltransformation.hash}
+                                transforamtionId={recoiltransformation.id}
+                                nodeUuid={node}
+                            />
+                        ))}
+                    </div>
+                </Suspense>
+                {!recoiltransformation.allNodesShowMini &&
+                (recoiltransformation.isExpandableV ||
+                    recoiltransformation.isCollapsibleV) ? (
+                    <OverflowButton
+                        transformationId={recoiltransformation.id}
+                        nodes={nodes}
+                    />
+                ) : null}
+            </div>
         </Suspense>
     );
 }

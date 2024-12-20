@@ -6,14 +6,19 @@ export const symoblsByNodeStateFamily = atomFamily({
     default: selectorFamily({
         key: 'symoblsByNodeState/Default',
         get: 
-            (transformationHash, nodeUuid, symbolUuid) =>
+            ({transformationHash, nodeUuid, symbolUuid}) =>
             ({get}) => {
                 const [nodes] = get(
-                    waitForAll([nodesByTransforamtionStateFamily(transformationHash)])
+                    waitForAll([
+                        nodesByTransforamtionStateFamily(transformationHash),
+                    ])
                 );
                 const [node] = nodes.filter(n => n.uuid === nodeUuid);
                 const [symbol] = node.diff.filter(s => s.uuid === symbolUuid);
-                return symbol;
+                return {
+                    ...symbol,
+                    highlights: [],
+                };
             }
     })
 })
