@@ -1,66 +1,55 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
+import {styled, keyframes} from 'styled-components';
 import {OverflowButton} from './OverflowButton.react';
 import { Constants } from "../constants";
 import './row.css';
-import PropTypes from 'prop-types';
+import PropTypes, { bool } from 'prop-types';
 import {RowHeader} from './RowHeader.react';
 import {BranchSpace} from './BranchSpace.react';
 import {
     useTransformations,
-    setTransformationDropIndices,
     TransformationContext,
 } from '../contexts/transformations';
 import {MAPZOOMSTATE, TRANSFORMATIONWRAPPER} from '../types/propTypes';
 import {ColorPaletteContext} from '../contexts/ColorPalette';
 import {make_default_nodes} from '../utils';
-import {AnimationUpdater} from '../contexts/AnimationUpdater';
+import {AnimationUpdater, useAnimationUpdater} from '../contexts/AnimationUpdater';
 import {DragHandle} from './DragHandle.react';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 import {useMapShift} from '../contexts/MapShiftContext';
-import {useRecoilValue} from 'recoil';
+import {useRecoilState, useRecoilValue} from 'recoil';
 import {proxyTransformationStateFamily} from '../atoms/transformationsState';
-import { nodeUuidsByTransforamtionStateFamily, nodeAtomByNodeUuidStateFamily } from '../atoms/nodesState';
-
+import { nodeUuidsByTransforamtionStateFamily } from '../atoms/nodesState';
+import {reorderTransformationDropIndicesState} from '../atoms/reorderTransformationDropIndices';
 
 export class RowTemplate extends React.Component {
     static contextType = TransformationContext;
     constructor(props) {
         super(props);
         this.rowRef = React.createRef();
-        this.state = {
-            canBeDropped: false,
-            transformations: [],
-            possibleSorts: [],
-        };
         this.intervalId = null;
     }
 
-    componentDidMount() {
-        this.setState({
-            transformations: this.context.state.transformations,
-            possibleSorts: this.context.state.possibleSorts,
-        });
-    }
 
     componentDidUpdate(prevProps, prevState) {
-        if (
-            this.props.itemSelected > prevProps.itemSelected &&
-            this.context.state.transformationDropIndices !==
-                this.props.item.adjacent_sort_indices &&
-            prevProps.itemSelected !== this.props.itemSelected
-        ) {
-            this.context.dispatch(
-                setTransformationDropIndices(this.props.item.adjacent_sort_indices)
-            )
-        }
-        if (
-            this.props.itemSelected < prevProps.itemSelected &&
-            this.context.state.transformationDropIndices ===
-                this.props.item.adjacent_sort_indices &&
-            prevProps.itemSelected !== this.props.itemSelected
-        ) {
-            this.context.dispatch(setTransformationDropIndices(null));
-        }
+        // if (
+        //     this.props.itemSelected > prevProps.itemSelected &&
+        //     this.context.state.transformationDropIndices !==
+        //         this.props.item.adjacent_sort_indices &&
+        //     prevProps.itemSelected !== this.props.itemSelected
+        // ) {
+        //     this.context.dispatch(
+        //         setTransformationDropIndices(this.props.item.adjacent_sort_indices)
+        //     )
+        // }
+        // if (
+        //     this.props.itemSelected < prevProps.itemSelected &&
+        //     this.context.state.transformationDropIndices ===
+        //         this.props.item.adjacent_sort_indices &&
+        //     prevProps.itemSelected !== this.props.itemSelected
+        // ) {
+        //     this.context.dispatch(setTransformationDropIndices(null));
+        // }
         if (this.props.itemSelected > Constants.rowAnimationPickupThreshold && this.intervalId === null) {
             this.intervalId = setInterval(() => {
                 const element = this.rowRef.current;
@@ -113,10 +102,6 @@ export class RowTemplate extends React.Component {
                                                 itemSelected * shadowConstant +
                                                 0;
                                             const background = rowShading;
-                                            const thisCanDrop =
-                                                transformationDropIndices !== null
-                                                    ? transformationDropIndices.lower_bound <= (transformation.id) && transformation.id <= transformationDropIndices.upper_bound
-                                                    : false;
                                                 
 
                                             const containerStyle = {
@@ -132,34 +117,32 @@ export class RowTemplate extends React.Component {
                                                         (transformation.id + 1) %
                                                             background.length
                                                     ],
-                                                opacity:
-                                                    thisCanDrop || itemSelected
-                                                        ? 1
-                                                        : 1 -
-                                                          Constants.opacityMultiplier *
-                                                              this.props
-                                                                  .anySelected,
+                                                opacity: 1,
                                             };
                                             return (
                                                 <div
                                                     className="row_signal_container"
                                                     style={containerStyle}
                                                     ref={this.rowRef}
+                                                    key={transformation}
                                                 >
-                                                    {transformation ===
-                                                    null ? null : (
-                                                        <Row
-                                                            key={
-                                                                transformation
-                                                            }
-                                                            transformation={
-                                                                transformation
-                                                            }
-                                                            dragHandleProps={
-                                                                dragHandleProps
-                                                            }
-                                                        />
-                                                    )}
+                                                    <Row
+                                                        key={
+                                                            transformation
+                                                        }
+                                                        transformation={
+                                                            transformation
+                                                        }
+                                                        dragHandleProps={
+                                                            dragHandleProps
+                                                        }
+                                                        itemSelected={
+                                                            itemSelected > Constants.rowAnimationPickupThreshold
+                                                        }
+                                                        anySelected={
+                                                            anySelected
+                                                        }
+                                                    />
                                                 </div>
                                             );
                                         }}
@@ -173,6 +156,132 @@ export class RowTemplate extends React.Component {
         );
     }
 }
+
+// export const RowTemplate = (props) => {
+//     const {
+//         item: transformation,
+//         itemSelected,
+//         anySelected,
+//         dragHandleProps,
+//     } = props;
+//     const {state: contextState, dispatch} = React.useContext(TransformationContext);
+//     const {rowShading} = React.useContext(ColorPaletteContext);
+//     const {setAnimationState} = React.useContext(AnimationUpdater);
+//     const [tDropIndices, setTDropIndices] = useRecoilState(reorderTransformationDropIndices);
+//     const [recoilItemSelectedState, setRecoilItemSelectedState] = useRecoilState(draggableListSelectedItem);
+//     const rowRef = useRef(null);
+//     const [canBeDropped, setCanBeDropped] = useState(false);
+//     const [transformations, setTransformations] = useState([]);
+//     const [possibleSorts, setPossibleSorts] = useState([]);
+//     const [intervalId, setIntervalId] = useState(null);
+//     const prevPropsRef = useRef();
+//     useEffect(() => {
+//         prevPropsRef.current = props;
+//     });
+
+
+
+//     useEffect(() => {
+//         setTransformations(contextState.transformations);
+//         setPossibleSorts(contextState.possibleSorts);
+//     }, [contextState.transformations, contextState.possibleSorts]);
+
+//     useEffect(() => {
+//         if (
+//             itemSelected > Constants.rowAnimationPickupThreshold &&
+//             recoilItemSelectedState !== transformation.id
+//             // prevPropsRef.current.itemSelected !== itemSelected
+//         ) {
+//             setRecoilItemSelectedState(transformation.id);
+//         }
+//         if (
+//             itemSelected < Constants.rowAnimationPickupThreshold &&
+//             recoilItemSelectedState === transformation.id 
+//         ) {
+//             setRecoilItemSelectedState(null);
+//         }
+//         if (
+//             itemSelected > Constants.rowAnimationPickupThreshold &&
+//             intervalId === null
+//         ) {
+//             const id = setInterval(() => {
+//                 const element = rowRef.current;
+//                 if (element === null) {
+//                     return;
+//                 }
+//                 setAnimationState((oldValue) => ({
+//                     ...oldValue,
+//                     [transformation.id]: {
+//                         ...oldValue[transformation.id],
+//                         width: element.clientWidth,
+//                         height: element.clientHeight,
+//                         top: element.offsetTop,
+//                         left: element.offsetLeft,
+//                     },
+//                 }));
+//             }, Constants.rowAnimationIntervalInMs);
+//             setIntervalId(id);
+//         }
+//         if (
+//             itemSelected < Constants.rowAnimationPickupThreshold &&
+//             intervalId !== null
+//         ) {
+//             clearInterval(intervalId);
+//             setIntervalId(null);
+//         }
+//         return () => {
+//             if (intervalId !== null) {
+//                 clearInterval(intervalId);
+//             }
+//         };
+//     }, [itemSelected, intervalId, setAnimationState, transformation.id, recoilItemSelectedState, setRecoilItemSelectedState]);
+
+//     const scaleConstant = 0.005;
+//     const shadowConstant = 15;
+//     const scale = itemSelected * scaleConstant + 1;
+//     const shadow = itemSelected * shadowConstant + 0;
+//     const background = rowShading;
+//     const thisCanDrop =
+//         contextState.transformationDropIndices !== null
+//             ? contextState.transformationDropIndices.lower_bound <=
+//                   transformation.id &&
+//               transformation.id <=
+//                   contextState.transformationDropIndices.upper_bound
+//             : false;
+
+//     const containerStyle = {
+//         position: 'relative',
+//         maxHeight: '100%',
+//         transform: `scale(${scale})`,
+//         transformOrigin: 'left',
+//         boxShadow: `rgba(0, 0, 0, 0.3) 0px ${shadow}px ${2 * shadow}px 0px`,
+//         background: background[(transformation.id + 1) % background.length],
+//         opacity:
+//             thisCanDrop || itemSelected
+//                 ? 1
+//                 : 1 - Constants.opacityMultiplier * anySelected,
+//     };
+
+//     return (
+//         <div
+//             className="row_signal_container"
+//             style={containerStyle}
+//             ref={rowRef}
+//         >
+//             {transformation === null ? null : (
+//                 <Row
+//                     key={transformation}
+//                     transformation={transformation}
+//                     dragHandleProps={dragHandleProps}
+//                     itemSelected={
+//                         itemSelected > Constants.rowAnimationPickupThreshold
+//                     }
+//                 />
+//             )}
+//         </div>
+//     );
+// };
+
 
 RowTemplate.propTypes = {
     /**
@@ -194,18 +303,24 @@ RowTemplate.propTypes = {
     dragHandleProps: PropTypes.object,
 };
 
-export function Row(props) {
+const RowContainer = styled.div`
+    opacity: ${(props) =>
+        props.$draggedRowCanBeDroppedHere ? 1 : 1 - Constants.opacityMultiplier};
+    transition: opacity 0.5s ease-out;
+`;
+
+export const Row = React.memo((props) => {
     const {transformation, dragHandleProps} = props;
     const {
-        state: {transformations, transformationNodesMap},
+        state: {transformationNodesMap},
     } = useTransformations();
     const [nodes, setNodes] = useState(make_default_nodes());
     const rowbodyRef = useRef(null);
     const headerRef = useRef(null);
     const handleRef = useRef(null);
-    const transformationIdRef = useRef(transformation.id);
     const {mapShiftValue: transform} = useMapShift();
-    
+    const tDropIndices = useRecoilValue(reorderTransformationDropIndicesState);
+
     const recoiltransformation = useRecoilValue(
         proxyTransformationStateFamily(transformation.id)
     );
@@ -214,7 +329,7 @@ export function Row(props) {
         nodeUuidsByTransforamtionStateFamily(recoiltransformation.hash)
     )
 
-    useDebouncedAnimateResize(rowbodyRef, transformationIdRef);
+    // useDebouncedAnimateResize(rowbodyRef, transformationIdRef);
 
     React.useEffect(() => {
         if (headerRef.current && handleRef.current) {
@@ -233,9 +348,21 @@ export function Row(props) {
         }
     }, [transformationNodesMap, recoiltransformation.id]);
 
+    const draggedRowCanBeDroppedHere =
+        tDropIndices !==
+        null
+            ? tDropIndices.lower_bound <=
+                    transformation.id &&
+                transformation.id <=
+                    tDropIndices.upper_bound
+            : true;
+
     return (
         <Suspense fallback={<div>Loading...</div>}>
-            <div className={`row_container ${recoiltransformation.hash}`}>
+            <RowContainer
+                className={`row_container ${recoiltransformation.hash}`}
+                $draggedRowCanBeDroppedHere={draggedRowCanBeDroppedHere}
+            >
                 {recoiltransformation.rules.length === 0 ||
                 typeof transformation.id === 'undefined' ? null : (
                     <RowHeader
@@ -288,10 +415,14 @@ export function Row(props) {
                         nodes={nodes}
                     />
                 ) : null}
-            </div>
+            </RowContainer>
         </Suspense>
     );
-}
+}, 
+    (prevProps, nextProps) => {
+        return prevProps?.transformation.id === nextProps.transformation.id &&
+            prevProps?.dragHandleProps === nextProps.dragHandleProps
+});
 
 Row.propTypes = {
     /**
@@ -304,9 +435,13 @@ Row.propTypes = {
      **/
     dragHandleProps: PropTypes.object,
     /**
-     * It starts at 0, and quickly increases to 1 when the item is picked up by the user.
+     *
      */
-    itemSelected: PropTypes.number,
+    itemSelected: PropTypes.bool,
+    /**
+     *
+     */
+    anySelected: PropTypes.number,
 };
 
 

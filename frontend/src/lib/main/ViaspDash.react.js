@@ -40,7 +40,12 @@ import {
 import DraggableList from 'react-draggable-list';
 import {MapInteraction} from 'react-map-interaction';
 import {Constants} from '../constants';
-import { RecoilRoot, useRecoilState } from 'recoil';
+import {
+    RecoilRoot,
+    useRecoilState,
+    useRecoilValue,
+    useSetRecoilState,
+} from 'recoil';
 import {
     currentSortState,
     numberOfTransformationsState,
@@ -48,6 +53,29 @@ import {
 import { transformationStateFamily } from '../atoms/transformationsState';
 import { zoomButtonPressedState } from '../atoms/zoomState';
 import {backendURLState} from '../atoms/settingsState'
+import {
+    draggableListSelectedItem,
+    reorderTransformationDropIndicesState,
+} from '../atoms/reorderTransformationDropIndices';
+
+async function postCurrentSort(backendURL, oldIndex, newIndex) {
+    const r = await fetch(`${backendURL('graph/sorts')}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            moved_transformation: {
+                old_index: oldIndex,
+                new_index: newIndex,
+            },
+        }),
+    });
+    if (r.ok) {
+        return r.json();
+    }
+    throw new Error(r.statusText);
+}
 
 function GraphContainer(props) {
     const {notifyDash, scrollContainer} = props;
@@ -55,18 +83,18 @@ function GraphContainer(props) {
         state: {
             transformations,
             clingraphGraphics,
-            transformationDropIndices,
             explanationHighlightedSymbols,
         },
-        dispatch: dispatchTransformation,
-        setSortAndFetchGraph,
     } = useTransformations();
     const draggableListRef = React.useRef(null);
     const {clearHighlightedSymbol} = useHighlightedSymbol();
     const clingraphUsed = clingraphGraphics.length > 0;
     const {backendURL} = useSettings();
-    // const [currentSort, setCurrentSort] = useRecoilState(currentSortState)
-    const [numberOfTransformations, setNumberOfTransformations] = useRecoilState(numberOfTransformationsState)
+    const setSelectedItem = useSetRecoilState(draggableListSelectedItem)
+    const setCurrentSort = useSetRecoilState(currentSortState)
+    const tDropIndices = useRecoilValue(reorderTransformationDropIndicesState);
+    const numberOfTransformations = useRecoilValue(numberOfTransformationsState)
+
 
 
     // function manageNewAtomsAfterMoving(oldIndex, newIndex) {
@@ -75,88 +103,16 @@ function GraphContainer(props) {
 
     function onMoveEnd(newList, movedItem, oldIndex, newIndex) {
         if (
-            transformationDropIndices.lower_bound <= newIndex &&
-            newIndex <= transformationDropIndices.upper_bound
+            tDropIndices.lower_bound <= newIndex &&
+            newIndex <= tDropIndices.upper_bound
         ) {
             clearHighlightedSymbol();
-            // manageNewAtomsAfterMoving(oldIndex, newIndex);
-            setSortAndFetchGraph(oldIndex, newIndex);
+            postCurrentSort(backendURL, oldIndex, newIndex)
+                .then((data) => {
+                    setCurrentSort(data.hash);
+                })
         }
-        dispatchTransformation(setTransformationDropIndices(null));
     }
-
-    // async function fetchCurrentSortAndSetRecoil() {
-    //     // get current sort hash
-    //     try {
-    //         const response = await fetch(`${backendURL('graph/current')}`);
-    //         if (!response.ok) {
-    //             throw new Error('Network response was not ok');
-    //         }
-    //         const data = await response.json();
-    //         setCurrentSort(data)
-    //     } catch (error) {
-    //         console.error('Error fetching current sort', error);
-    //     }
-    //     // get number of transformations
-    //     try {
-    //         const response = await fetch(`${backendURL('transformations/current')}`);
-    //         if (!response.ok) {
-    //             throw new Error('Network response was not ok');
-    //         }
-    //         const data = await response.json();
-    //         setNumberOfTransformations(data.number_of_transformations);
-    //     } catch (error) {
-    //         console.error('Error fetching number of Transformations', error);
-    //     }
-    //     // for each transformation, get the nodes
-    //     for (let i = 0; i < numberOfTransformations; i++) {
-    //         try {
-    //             const response = await fetch(
-    //                 `${backendURL('graph/transformation/' + i)}`
-    //             );
-    //             if (!response.ok) {
-    //                 throw new Error('Network response was not ok');
-    //             }
-    //             const data = await response.json();
-    //             transformationStateFamily({
-    //                 type: 'add',
-    //                 transformation: data,
-    //             });
-    //         } catch (error) {
-    //             console.error('Error fetching transformation', error);
-    //         }
-    //     }
-    // }
-
-    // async function setNewSortAndSetRecoil(oldIndex,newIndex) {
-    //     try {
-    //         const response = await fetch(`${backendURL('graph/sorts')}`, {
-    //             method: 'POST',
-    //             headers: {
-    //                 'Content-Type': 'application/json',
-    //             },
-    //             body: JSON.stringify({
-    //                 moved_transformation: {
-    //                     old_index: oldIndex,
-    //                     new_index: newIndex,
-    //                 },
-    //             }),
-    //         });
-    //         if (!response.ok) {
-    //             throw new Error('Network response was not ok');
-    //         }
-    //         const data = await response.json();
-    //         setCurrentSort(data.hash);
-    //     } catch (error) {
-    //         console.error('Error setting new sort', error);
-    //     }
-    // }
-
-    // React.useEffect(() => {
-    //     fetchCurrentSortAndSetRecoil()
-    // }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // if the numberOfTransformations still returns an unresolved promise, 
 
     const arrayofobjects = Array.from({length: numberOfTransformations}, (_, i) => ({id: i}));
 
@@ -166,16 +122,21 @@ function GraphContainer(props) {
             <Facts />
             <Suspense fallback={<div>Loading...</div>}>
                 <Settings />
-            <DraggableList
-                ref={draggableListRef}
-                itemKey="id"
-                template={RowTemplate}
-                list={arrayofobjects}
-                onMoveEnd={onMoveEnd}
-                container={() => scrollContainer.current}
-                autoScrollRegionSize={200}
-                padding={0}
-                unsetZIndex={true}
+                <DraggableList
+                    ref={draggableListRef}
+                    itemKey={(i) => i.id}
+                    template={RowTemplate}
+                    list={arrayofobjects}
+                    onMoveEnd={onMoveEnd}
+                    onDragStart={(item) => {
+                        setSelectedItem(item.id);
+                    }}
+                    onDragEnd={() => {setSelectedItem(null);
+                    }}
+                    container={() => scrollContainer.current}
+                    autoScrollRegionSize={200}
+                    padding={0}
+                    unsetZIndex={true}
                 />
             </Suspense>
             {clingraphUsed ? <Boxrow /> : null}
