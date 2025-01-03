@@ -1,6 +1,7 @@
-import {atom, selector} from 'recoil';
+import {atom, selector, atomFamily, selectorFamily, noWait, waitForAll} from 'recoil';
 
 import {backendURLState} from './settingsState';
+import {nodesByTransforamtionStateFamily} from './nodesState';
 
 const defaultShownRecursion = [];
 
@@ -78,3 +79,44 @@ export const clingraphState = atom({
         }
     }),
 })
+
+const defaultOverflowButtonState = {
+    isExpandableV: false,
+    isCollapsibleV: false,
+    allNodesShowMini: false,
+};
+
+export const overflowButtonState = atomFamily({
+    key: 'overflowButtonState',
+    default: selectorFamily({
+        key: 'overflowButtonState/Default',
+        get: (transformationHash) => 
+            async ({get}) => {
+                if (!transformationHash) {
+                    return defaultOverflowButtonState;
+                }
+                const nodesLoadable = get(
+                    noWait(nodesByTransforamtionStateFamily(transformationHash))
+                );
+
+                switch (nodesLoadable.state) {
+                    case 'hasValue':
+                        break;
+                    case 'loading':
+                        return defaultOverflowButtonState;
+                    case 'hasError':
+                        return defaultOverflowButtonState;
+                    default:
+                        return defaultOverflowButtonState;
+                }
+
+                const nodes = nodesLoadable.contents;
+                const isExpandableV = nodes.some((node) => node.isExpandableV);
+                const isCollapsibleV = nodes.some(
+                    (node) => node.isCollapsibleV
+                );
+                const allNodesShowMini = nodes.every((node) => node.showMini);
+                return {isExpandableV, isCollapsibleV, allNodesShowMini};
+            }, 
+    }),
+});

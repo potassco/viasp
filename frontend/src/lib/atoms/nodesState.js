@@ -1,6 +1,7 @@
-import {atomFamily, selectorFamily, waitForAll} from 'recoil';
+import {atomFamily, selectorFamily, waitForAll, noWait} from 'recoil';
 import { currentSortState } from './currentGraphState';
 import { backendURLState } from './settingsState';
+import { node } from 'prop-types';
 
 const getNodesFromServer = async (backendUrl, transformationHash, currentSort) => {
     return fetch(
@@ -34,10 +35,19 @@ export const nodeUuidsByTransforamtionStateFamily = selectorFamily({
     get: 
         (transformationHash) =>
         ({get}) => {
-            const [nodes] = get(
-                waitForAll([nodesByTransforamtionStateFamily(transformationHash)])
-            );
-            return nodes.map(n => n.uuid)
+            const nodesLoadable = get(
+                noWait(nodesByTransforamtionStateFamily(transformationHash))
+            )
+            switch (nodesLoadable.state) {
+                case 'hasValue':
+                    return nodesLoadable.contents.map(n => n.uuid)
+                case 'loading':
+                    return []
+                case 'hasError':
+                    throw nodesLoadable.contents
+                default:
+                    return []
+            }
         }
 })
 
@@ -52,6 +62,9 @@ export const nodeAtomByNodeUuidStateFamily = atomFamily({
                     waitForAll([nodesByTransforamtionStateFamily(transformationHash)])
                 );
                 const [node] = nodes.filter(n => n.uuid === nodeUuid)
+                if (!node) {
+                    throw new Error(`Node with uuid ${nodeUuid} not found`)
+                }
                 return {
                     ...node,
                     loading: false,
@@ -63,4 +76,25 @@ export const nodeAtomByNodeUuidStateFamily = atomFamily({
                 };
             }
     })
+})
+
+export const nodesByTransformationHash = selectorFamily({
+    key: 'nodesByTransformationHash',
+    get: (transformationHash) => ({get}) => {
+        const nodeUuids = get(nodeUuidsByTransforamtionStateFamily(transformationHash));
+        const nodeAtoms = nodeUuids.map(uuid => 
+            get(
+                nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid: uuid})
+            )
+        );
+        return nodeAtoms;
+    },
+    set: (transformationHash) => ({set}, newValue) => {
+        newValue.forEach(node => {
+            set(
+                nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid: node.uuid}),
+                node
+            )
+        })
+    }
 })

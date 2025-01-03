@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { useRecoilValue } from 'recoil';
+import {useRecoilValueLoadable} from 'recoil';
 import LineTo from 'react-lineto';
 import PropTypes from 'prop-types';
 import {useColorPalette} from '../contexts/ColorPalette';
@@ -8,16 +8,12 @@ import { edgesState } from '../atoms/edgesState';
 
 export function Edges() {
     const colorPalete = useColorPalette();
-    const edges = useRecoilValue(edgesState);
+    const edgesLoadable = useRecoilValueLoadable(edgesState);
     const {animationState} = useAnimationUpdater();
 
-    React.useEffect(() => {
-        console.log("Edges Updated")
-    }, [edges])
-
-    return (
-        <Suspense fallback={<div>Loading...</div>}>
-            {edges.map((link) => {
+    
+    const createEdges = (edges) => {
+        return edges.map((link) => {
                 if (link.recursion_anchor_keyword === 'in') {
                     return (
                         <LineTo
@@ -64,9 +60,19 @@ export function Edges() {
                         within={`row_container ${link.transformation_hash}`}
                     />
                 );
-            })}
-        </Suspense>
-    );
+            })
+    }
+
+    switch (edgesLoadable.state) {
+        case 'hasValue':
+            return createEdges(edgesLoadable.contents)
+        case 'loading':
+            return <></>;
+        case 'hasError':
+            return <></>;
+        default:
+            return <></>;
+    }
 }
 
 Edges.propTypes = {

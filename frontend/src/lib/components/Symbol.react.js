@@ -118,12 +118,6 @@ export function Symbol(props) {
     const setThisSymbolRuleBackgroundHighlights = useSetRecoilState(
         ruleBackgroundHighlightsStateFamily(transformationHash)
     );
-    // React.useEffect(() => {
-    //     console.log(recoilSymbol);
-    // }, [recoilSymbol]);
-    // React.useEffect(() => {
-    //     console.log(thisSymbolHighlights);
-    // }, [thisSymbolHighlights]);
     const symbolIdentifierRef = useRef(symbolUuid);
     const symbolElementRef = useRef(null);
     const [isHovered, setIsHovered] = useState(false);

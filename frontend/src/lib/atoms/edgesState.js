@@ -29,6 +29,8 @@ export const edgesState = selector({
     get: async ({get}) => {
         const currentSort = get(currentSortState);
         const backendURL = get(backendURLState);
+
+        // create dependencies for automatic reloading
         const shownRecursion = get(shownRecursionState);
         const usingClingraph = get(clingraphState).length > 0;
         const numberOfTransformations = get(numberOfTransformationsState);

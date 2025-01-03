@@ -29,9 +29,10 @@ import { Constants } from '../constants';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 import {useAnimationUpdater} from '../contexts/AnimationUpdater';
 import {useMessages, showError} from '../contexts/UserMessages';
-import {useRecoilState, useRecoilValue, waitForAll} from 'recoil';
+import {useRecoilState, useSetRecoilState} from 'recoil';
 import {nodeAtomByNodeUuidStateFamily} from '../atoms/nodesState';
 import {ruleWrapperByHashStateFamily} from '../atoms/transformationsState';
+import {shownRecursionState} from '../atoms/currentGraphState';
 
 function any(iterable) {
     for (let index = 0; index < iterable.length; index++) {
@@ -113,7 +114,7 @@ function NodeContent(props) {
     const {backendURL} = useSettings();
     const [, messageDispatch] = useMessages();
 
-    const recoilNode = useRecoilValue(
+    const [recoilNode, setRecoilNode] = useRecoilState(
         nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
     );
 
@@ -132,7 +133,7 @@ function NodeContent(props) {
             isMounted.current = false;
         };
     }, []);
-
+    
     function handleClick(e, src) {
         e.stopPropagation();
         if (src.has_reason) {
@@ -225,11 +226,14 @@ function NodeContent(props) {
                 )
             );
             dispatchT(setNodeIsExpandableV(transformationId, nodeUuid, false));
+            setRecoilNode((old) => ({...old, isExpandableV: false}));
             return;
         }
         if (recoilNode.isExpandVAllTheWay) {
             setHeight(maxSymbolHeight);
             dispatchT(setNodeIsExpandableV(transformationId, nodeUuid, false));
+            setRecoilNode((old) => ({
+                ...old, isExpandableV: false}));
         } else {
             // marked node is under the standard height fold
             if (
@@ -253,6 +257,11 @@ function NodeContent(props) {
                         maxSymbolHeight > newHeight
                     )
                 );
+                setRecoilNode((old) => ({
+                    ...old,
+                    isExpandableV: maxSymbolHeight > newHeight,
+                }));
+
             } else {
                 // marked node is not under the standard height fold
                 setHeight(
@@ -269,6 +278,11 @@ function NodeContent(props) {
                             emToPixel(Constants.standardNodeHeight)
                     )
                 );
+                setRecoilNode((old) => ({
+                    ...old,
+                    isExpandableV:
+                        maxSymbolHeight > emToPixel(Constants.standardNodeHeight),
+                }));
             }
         }
         dispatchT(checkTransformationExpandableCollapsible(transformationId));
@@ -282,6 +296,7 @@ function NodeContent(props) {
         nodeUuid,
         recoilNode.isExpandVAllTheWay,
         transformationId,
+        setRecoilNode
     ]);
 
     React.useEffect(() => {
@@ -304,7 +319,7 @@ function NodeContent(props) {
             requestAnimationFrame(callback);
         });
     }
-    // useResizeObserver(setContainerRef, visibilityManager);
+    useResizeObserver(setContainerRef, visibilityManager);
 
     const classNames2 = `set_value`;
     const renderedSymbols = contentToShow
@@ -365,25 +380,30 @@ NodeContent.propTypes = {
 
 function RecursionButton(props) {
     const {node} = props;
-    const {state, dispatch, reloadEdges} = useTransformations();
     const colorPalette = useColorPalette();
+    const setShownRecursionState = useSetRecoilState(shownRecursionState);
 
     function handleClick(e) {
         e.stopPropagation();
-        dispatch(toggleShownRecursion(node.uuid));
-        const shownRecursionNodes = Object.values(state.transformationNodesMap)
-            .flat()
-            .filter((n) => n.shownRecursion)
-            .map((n) => n.uuid);
-        if (node.shownRecursion) {
-            shownRecursionNodes.splice(
-                shownRecursionNodes.indexOf(node.uuid),
-                1
-            );
-        } else {
-            shownRecursionNodes.push(node.uuid);
-        }
-        reloadEdges(shownRecursionNodes, state.clingraphGraphics.length > 0);
+        setShownRecursionState((old) => {
+            if (old.includes(node.uuid)) {
+                return old.filter((n) => n !== node.uuid);
+            }
+            return [...old, node.uuid];
+        })
+        // const shownRecursionNodes = Object.values(state.transformationNodesMap)
+        //     .flat()
+        //     .filter((n) => n.shownRecursion)
+        //     .map((n) => n.uuid);
+        // if (node.shownRecursion) {
+        //     shownRecursionNodes.splice(
+        //         shownRecursionNodes.indexOf(node.uuid),
+        //         1
+        //     );
+        // } else {
+        //     shownRecursionNodes.push(node.uuid);
+        // }
+        // reloadEdges(shownRecursionNodes, state.clingraphGraphics.length > 0);
     }
 
     return (
@@ -476,7 +496,7 @@ function checkForOverflowE(
 
 export function Node(props) {
     const {transformationHash, nodeUuid, isSubnode, branchSpace, transformationId} = props;
-    const node = useRecoilValue(
+    const [node, setRecoilNode] = useRecoilState(
         nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
     );
 
@@ -512,7 +532,11 @@ export function Node(props) {
                 height > emToPixel(Constants.standardNodeHeight)
             )
         );
-    }, [height, dispatchTransformation, node.uuid, transformationId]);
+        setRecoilNode((old) => ({
+            ...old,
+            isCollapsibleV: height > emToPixel(Constants.standardNodeHeight),
+        }));
+    }, [height, dispatchTransformation, node.uuid, transformationId, setRecoilNode]);
 
     const checkForOverflow = React.useCallback(() => {
         checkForOverflowE(
@@ -524,6 +548,7 @@ export function Node(props) {
                 dispatchTransformation(
                     setNodeShowMini(transformationId, node.uuid, showMini)
                 );
+                setRecoilNode((old) => ({...old, showMini: showMini}));
                 dispatchTransformation(
                     checkTransformationExpandableCollapsible(transformationId)
                 );
@@ -613,8 +638,8 @@ Node.propTypes = {
 };
 
 export function RecursiveSuperNode(props) {
-    const {transformationHash,nodeUuid, branchSpace, transformationId} = props;
-    const node = useRecoilValue(
+    const {transformationHash, nodeUuid, branchSpace, transformationId} = props;
+    const [node, setRecoilNode] = useRecoilState(
         nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
     );
     const [overflowBreakingPoint, setOverflowBreakingPoint] = React.useState();
@@ -641,10 +666,12 @@ export function RecursiveSuperNode(props) {
             node.showMini,
             overflowBreakingPoint,
             setOverflowBreakingPoint,
-            (showMini) =>
+            (showMini) => {
                 dispatchTransformation(
                     setNodeShowMini(transformationId, node.uuid, showMini)
-                )
+                );
+                setRecoilNode((old) => ({...old, showMini: showMini}));
+            }
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [branchSpace, node.showMini, overflowBreakingPoint]);
