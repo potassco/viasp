@@ -153,35 +153,29 @@ def get_children_of_transformation_hash_and_current_Sort():
 
 
 def get_src_tgt_mapping_from_graph(encoding_id: str,
+                                   current_hash=None,
                                    shown_recursive_ids=[],
                                    shown_clingraph=False):
-    current_graph_hash = get_current_graph_hash(encoding_id)
+    if current_hash is None:
+        current_hash = get_current_graph_hash(encoding_id)
     db_edges = db_session.query(GraphEdges).filter_by(
         encoding_id=encoding_id,
-        graph_hash=current_graph_hash,
+        graph_hash=current_hash,
         recursive_supernode_uuid=None).all()
 
     for recursive_uuid in shown_recursive_ids:
-        db_edges.extend(db_session.query(GraphEdges).filter_by(
-            encoding_id=encoding_id,
-            graph_hash=current_graph_hash,
-            recursive_supernode_uuid=recursive_uuid).all())
+        db_edges.extend(
+            db_session.query(GraphEdges).filter_by(
+                encoding_id=encoding_id,
+                graph_hash=current_hash,
+                recursive_supernode_uuid=recursive_uuid).all())
 
     # Clingraph
-    distinct_sources = db_session.query(GraphEdges.source).filter_by(
-        encoding_id=encoding_id,
-        graph_hash=current_graph_hash,
-        recursive_supernode_uuid = None).distinct()
-    last_nodes_in_graph = [e.target for e in db_session.query(GraphEdges).filter(
-        GraphEdges.encoding_id == encoding_id,
-        GraphEdges.graph_hash == current_graph_hash,
-        GraphEdges.recursive_supernode_uuid == None,
-        ~GraphEdges.target.in_(distinct_sources)
-    ).all()]
+    last_nodes = last_nodes_in_graph(encoding_id, current_hash)
 
     if shown_clingraph:
         clingraph_names = db_session.query(Clingraphs).where(Clingraphs.encoding_id == encoding_id).all()
-        for src, tgt in list(zip(last_nodes_in_graph, clingraph_names)):
+        for src, tgt in list(zip(last_nodes, clingraph_names)):
             db_edges.append(GraphEdges(
                 source=src,
                 target=tgt.filename,
@@ -315,12 +309,15 @@ def get_edges():
     if request.method == "POST":
         if request.json is None:
             abort(Response("No json data provided.", 400))
+        current_hash = request.json[
+            "currentSort"] if "currentSort" in request.json else None
         shown_recursive_ids = request.json[
             "shownRecursion"] if "shownRecursion" in request.json else []
         shown_clingraph = request.json[
             "usingClingraph"] if "usingClingraph" in request.json else False
         to_be_returned = get_src_tgt_mapping_from_graph(
-            session['encoding_id'], shown_recursive_ids, shown_clingraph)
+            session['encoding_id'], current_hash, shown_recursive_ids,
+            shown_clingraph)
     elif request.method == "GET":
         to_be_returned = get_src_tgt_mapping_from_graph(session['encoding_id'])
 
@@ -529,7 +526,8 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    transformation_hash=edge["transformation"].hash,
                    branch_position=branch_position,
                    node=current_app.json.dumps(target),
-                   node_uuid=target.uuid.hex)
+                   node_uuid=target.uuid.hex,
+                   space_multiplier=target.space_multiplier)
         )
         for symbol in target.diff:
             db_symbols.append(
@@ -546,7 +544,8 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                                branch_position=branch_position,
                                node=current_app.json.dumps(subnode),
                                node_uuid=subnode.uuid.hex,
-                               recursive_supernode_uuid=target.uuid.hex)
+                               recursive_supernode_uuid=target.uuid.hex,
+                               space_multiplier=1)
                 )
                 for symbol in subnode.diff:
                     db_symbols.append(
@@ -590,7 +589,8 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    transformation_hash="-1",
                    branch_position=0,
                    node=current_app.json.dumps(fact_node),
-                   node_uuid=fact_node.uuid.hex))
+                   node_uuid=fact_node.uuid.hex,
+                   space_multiplier=1))
     for symbol in fact_node.diff:
         db_symbols.append(
             GraphSymbols(node=fact_node.uuid.hex,
@@ -773,9 +773,36 @@ def get_image(uuid):
     return send_file(file_path, mimetype='image/png')
 
 
-def last_nodes_in_graph(graph):
-    return [n.uuid for n in graph.nodes() if graph.out_degree(n) == 0]
+def last_nodes_in_graph(encoding_id, current_hash):
+    distinct_sources = db_session.query(GraphEdges.source).filter_by(
+        encoding_id=encoding_id,
+        graph_hash=current_hash,
+        recursive_supernode_uuid = None).distinct()
+    return [
+        e.target for e in db_session.query(GraphEdges).filter(
+            GraphEdges.encoding_id == encoding_id,
+            GraphEdges.graph_hash == current_hash,
+            GraphEdges.recursive_supernode_uuid == None,
+            ~GraphEdges.target.in_(distinct_sources)).all()
+    ]
 
+def handle_get_clingraph_children(encoding_id, current_hash):
+    db_clingraph = db_session.query(Clingraphs).filter_by(encoding_id=session['encoding_id']).all()
+
+    last_nodes = last_nodes_in_graph(encoding_id, current_hash)
+    last_space_multiplier = [
+        db_session.query(
+            GraphNodes.space_multiplier).filter_by(encoding_id=encoding_id,
+                                                   graph_hash=current_hash,
+                                                   node_uuid=n).one()
+        for n in last_nodes
+    ]
+    to_be_returned = [{
+        "_type": "ClingraphNode",
+        "uuid": c.filename,
+        "space_multiplier": last_space_multiplier[i][0]
+    } for i, c in enumerate(db_clingraph[::-1])]
+    return to_be_returned
 
 @bp.route("/clingraph/children", methods=["POST", "GET"])
 @ensure_encoding_id
@@ -786,6 +813,17 @@ def get_clingraph_children():
             "_type": "ClingraphNode",
             "uuid": c.filename
         } for c in db_clingraph[::-1]]
+        return jsonify(to_be_returned)
+    if request.method == "POST":
+        if request.json is None:
+            return jsonify({'error': 'Missing JSON in request'}), 400
+        if "currentSort" not in request.json:
+            return jsonify({'error': 'Missing current_sort in request'}), 400
+        current_hash = request.json["currentSort"]
+        encoding_id = session['encoding_id']
+
+        to_be_returned = handle_get_clingraph_children(encoding_id,
+                                                       current_hash)
         return jsonify(to_be_returned)
     raise NotImplementedError
 

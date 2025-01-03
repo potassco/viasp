@@ -17,6 +17,7 @@ export const reorderTransformationDropIndicesState = selector({
             return defaultReorderTransformationDropIndices;
         }
         const transformation = get(proxyTransformationStateFamily(selectedItem));
+        console.log("Setting", {tDropIndices: transformation.adjacent_sort_indices})
         return transformation.adjacent_sort_indices;
     },
 }); 

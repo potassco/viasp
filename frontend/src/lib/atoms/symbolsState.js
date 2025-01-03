@@ -14,7 +14,7 @@ export const symoblsByNodeStateFamily = atomFamily({
                     ])
                 );
                 const [node] = nodes.filter(n => n.uuid === nodeUuid);
-                const [symbol] = node.diff.filter(s => s.uuid === symbolUuid);
+                const [symbol] = !node.diff ? {} : node.diff.filter(s => s.uuid === symbolUuid);
                 return {
                     ...symbol,
                     highlights: [],

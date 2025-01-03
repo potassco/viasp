@@ -1,19 +1,22 @@
-import React from 'react';
+import React, { Suspense } from 'react';
+import { useRecoilValue } from 'recoil';
 import LineTo from 'react-lineto';
 import PropTypes from 'prop-types';
 import {useColorPalette} from '../contexts/ColorPalette';
-import {useTransformations} from '../contexts/transformations';
 import {useAnimationUpdater} from '../contexts/AnimationUpdater';
+import { edgesState } from '../atoms/edgesState';
 
 export function Edges() {
     const colorPalete = useColorPalette();
-    const {
-        state: {edges},
-    } = useTransformations();
+    const edges = useRecoilValue(edgesState);
     const {animationState} = useAnimationUpdater();
 
+    React.useEffect(() => {
+        console.log("Edges Updated")
+    }, [edges])
+
     return (
-        <>
+        <Suspense fallback={<div>Loading...</div>}>
             {edges.map((link) => {
                 if (link.recursion_anchor_keyword === 'in') {
                     return (
@@ -62,7 +65,7 @@ export function Edges() {
                     />
                 );
             })}
-        </>
+        </Suspense>
     );
 }
 

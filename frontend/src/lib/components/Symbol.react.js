@@ -12,7 +12,7 @@ import {useMessages, showError} from '../contexts/UserMessages';
 
 import {useRecoilValue, useRecoilCallback, useSetRecoilState, waitForAll, useRecoilState} from 'recoil';
 import {backendURLState} from '../atoms/settingsState';
-import {currentSortState} from '../atoms/currentSortState';
+import {currentSortState} from '../atoms/currentGraphState';
 import {
     ruleBackgroundHighlightsByTransformationStateFamily,
     ruleDotHighlightsByTransformationStateFamily,

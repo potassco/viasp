@@ -1,14 +1,16 @@
 import React, {useEffect} from 'react';
+import './boxrow.css';
 import {styled} from 'styled-components';
 import {Constants} from '../constants';
 import { useColorPalette } from '../contexts/ColorPalette';
 import {Box} from './Box.react';
-import './boxrow.css';
-import {useTransformations} from '../contexts/transformations';
 import {useMapShift} from '../contexts/MapShiftContext';
 import {useRecoilValue} from 'recoil';
 import { reorderTransformationDropIndicesState } from '../atoms/reorderTransformationDropIndices';
-import { numberOfTransformationsState } from '../atoms/currentSortState';
+import {
+    numberOfTransformationsState,
+    clingraphState,
+} from '../atoms/currentGraphState';
 
 const RowContainer = styled.div`
     opacity: ${(props) =>
@@ -23,9 +25,7 @@ export function Boxrow() {
     const {mapShiftValue: transform} = useMapShift();
     const boxrowRef = React.useRef(null);
     const colorPalette = useColorPalette();
-    const {
-        state: {clingraphGraphics},
-    } = useTransformations();
+    const clingraphGraphics = useRecoilValue(clingraphState);
     const tDropIndices = useRecoilValue(reorderTransformationDropIndicesState);
     const numberOfTransformations = useRecoilValue(numberOfTransformationsState)
 

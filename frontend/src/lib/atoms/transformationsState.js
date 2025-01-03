@@ -1,5 +1,5 @@
 import {atomFamily,selectorFamily, waitForAll} from 'recoil';
-import { currentSortState } from './currentSortState';
+import { currentSortState } from './currentGraphState';
 import { backendURLState } from './settingsState';
 
 const getTransformationFromServer = async (backendURL, id, currentSort) => {

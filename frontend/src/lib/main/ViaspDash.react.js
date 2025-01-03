@@ -49,7 +49,7 @@ import {
 import {
     currentSortState,
     numberOfTransformationsState,
-} from '../atoms/currentSortState';
+} from '../atoms/currentGraphState';
 import { transformationStateFamily } from '../atoms/transformationsState';
 import { zoomButtonPressedState } from '../atoms/zoomState';
 import {backendURLState} from '../atoms/settingsState'
@@ -102,10 +102,12 @@ function GraphContainer(props) {
     // };
 
     function onMoveEnd(newList, movedItem, oldIndex, newIndex) {
+        console.log({tDropIndices})
         if (
             tDropIndices.lower_bound <= newIndex &&
             newIndex <= tDropIndices.upper_bound
         ) {
+            setSelectedItem(null);
             clearHighlightedSymbol();
             postCurrentSort(backendURL, oldIndex, newIndex)
                 .then((data) => {
@@ -131,8 +133,8 @@ function GraphContainer(props) {
                     onDragStart={(item) => {
                         setSelectedItem(item.id);
                     }}
-                    onDragEnd={() => {setSelectedItem(null);
-                    }}
+                    // onDragEnd={() => {setSelectedItem(null);
+                    // }}
                     container={() => scrollContainer.current}
                     autoScrollRegionSize={200}
                     padding={0}

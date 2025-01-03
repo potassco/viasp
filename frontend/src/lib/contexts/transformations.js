@@ -674,10 +674,10 @@ const transformationReducer = (state = initialState, action) => {
                         parseInt(k, 10)
                     )
                 );
-                n.space_multiplier =
-                    state.transformationNodesMap[last_transformation_index][
-                        i
-                    ].space_multiplier;
+                n.space_multiplier = 0.5;
+                    // state.transformationNodesMap[last_transformation_index][
+                    //     i
+                    // ].space_multiplier;
                 return n;
             }),
         };
