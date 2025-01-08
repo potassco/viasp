@@ -79,8 +79,12 @@ def get_rules_from_input_program(rules: Tuple) -> Sequence[str]:
     from ..server.models import Encodings
 
     rules_from_input_program: Sequence[str] = []
-    program = db_session.query(Encodings).filter(Encodings.id == "0").first().program.split("\n")
     for rule in rules:
+        filename = rule.location.begin.filename
+        program = db_session.query(Encodings).filter(
+            Encodings.encoding_id == "0",
+            Encodings.filename == filename).first().program.split("\n")
+        print(f"Program: {program}",flush=True)
         if isinstance(rule, str):
             rules_from_input_program.append(rule)
             continue

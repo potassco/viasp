@@ -7,7 +7,9 @@ from viasp.server.database import Base
 class Encodings(Base):
     __tablename__ = "encodings_table"
 
-    id: Mapped[str] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    encoding_id: Mapped[str]
+    filename: Mapped[str]
     program: Mapped[str]
 
 
@@ -15,7 +17,7 @@ class Models(Base):
     __tablename__ = "models_table"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     model: Mapped[str]
 
     __table_args__ = (
@@ -30,7 +32,7 @@ class Graphs(Base):
     hash: Mapped[str] = mapped_column()
     data: Mapped[str] = mapped_column(nullable=True)
     sort: Mapped[str] = mapped_column()
-    encoding_id = mapped_column(ForeignKey("encodings_table.id"))
+    encoding_id = mapped_column(ForeignKey("encodings_table.encoding_id"))
 
     __table_args__ = (
         UniqueConstraint('encoding_id', 'hash', name='_encodingid_hash_uc'),
@@ -41,7 +43,7 @@ class CurrentGraphs(Base):
     __tablename__ = "current_graphs_table"
 
     hash: Mapped[str] = mapped_column(ForeignKey("graphs_table.hash"))
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"),
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"),
                                              primary_key=True)
 
 
@@ -49,7 +51,7 @@ class GraphNodes(Base):
     __tablename__ = "nodes_table"
 
     # id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     graph_hash: Mapped[str] = mapped_column(ForeignKey("graphs_table.hash"))
     transformation_hash: Mapped[str]
     branch_position: Mapped[float]
@@ -71,7 +73,7 @@ class GraphEdges(Base):
     __tablename__ = "edges_table"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     graph_hash: Mapped[str] = mapped_column(ForeignKey("graphs_table.hash"))
     source: Mapped[str] = mapped_column(ForeignKey("nodes_table.node_uuid"))
     target: Mapped[str] = mapped_column(ForeignKey("nodes_table.node_uuid"))
@@ -83,7 +85,7 @@ class GraphEdges(Base):
 class DependencyGraphs(Base):
     __tablename__ = "dependency_graphs_table"
 
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"),
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"),
                                              primary_key=True)
     data: Mapped[str]
 
@@ -92,7 +94,7 @@ class Recursions(Base):
     __tablename__ = "recursions_table"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     recursive_transformation_hash: Mapped[str]
 
     __table_args__ = (UniqueConstraint(
@@ -105,7 +107,7 @@ class Clingraphs(Base):
     __tablename__ = "clingraphs_table"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     filename: Mapped[str]
 
     __table_args__ = (UniqueConstraint(
@@ -116,7 +118,7 @@ class Clingraphs(Base):
 class Transformers(Base):
     __tablename__ = "transformers_table"
 
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"),
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"),
                                              primary_key=True)
     transformer: Mapped[bytes]
 
@@ -125,7 +127,7 @@ class Warnings(Base):
     __tablename__ = "warnings_table"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     warning: Mapped[str]
 
     __table_args__ = (UniqueConstraint(
@@ -137,7 +139,7 @@ class AnalyzerNames(Base):
     __tablename__ = "analyzer_names_table"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     name: Mapped[str]
 
     __table_args__ = (UniqueConstraint(
@@ -150,7 +152,7 @@ class AnalyzerFacts(Base):
     __tablename__ = "analyzer_facts_table"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     fact: Mapped[str] = mapped_column()
 
     __table_args__ = (UniqueConstraint(
@@ -163,7 +165,7 @@ class AnalyzerConstants(Base):
     __tablename__ = "analyzer_constants_table"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.id"))
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     constant: Mapped[str] = mapped_column()
 
     __table_args__ = (UniqueConstraint('encoding_id',

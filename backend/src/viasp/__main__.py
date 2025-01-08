@@ -631,8 +631,8 @@ class ViaspRunner():
         frontend_url = f"http://{host}:{frontend_port}"
         plain(_("VIASP_RUNNING_INFO").format(frontend_url))
         plain(_("VIASP_HALT_HELP"))
-        if not _is_running_in_notebook():
-            webbrowser.open(frontend_url)
+        # if not _is_running_in_notebook():
+        #     webbrowser.open(frontend_url)
 
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.ERROR)

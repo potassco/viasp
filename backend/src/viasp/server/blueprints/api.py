@@ -3,6 +3,7 @@ from typing import Tuple, Any, Dict, Iterable, List
 from flask import current_app, request, Blueprint, jsonify, abort, Response, session
 from uuid import uuid4
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.sql import select
 
 from clingo import Control
 from clingraph.orm import Factbase
@@ -30,18 +31,24 @@ def handle_call_received(call: ClingoMethodCall, encoding_id: str) -> None:
             prg = "".join(f.readlines())
 
         db_encoding = db_session.query(Encodings).filter_by(
-            id = encoding_id).first()
+            id=encoding_id, filename=path).first()
         if db_encoding is not None:
             db_encoding.program += prg
         else:
-            db_encoding = Encodings(id=encoding_id, program=prg)
+            db_encoding = Encodings(encoding_id=encoding_id, filename=path, program=prg)
             db_session.add(db_encoding)
+        encoding = db_session.execute(
+            select(Encodings).where(
+                Encodings.encoding_id == encoding_id)).scalars().all()
+        print(f"asdfasdfasdf: {encoding}",flush=True)
     elif call.name == "add":
-        db_encoding = db_session.query(Encodings).filter_by(id = encoding_id).first()
+        db_encoding = db_session.query(Encodings).filter_by(
+            encoding_id=encoding_id).first()
         if db_encoding is not None:
             db_encoding.program += call.kwargs["program"]
         else:
-            db_encoding = Encodings(id=encoding_id, program=call.kwargs["program"])
+            db_encoding = Encodings(encoding_id=encoding_id,
+                                    program=call.kwargs["program"])
             db_session.add(db_encoding)
     else:
         pass
@@ -62,12 +69,14 @@ def get_program():
             return "Invalid program object", 400
         encoding_id = session['encoding_id']
 
-        db_encoding = db_session.query(Encodings).filter_by(id=encoding_id).first()
+        db_encoding = db_session.query(Encodings).filter_by(
+            encoding_id=encoding_id).first()
         if db_encoding is not None:
             db_encoding.program += program
         else:
-            db_encoding = Encodings(id=encoding_id, program=program)
+            db_encoding = Encodings(encoding_id=encoding_id, filename="<String>", program=program)
             db_session.add(db_encoding)
+
 
         try:
             db_session.commit()
@@ -76,11 +85,13 @@ def get_program():
             return "Error saving program", 500
     elif request.method == "GET":
         encoding_id = session['encoding_id']
-        result = db_session.query(Encodings).filter_by(id = encoding_id).first()
-        return jsonify(result.program) if result else "ok", 200
+        result = db_session.execute(
+            select(Encodings.program).where(
+                Encodings.encoding_id == encoding_id)).scalars().all()
+        return jsonify("".join(result)) if result else "ok", 200
     elif request.method == "DELETE":
         encoding_id = session['encoding_id']
-        db_session.query(Encodings).filter_by(id = encoding_id).delete()
+        db_session.query(Encodings).filter_by(encoding_id=encoding_id).delete()
         db_session.commit()
     return "ok", 200
 
@@ -283,9 +294,11 @@ def show_selected_models():
     try:
         analyzer = ProgramAnalyzer()
         encoding_id = session['encoding_id']
-        encoding = db_session.query(Encodings).filter(Encodings.id == encoding_id).first()
-        if encoding is not None:
-            program = encoding.program
+        # encoding = db_session.query(Encodings).filter(Encodings.encoding_id == encoding_id).first()
+        encoding = db_session.execute(
+            select(Encodings.program).where(Encodings.encoding_id == encoding_id)).scalars().all()
+        if len(encoding) != 0:
+            program = "".join(encoding)
         else:
             raise ValueError("No program found")
 
@@ -321,12 +334,13 @@ def transform_relax():
         kwargs = request.json["kwargs"] if "kwargs" in request.json else {}
 
         encoding_id = session['encoding_id']
-        encoding = db_session.query(Encodings).filter_by(
-            id = encoding_id).first()
-        if encoding is None:
-            return "No program found", 400
+        encoding = db_session.execute(
+            select(Encodings.program).where(
+                Encodings.encoding_id == encoding_id)).scalars().all()
+        if len(encoding) != 0:
+            program = "".join(encoding)
         else:
-            program = encoding.program
+            return "No program found", 400
         relaxer = ProgramRelaxer(*args, **kwargs)
         relaxed = relax_constraints(relaxer, program)
         return jsonify(relaxed)
