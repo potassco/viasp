@@ -96,7 +96,7 @@ def test_load_program_file_with_include(unique_session):
 
     res = unique_session.get("control/program")
     assert res.status_code == 200
-    assert res.json == "sample.{encoding} :- sample.\n", f"{res.data} should be equal to sample.encoding :- sample."
+    assert res.json == '#include "sample_encoding.lp".\nsample.{encoding} :- sample.\n', f"{res.json} should be equal to sample.encoding :- sample."
 
 def test_load_program_string(unique_session):
     debug_client = DebugClient(unique_session)

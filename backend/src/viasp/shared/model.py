@@ -109,16 +109,24 @@ class RuleContainer:
     def __repr__(self):
         return str(self.str_)
 
-def rule_container_from_ast(rules: Tuple[Rule], program_str: str) -> RuleContainer:  # ignore: type
+
+def rule_container_from_ast(
+        rules: Tuple[Rule],
+        encodings_map: Dict[str, str]) -> RuleContainer:  # ignore: type
     rules_from_input_program: Sequence[str] = []
-    program = program_str.split("\n")
 
     for rule in rules:
+        begin_filename = rule.location.begin.filename
         begin_line = rule.location.begin.line
         begin_colu = rule.location.begin.column
+        end_filename = rule.location.begin.filename
         end_line = rule.location.end.line
         end_colu = rule.location.end.column
         r = ""
+        print(f"Looking for rule in {begin_filename}",flush=True)
+        if begin_filename != end_filename:
+            raise Exception("Cannot handle rules that span multiple files")
+        program = encodings_map[begin_filename].split("\n")
         if begin_line != end_line:
             r += program[begin_line - 1][begin_colu-1:] + "\n"
             for i in range(begin_line, end_line - 1):

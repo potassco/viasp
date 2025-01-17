@@ -765,9 +765,7 @@ def unmark_from_file(path: str, **kwargs) -> None:
     unmark_from_string(_get_program_string(path), **kwargs)
 
 
-def parse_input_program_for_files(paths: List[str]) -> List[str]:
-    # with open(path, encoding="utf-8") as f:
-    #     aspstr = "".join(f.readlines())
+def parse_input_program_for_files(program: str, path: List[str]) -> List[str]:
     files = []
 
     def on_rule(ast: AST) -> None:
@@ -779,7 +777,7 @@ def parse_input_program_for_files(paths: List[str]) -> List[str]:
         if file_end not in files:
             files.append(file_end)
 
-    ast.parse_files(paths, on_rule)
+    ast.parse_files(path, on_rule)
     return files
 
 
@@ -802,8 +800,15 @@ def load_program_file(path: Union[str, List[str]], **kwargs) -> None:
     connector = _get_connector(**kwargs)
     if isinstance(path, str):
         path = [path]
-    files_mentioned_in_program = parse_input_program_for_files(path)
+    input_program_string = _get_program_string(path)
+    files_mentioned_in_program = parse_input_program_for_files(
+        input_program_string, path)
     for file in files_mentioned_in_program:
+        program = _get_program_string(file)
+        if file in path:
+            file = "<string>"
         connector.register_function_call("load",
-            signature(InnerControl.load), [],
-            kwargs={"path": file})
+                                         signature(InnerControl.load), [],
+                                         kwargs={
+                                             "path": file,
+                                             "program": program})

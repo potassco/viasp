@@ -1,4 +1,5 @@
 from collections import defaultdict
+import encodings
 from typing import Dict, List, Tuple, Iterable, Set, Collection, Any, Union, Sequence, Optional, cast
 
 import clingo
@@ -8,6 +9,7 @@ from clingo.symbol import SymbolType
 from clingo.ast import (
     Transformer,
     parse_string,
+    parse_files,
     ASTType,
     AST,
     Literal as astLiteral,
@@ -92,6 +94,12 @@ def filter_body_arithmetic(elem: ast.Literal):  # type: ignore
     return elem_ast_type not in ARITH_TYPES
 
 
+def is_from_include_statement(ast):
+    location = getattr(ast, "location", None)
+    if location is None:
+        return False
+    return location.begin.filename != "<string>"
+
 class FilteredTransformer(Transformer):
 
     def __init__(self, accepted=None, forbidden=None, warning=None):
@@ -120,6 +128,8 @@ class FilteredTransformer(Transformer):
             )
             self._filtered.append(
                 TransformationError(ast, FailedReason.FAILURE))
+            return
+        if is_from_include_statement(ast):
             return
         attr = "visit_" + str(ast.ast_type).replace("ASTType.", "")
         if hasattr(self, attr):
@@ -486,26 +496,30 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
 
     def add_program(
             self,
-            program: str,
+            encodings_map: Dict[str, str],
             RegisteredTransformer: Optional[Transformer] = None) -> None:
         if RegisteredTransformer is not None:
-            registered_visitor = RegisteredTransformer()  # type: ignore
-            new_program: List[AST] = []
+            for _, program in encodings_map.items():
+                registered_visitor = RegisteredTransformer()  # type: ignore
+                new_program: List[AST] = []
 
-            def add(statement):
-                nonlocal new_program
-                if isinstance(statement, List):
-                    new_program.extend(statement)
-                else:
-                    new_program.append(statement)
+                def add(statement):
+                    nonlocal new_program
+                    if isinstance(statement, List):
+                        new_program.extend(statement)
+                    else:
+                        new_program.append(statement)
 
-            parse_string(
-                program,
-                lambda statement: add(registered_visitor.visit(statement)))
-            for statement in new_program:
-                self.visit(statement)
+                parse_string(
+                    program,
+                    lambda statement: add(registered_visitor.visit(statement)))
+                for statement in new_program:
+                    self.visit(statement)
         else:
-            parse_string(program,
+            print(f"encodings_map: {encodings_map}", flush=True)
+            for _, program in encodings_map.items():
+                print(f"\nParse String: {program}", flush=True)
+                parse_string(program,
                          lambda statement: self.visit(statement) and None)
 
     def sort_program(self, program) -> List[Transformation]:
@@ -524,8 +538,9 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         return sorted_programs, self.make_dependency_graph(
             self.dependants, self.conditions, program)
 
-    def get_sorted_program(self, program_str: str) -> List[Transformation]:
-        sorted_program = self.primary_sort_program_by_dependencies(program_str)
+    def get_sorted_program(self, encodings_map: Dict[str, str]) -> List[Transformation]:
+        sorted_program = self.primary_sort_program_by_dependencies(
+            encodings_map)
         return self.make_transformations_from_sorted_program(sorted_program)
 
     def make_transformations_from_sorted_program(
@@ -540,12 +555,11 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         transformations.sort(key=lambda t: t.id)
         return transformations
 
-    def make_dependency_graph(
-        self,
-        head_dependencies: Dict[Tuple[str, int], Set[AST]],
-        body_dependencies: Dict[Tuple[str, int], Set[AST]],
-        program_str: str
-    ) -> nx.DiGraph:
+    def make_dependency_graph(self, head_dependencies: Dict[Tuple[str, int],
+                                                            Set[AST]],
+                              body_dependencies: Dict[Tuple[str, int],
+                                                      Set[AST]],
+                              encodings_map: Dict[str, str]) -> nx.DiGraph:
         """
         We draw a dependency graph based on which rule head contains which literals.
         That way we know, that in order to have a rule r with a body containing literal l, all rules that have l in their
@@ -558,24 +572,29 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
 
         for deps in head_dependencies.values():
             for dep in deps:
-                g.add_node(rule_container_from_ast(tuple([dep]), program_str))
+                g.add_node(rule_container_from_ast(tuple([dep]), encodings_map))
         for deps in body_dependencies.values():
             for dep in deps:
-                g.add_node(rule_container_from_ast(tuple([dep]), program_str))
+                g.add_node(rule_container_from_ast(tuple([dep]),
+                                                   encodings_map))
 
         for head_signature, rules_with_head in head_dependencies.items():
             dependent_rules = body_dependencies.get(head_signature, [])
             for parent_rule in rules_with_head:
                 for dependent_rule in dependent_rules:
-                    g.add_edge(rule_container_from_ast(tuple([parent_rule]), program_str), rule_container_from_ast(tuple([dependent_rule]), program_str))
+                    g.add_edge(
+                        rule_container_from_ast(tuple([parent_rule]),
+                                                encodings_map),
+                        rule_container_from_ast(tuple([dependent_rule]),
+                                                encodings_map))
 
         return g
 
     def primary_sort_program_by_dependencies(
-            self, program_str) -> List[RuleContainer]:
-        graph = self.make_dependency_graph(self.dependants, self.conditions, program_str)
-        graph = merge_constraints(graph, program_str)
-        graph, _ = merge_cycles(graph, program_str)
+            self, encodings_map: Dict[str, str]) -> List[RuleContainer]:
+        graph = self.make_dependency_graph(self.dependants, self.conditions, encodings_map)
+        graph = merge_constraints(graph, encodings_map)
+        graph, _ = merge_cycles(graph, encodings_map)
         graph, _ = remove_loops(graph)
         self.dependency_graph = cast(nx.DiGraph, graph.copy())
         sorted_program = topological_sort(graph, self.rules)
@@ -592,12 +611,13 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         return find_index_mapping_for_adjacent_topological_sorts(
             self.dependency_graph, sorted_program)
 
-    def check_positive_recursion(self, program) -> Set[str]:
-        positive_dependency_graph = self.make_dependency_graph(self.dependants,
-                                           self.positive_conditions, program)
+    def check_positive_recursion(self, encodings_map) -> Set[str]:
+        positive_dependency_graph = self.make_dependency_graph(
+            self.dependants, self.positive_conditions, encodings_map)
 
-        positive_dependency_graph = merge_constraints(positive_dependency_graph, program)
-        positive_dependency_graph_withput_cycles, where1 = merge_cycles(positive_dependency_graph, program)
+        positive_dependency_graph = merge_constraints(positive_dependency_graph, encodings_map)
+        positive_dependency_graph_withput_cycles, where1 = merge_cycles(
+            positive_dependency_graph, encodings_map)
         _, where2 = remove_loops(positive_dependency_graph_withput_cycles)
 
         recursion_rules = set()

@@ -12,24 +12,27 @@ def is_constraint(rule: AST) -> bool:
     return rule.ast_type == ASTType.Rule and "atom" in rule.head.child_keys and rule.head.atom.ast_type == ASTType.BooleanConstant  # type: ignore
 
 
-def merge_constraints(g: nx.DiGraph, program_str: str) -> nx.DiGraph:
+def merge_constraints(g: nx.DiGraph, encodings_map: Dict[str, str]) -> nx.DiGraph:
     mapping = {}
     constraints = set([
         ruleset for ruleset in g.nodes for rule in ruleset.ast
         if is_constraint(rule)
     ])
     if constraints:
-        merge_node = merge_nodes(constraints, program_str)
+        merge_node = merge_nodes(constraints, encodings_map)
         mapping = {c: merge_node for c in constraints}
     return nx.relabel_nodes(g, mapping)
 
 
-def merge_cycles(g: nx.DiGraph, program_str) -> Tuple[nx.DiGraph, FrozenSet[RuleContainer]]:
+def merge_cycles(
+    g: nx.DiGraph,
+    encodings_map: Dict[str,
+                        str]) -> Tuple[nx.DiGraph, FrozenSet[RuleContainer]]:
     mapping: Dict[AST, AST] = {}
     merge_node: RuleContainer
     where_recursion_happens = set()
     for cycle in nx.algorithms.components.strongly_connected_components(g):
-        merge_node = merge_nodes(cycle, program_str)
+        merge_node = merge_nodes(cycle, encodings_map)
         mapping.update({old_node: merge_node for old_node in cycle})
     # which nodes were merged
     for k, v in mapping.items():
@@ -38,11 +41,12 @@ def merge_cycles(g: nx.DiGraph, program_str) -> Tuple[nx.DiGraph, FrozenSet[Rule
     return nx.relabel_nodes(g, mapping), frozenset(where_recursion_happens)
 
 
-def merge_nodes(nodes: Set[RuleContainer], program_str: str) -> RuleContainer:
+def merge_nodes(nodes: Set[RuleContainer],
+                encodings_map: Dict[str,str]) -> RuleContainer:
     old = set()
     for x in nodes:
         old.update(x.ast)
-    return rule_container_from_ast(tuple(old), program_str)
+    return rule_container_from_ast(tuple(old), encodings_map)
 
 
 def remove_loops(g: nx.DiGraph) -> Tuple[nx.DiGraph, FrozenSet[RuleContainer]]:
