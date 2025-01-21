@@ -35,8 +35,10 @@ def test_disjunction_causes_error_and_doesnt_get_passed(app_context):
 
 def test_simple_rule_analyzed_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "a :- b."
-    db_session.add(Encodings(id = encoding_id, program = program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
@@ -46,8 +48,10 @@ def test_simple_rule_analyzed_correctly(app_context, db_session):
 
 def test_rule_without_negation_analyzed_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "a :- b, c."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
@@ -57,8 +61,10 @@ def test_rule_without_negation_analyzed_correctly(app_context, db_session):
 
 def test_rule_with_negation_analyzed_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "a :- not b, c."
-    db_session.add(Encodings(id= encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
@@ -68,8 +74,10 @@ def test_rule_with_negation_analyzed_correctly(app_context, db_session):
 
 def test_multiple_nested_variable_analyzed_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "x(1). y(1). l(x(X),y(Y)) :- x(X), y(Y)."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
@@ -79,8 +87,9 @@ def test_multiple_nested_variable_analyzed_correctly(app_context, db_session):
 
 def test_show_statement_without_terms_analyzed_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "#show a/1."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
@@ -90,8 +99,10 @@ def test_show_statement_without_terms_analyzed_correctly(app_context, db_session
 
 def test_show_statement_with_terms_analyzed_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "a. #show b : a."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     transformer = ProgramAnalyzer()
@@ -104,8 +115,10 @@ def test_show_statement_with_terms_analyzed_correctly(app_context, db_session):
 
 def test_show_statement_with_string_analyzed_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = 'a. #show "SUCCESS" : a.'
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     transformer = ProgramAnalyzer()
@@ -118,9 +131,11 @@ def test_show_statement_with_string_analyzed_correctly(app_context, db_session):
 
 def test_defined_statement_analyzed_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "#defined a/1."
     expected = "#defined a/1."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
@@ -133,8 +148,10 @@ def test_defined_statement_analyzed_correctly(app_context, db_session):
 
 def test_definition_statement_analyzed_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "#const max=1."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
@@ -147,6 +164,7 @@ def test_definition_statement_analyzed_correctly(app_context, db_session):
 
 def test_script_statement_analyzed_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = """
 #script(python)
 from clingo.symbol import Number
@@ -156,7 +174,8 @@ def test2():
 1{a;b;p(@test2())}.
 """
 
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     program = transformer.sort_program(program)
@@ -258,8 +277,9 @@ def test_theory_definition_statement_analyzed_correctly(app_context):
 
 def test_dependency_graph_creation(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "a. b :- a. c :- a."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     analyzer = ProgramAnalyzer()
@@ -271,8 +291,10 @@ def test_dependency_graph_creation(app_context, db_session):
 
 def test_negative_recursion_gets_grouped(get_sort_program, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "a. b :- not c, a. c :- not b, a."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     result, _ = get_sort_program(program)
@@ -284,8 +306,10 @@ def test_negative_recursion_gets_grouped(get_sort_program, db_session):
 def multiple_non_recursive_rules_with_same_head_should_not_be_grouped(
         sort_program, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "f(B) :- x(B). f(B) :- f(A), rel(A,B)."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     result = sort_program(program)
     assert len(
@@ -295,8 +319,10 @@ def multiple_non_recursive_rules_with_same_head_should_not_be_grouped(
 
 def test_sorting_facts_independent(get_sort_program, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "c :- b. b :- a. a. "
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     result, _ = get_sort_program(program)
     assert len(result) == 2, "Facts should not be sorted."
@@ -306,8 +332,10 @@ def test_sorting_facts_independent(get_sort_program, db_session):
 
 def test_sorting_behemoth(get_sort_program, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "c(1). e(1). f(X,Y) :- b(X,Y). 1 #sum { X,Y : a(X,Y) : b(Y), c(X) ; X,Z : b(X,Z) : e(Z) } :- c(X). e(X) :- c(X)."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     result, _ = get_sort_program(program)
     assert len(result) == 3
@@ -320,8 +348,10 @@ def test_sorting_behemoth(get_sort_program, db_session):
 
 def test_data_type_is_correct(get_sort_program, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "d :- c. b :- a. a. c :- b."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     result, _ = get_sort_program(program)
     assert len(result) > 0 and len(result[0].rules.ast) > 0 and len(
@@ -337,15 +367,17 @@ def test_data_type_is_correct(get_sort_program, db_session):
 def test_aggregate_in_body_of_constraint(app_context, db_session):
     program = ":- 3 { assignedB(P,R) : paper(P) }, reviewer(R)."
     a = ProgramAnalyzer()
-    a.add_program(program)
-    result = a.get_sorted_program(program)
+    a.add_program([program])
+    result = a.get_sorted_program()
     assert len(result) == 1
 
 
 def test_minimized_causes_no_warning(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "#minimize { 1,P,R : assignedB(P,R), paper(P), reviewer(R) }."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     transformer = ProgramAnalyzer()
@@ -355,8 +387,10 @@ def test_minimized_causes_no_warning(app_context, db_session):
 
 def test_minimized_is_collected_as_rule(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "#minimize { 1,P,R : assignedB(P,R), paper(P), reviewer(R) }."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
@@ -366,8 +400,10 @@ def test_minimized_is_collected_as_rule(app_context, db_session):
 
 def test_weak_minimized_is_collected_as_rule(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = ":~ last(N). [N@0,1]"
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
@@ -378,6 +414,7 @@ def test_weak_minimized_is_collected_as_rule(app_context, db_session):
 @pytest.mark.skip(reason="Not implemented yet")
 def test_constraints_gets_put_last(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = """
     { assigned(P,R) : reviewer(R) } 3 :-  paper(P).
      :- assigned(P,R), coi(R,P).
@@ -386,7 +423,7 @@ def test_constraints_gets_put_last(app_context, db_session):
      :- 3 { assignedB(P,R) : paper(P) }, reviewer(R).
     #minimize { 1,P,R : assignedB(P,R), paper(P), reviewer(R) }.
     """
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
     transformer = ProgramAnalyzer()
     result = transformer.sort_program(program)
@@ -398,11 +435,13 @@ def test_constraints_gets_put_last(app_context, db_session):
 
 def test_body_conditional_literal_sorted_correctly(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     rules = ["hc(U,V) :- edge(U,V).", "allnodes :- hc(_,X): node(X), X=1..2."]
     program = """
     node(1..2). edge(1,2). edge(2,1).
     """ + "\n".join(rules)
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     transformer = ProgramAnalyzer()
@@ -423,11 +462,13 @@ def test_body_conditional_literal_sorted_correctly(app_context, db_session):
 
 def test_body_conditional_literal_sorted_in_show_term(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     rules = ["hc(U,V) :- edge(U,V).", "#show allnodes : node(X): hc(_,X)."]
     program = """
     node(1..2). edge(1,2). edge(2,1).
     """ + "\n".join(rules)
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     transformer = ProgramAnalyzer()
@@ -446,11 +487,15 @@ def test_body_conditional_literal_sorted_in_show_term(app_context, db_session):
 
 def test_body_aggregate_sorted_correctly(app_context, db_session):
     encoding_id = "test"
-    rules = ["hc(U,V) :- edge(U,V).", "pathExists :- 1 < #count { 1,X,Y: hc(X,Y) }."]
+    filename = "<string>"
+    rules = [
+        "hc(U,V) :- edge(U,V).", "pathExists :- 1 < #count { 1,X,Y: hc(X,Y) }."
+    ]
     program = """
     node(1..2). edge(1,2). edge(2,1).
     """ + "\n".join(rules)
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     transformer = ProgramAnalyzer()
@@ -467,11 +512,16 @@ def test_body_aggregate_sorted_correctly(app_context, db_session):
 
 def test_body_aggregate_sorted_in_show_term(app_context, db_session):
     encoding_id = "test"
-    rules = ["hc(U,V) :- edge(U,V).", "#show pathExists : 1 < #count { 1,X,Y: hc(X,Y) }."]
+    filename = "<string>"
+    rules = [
+        "hc(U,V) :- edge(U,V).",
+        "#show pathExists : 1 < #count { 1,X,Y: hc(X,Y) }."
+    ]
     program = """
     node(1..2). edge(1,2). edge(2,1).
     """ + "\n".join(rules)
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     transformer = ProgramAnalyzer()
@@ -488,13 +538,15 @@ def test_body_aggregate_sorted_in_show_term(app_context, db_session):
 
 def test_positive_recursion_gets_recognized(app_context, db_session):
     encoding_id = "test"
+    filename = "<string>"
     program = "a :- b. b :- a.d :- c. c :- d."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     transformer = ProgramAnalyzer()
     _ = transformer.sort_program(program)
-    recursive_rules = transformer.check_positive_recursion(program)
+    recursive_rules = transformer.check_positive_recursion()
 
     assert isinstance(recursive_rules, set), "The result should be a set."
     assert isinstance(next(iter(recursive_rules)),
@@ -505,12 +557,14 @@ def test_positive_recursion_gets_recognized(app_context, db_session):
 def test_loop_recursion_gets_recognized(app_context, db_session):
     encoding_id = "test"
     program = "a :- a."
-    db_session.add(Encodings(id=encoding_id, program=program))
+    filename = "<string>"
+    db_session.add(
+        Encodings(encoding_id=encoding_id, filename=filename, program=program))
     db_session.commit()
 
     transformer = ProgramAnalyzer()
-    _ = transformer.add_program(program)
-    recursive_rules = transformer.check_positive_recursion(program)
+    _ = transformer.add_program([program])
+    recursive_rules = transformer.check_positive_recursion()
 
     assert isinstance(recursive_rules, set), "The result should be a set."
     assert isinstance(next(iter(recursive_rules)),

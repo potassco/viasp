@@ -145,20 +145,13 @@ class Control:
 
     def load(self, path: str) -> None:
         if path == "-":
-            path = str(STDIN_TMP_STORAGE_PATH)
-            tmp = sys.stdin.readlines()
-            with open(path, "w", encoding="utf-8") as f:
-                f.writelines(tmp)
+            program = sys.stdin.readlines()
         else:
-            with open(path, "r",
-                      encoding="utf-8") as f, open(STDIN_TMP_STORAGE_PATH,
-                                                   "a",
-                                                   encoding="utf-8") as out:
-                out.writelines(f.readlines())
+            program = open(path, "r", encoding="utf-8").readlines()
         self.viasp.register_function_call("load",
                                           signature(self.passed_control.load),
                                           [],
-                                          kwargs={"path": path})
+                                          kwargs={"path": "<string>", "program": "\n".join(program) })
         self.passed_control.load(path=str(path))
 
     def add(self, *args, **kwargs):

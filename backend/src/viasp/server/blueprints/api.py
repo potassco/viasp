@@ -3,6 +3,7 @@ from typing import Tuple, Any, Dict, Iterable, List
 from flask import current_app, request, Blueprint, jsonify, abort, Response, session
 from uuid import uuid4
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.sql import select
 
 from clingo import Control
 from clingraph.orm import Factbase
@@ -25,23 +26,25 @@ using_clingraph: List[str] = []
 
 def handle_call_received(call: ClingoMethodCall, encoding_id: str) -> None:
     if call.name == "load":
-        path = call.kwargs["path"]
-        with open(path, encoding="utf-8") as f:
-            prg = "".join(f.readlines())
+        path = call.kwargs["path"] if "path" in call.kwargs else "<string>"
+        prg = call.kwargs["program"]
 
         db_encoding = db_session.query(Encodings).filter_by(
-            id = encoding_id).first()
+            id=encoding_id, filename=path).first()
         if db_encoding is not None:
             db_encoding.program += prg
         else:
-            db_encoding = Encodings(id=encoding_id, program=prg)
+            db_encoding = Encodings(encoding_id=encoding_id, filename=path, program=prg)
             db_session.add(db_encoding)
     elif call.name == "add":
-        db_encoding = db_session.query(Encodings).filter_by(id = encoding_id).first()
+        db_encoding = db_session.query(Encodings).filter_by(
+            encoding_id=encoding_id).first()
         if db_encoding is not None:
             db_encoding.program += call.kwargs["program"]
         else:
-            db_encoding = Encodings(id=encoding_id, program=call.kwargs["program"])
+            db_encoding = Encodings(encoding_id=encoding_id,
+                                    filename="<string>",
+                                    program=call.kwargs["program"])
             db_session.add(db_encoding)
     else:
         pass
@@ -62,12 +65,14 @@ def get_program():
             return "Invalid program object", 400
         encoding_id = session['encoding_id']
 
-        db_encoding = db_session.query(Encodings).filter_by(id=encoding_id).first()
+        db_encoding = db_session.query(Encodings).filter_by(
+            encoding_id=encoding_id).first()
         if db_encoding is not None:
             db_encoding.program += program
         else:
-            db_encoding = Encodings(id=encoding_id, program=program)
+            db_encoding = Encodings(encoding_id=encoding_id, filename="<string>", program=program)
             db_session.add(db_encoding)
+
 
         try:
             db_session.commit()
@@ -76,11 +81,13 @@ def get_program():
             return "Error saving program", 500
     elif request.method == "GET":
         encoding_id = session['encoding_id']
-        result = db_session.query(Encodings).filter_by(id = encoding_id).first()
-        return jsonify(result.program) if result else "ok", 200
+        result = db_session.execute(
+            select(Encodings.program).where(
+                Encodings.encoding_id == encoding_id)).scalars().all()
+        return jsonify("".join(result)) if result else "ok", 200
     elif request.method == "DELETE":
         encoding_id = session['encoding_id']
-        db_session.query(Encodings).filter_by(id = encoding_id).delete()
+        db_session.query(Encodings).filter_by(encoding_id=encoding_id).delete()
         db_session.commit()
     return "ok", 200
 
@@ -209,9 +216,9 @@ def set_warnings():
     return "ok"
 
 
-def set_primary_sort(analyzer: ProgramAnalyzer, program: str, encoding_id: str):
+def set_primary_sort(analyzer: ProgramAnalyzer, encoding_id: str):
 
-    primary_sort = analyzer.get_sorted_program(program)
+    primary_sort = analyzer.get_sorted_program()
     primary_hash = hash_from_sorted_transformations(primary_sort)
 
     db_current_graph = db_session.query(CurrentGraphs).where(CurrentGraphs.encoding_id == encoding_id).first()
@@ -232,8 +239,8 @@ def set_primary_sort(analyzer: ProgramAnalyzer, program: str, encoding_id: str):
         generate_graph(encoding_id, analyzer)
 
 
-def save_recursions(analyzer: ProgramAnalyzer, program: str, encoding_id: str):
-    for t in analyzer.check_positive_recursion(program):
+def save_recursions(analyzer: ProgramAnalyzer, encoding_id: str):
+    for t in analyzer.check_positive_recursion():
         db_recursion = Recursions(encoding_id=encoding_id,
                     recursive_transformation_hash=t)
         db_session.add(db_recursion)
@@ -283,28 +290,33 @@ def show_selected_models():
     try:
         analyzer = ProgramAnalyzer()
         encoding_id = session['encoding_id']
-        encoding = db_session.query(Encodings).filter(Encodings.id == encoding_id).first()
-        if encoding is not None:
-            program = encoding.program
-        else:
-            raise ValueError("No program found")
+        encodings = db_session.execute(
+            select(Encodings.program).where(
+                Encodings.encoding_id == encoding_id)).scalars().all()
 
-        result = db_session.query(Transformers).filter(Transformers.encoding_id == encoding_id).first()
-        transformer = current_app.json.loads(result.transformer) if result is not None else None
+        result = db_session.query(Transformers).filter(
+            Transformers.encoding_id == encoding_id).first()
+        transformer = current_app.json.loads(
+            result.transformer) if result is not None else None
 
-        analyzer.add_program(program, transformer)
+        analyzer.add_program(encodings, transformer)
 
-        warnings = [Warnings(encoding_id=encoding_id, warning=current_app.json.dumps(w)) for w in analyzer.get_filtered()]
+        warnings = [
+            Warnings(encoding_id=encoding_id,
+                     warning=current_app.json.dumps(w))
+            for w in analyzer.get_filtered()
+        ]
         db_session.add_all(warnings)
         db_session.commit()
 
-        result = db_session.query(Models).where(Models.encoding_id == encoding_id).all()
+        result = db_session.query(Models).where(
+            Models.encoding_id == encoding_id).all()
         marked_models = [current_app.json.loads(m.model) for m in result]
-        marked_models = wrap_marked_models(marked_models,
-                                        analyzer.get_conflict_free_showTerm())
+        marked_models = wrap_marked_models(
+            marked_models, analyzer.get_conflict_free_showTerm())
         if analyzer.will_work():
-            save_recursions(analyzer, program, encoding_id)
-            set_primary_sort(analyzer, program, encoding_id)
+            save_recursions(analyzer, encoding_id)
+            set_primary_sort(analyzer, encoding_id)
             save_analyzer_values(analyzer, encoding_id)
     except Exception as e:
         return str(e), 500
@@ -321,12 +333,13 @@ def transform_relax():
         kwargs = request.json["kwargs"] if "kwargs" in request.json else {}
 
         encoding_id = session['encoding_id']
-        encoding = db_session.query(Encodings).filter_by(
-            id = encoding_id).first()
-        if encoding is None:
-            return "No program found", 400
+        encoding = db_session.execute(
+            select(Encodings.program).where(
+                Encodings.encoding_id == encoding_id)).scalars().all()
+        if len(encoding) != 0:
+            program = "".join(encoding)
         else:
-            program = encoding.program
+            return "No program found", 400
         relaxer = ProgramRelaxer(*args, **kwargs)
         relaxed = relax_constraints(relaxer, program)
         return jsonify(relaxed)

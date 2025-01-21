@@ -116,13 +116,13 @@ def app_context():
 def load_analyzer(app_context, db_session) -> Callable[[str], ProgramAnalyzer]:
     def c(program: str) -> ProgramAnalyzer:
         encoding_id = "0"
-        db_program = db_session.query(Encodings).filter_by(id=encoding_id).delete()
-        db_program = Encodings(id=encoding_id, program=program)
+        filename = "<string>"
+        db_program = db_session.query(Encodings).filter_by(encoding_id=encoding_id).delete()
+        db_program = Encodings(encoding_id=encoding_id, filename=filename, program=program)
         db_session.add(db_program)
         db_session.commit()
         analyzer = ProgramAnalyzer()
-        analyzer.add_program(
-            db_session.query(Encodings).filter_by(id=encoding_id).first().program)
+        analyzer.add_program([program])
         return analyzer
     return c
 
@@ -130,11 +130,12 @@ def load_analyzer(app_context, db_session) -> Callable[[str], ProgramAnalyzer]:
 def get_sort_program(load_analyzer, db_session) -> Callable[[str], Tuple[List[Transformation], ProgramAnalyzer]]:
     def c(program: str):
         encoding_id = "0"
+        filename = "<string>"
         analyzer = load_analyzer(program)
         db_session.query(Encodings).delete()
-        db_session.add(Encodings(id=encoding_id, program=program))
+        db_session.add(Encodings(encoding_id=encoding_id, filename=filename, program=program))
         db_session.commit()
-        return analyzer.get_sorted_program(program), analyzer
+        return analyzer.get_sorted_program(), analyzer
     return c
 
 @pytest.fixture
@@ -153,7 +154,7 @@ def get_sort_program_and_get_graph(get_sort_program, app_context, db_session) ->
         db_recursions = [
             Recursions(encoding_id=encoding_id,
                        recursive_transformation_hash=t)
-            for t in analyzer.check_positive_recursion(program)
+            for t in analyzer.check_positive_recursion()
         ]
         db_dependency_graph = DependencyGraphs(
             encoding_id=encoding_id,
@@ -173,7 +174,7 @@ def get_sort_program_and_get_graph(get_sort_program, app_context, db_session) ->
         db_session.commit()
         wrapped_stable_models = [list(save_model(saved_model)) for saved_model in saved_models]
         reified = reify_list(sorted_program)
-        recursion_rules = analyzer.check_positive_recursion(program)
+        recursion_rules = analyzer.check_positive_recursion()
         g = build_graph(wrapped_stable_models, reified, sorted_program, analyzer, recursion_rules)
         return (g, hash_from_sorted_transformations(sorted_program), sorted_program), analyzer
     return c

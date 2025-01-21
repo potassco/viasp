@@ -86,7 +86,7 @@ def handle_request_for_children(
     return ordered_children
 
 def clear_encoding_session_data(encoding_id: str):
-    db_session.query(Encodings).filter_by(id = encoding_id).delete()
+    db_session.query(Encodings).filter_by(encoding_id=encoding_id).delete()
     db_session.query(Models).filter_by(encoding_id = encoding_id).delete()
     db_session.query(Graphs).filter_by(encoding_id = encoding_id).delete()
     db_session.query(CurrentGraphs).filter_by(encoding_id = encoding_id).delete()
@@ -785,7 +785,12 @@ def wrap_marked_models(
 
 def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None) -> nx.DiGraph:
     db_program = db_session.query(Encodings).filter_by(id=encoding_id).one_or_none()
-    if db_program is None:
+    encoding = db_session.execute(
+            select(Encodings.program).where(
+                Encodings.encoding_id == encoding_id)).scalars().all()
+    if len(encoding) != 0:
+        program = "".join(encoding)
+    else:
         raise DatabaseInconsistencyError
 
     transformer = None
@@ -795,7 +800,7 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
 
     if analyzer is None:
         analyzer = ProgramAnalyzer()
-        analyzer.add_program(db_program.program, transformer)
+        analyzer.add_program(program, transformer)
         if not analyzer.will_work():
             error("Input program contains forbidden part of clingo language.")
             return nx.DiGraph()

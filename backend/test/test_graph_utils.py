@@ -6,8 +6,8 @@ def test_topological_sort(app_context):
     rules_container = [RuleContainer(str_=tuple([r])) for r in rules]
 
     a = ProgramAnalyzer()
-    a.add_program('\n'.join(rules))
-    sorted = a.get_sorted_program('\n'.join(rules))
+    a.add_program(['\n'.join(rules)])
+    sorted = a.get_sorted_program()
     assert len(sorted) == len(rules)
     for i in range(len(rules)):
         assert sorted[i].rules == rules_container[i]
@@ -24,8 +24,8 @@ def test_topological_sort_2(app_context):
     rules_container = [RuleContainer(str_=tuple([r])) for r in rules]
 
     a = ProgramAnalyzer()
-    a.add_program('\n'.join(rules))
-    sorted = a.get_sorted_program('\n'.join(rules))
+    a.add_program(['\n'.join(rules)])
+    sorted = a.get_sorted_program()
     assert len(sorted) == len(rules)
     for i in range(len(rules)):
         assert sorted[i].rules == rules_container[i]
@@ -33,8 +33,8 @@ def test_topological_sort_2(app_context):
 def test_adjacent_sorts(app_context):
     rules = ["{b(X)} :- a(X).", "c(X) :- a(X)."]
     a = ProgramAnalyzer()
-    a.add_program('\n'.join(rules))
-    sorted = a.get_sorted_program('\n'.join(rules))
+    a.add_program(['\n'.join(rules)])
+    sorted = a.get_sorted_program()
 
     adjacent_sorts = a.get_index_mapping_for_adjacent_topological_sorts([t.rules for t in sorted])
     assert len(adjacent_sorts.keys()) == 2
@@ -52,8 +52,8 @@ def test_adjacent_sorts_2(app_context):
              "b:-z.",
              "c:-b,a."]
     a = ProgramAnalyzer()
-    a.add_program('\n'.join(rules))
-    sorted = a.get_sorted_program('\n'.join(rules))
+    a.add_program(['\n'.join(rules)])
+    sorted = a.get_sorted_program()
 
     adjacent_sorts = a.get_index_mapping_for_adjacent_topological_sorts([t.rules for t in sorted])
     assert len(adjacent_sorts) == 7

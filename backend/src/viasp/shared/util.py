@@ -1,5 +1,5 @@
 from itertools import tee
-from typing import Any, TypeVar, Iterable, Tuple, List, Sequence, Dict
+from typing import Any, TypeVar, Iterable, Tuple, List, Sequence, Dict, cast
 from collections import defaultdict
 from types import MappingProxyType
 from hashlib import sha1
@@ -8,7 +8,7 @@ import json
 import jsonschema
 from jsonschema import validate
 
-from clingo.ast import ASTType, AST, parse_string
+from clingo.ast import ASTType, AST, parse_string, Location
 import jsonschema.exceptions
 import networkx as nx
 from ..exceptions import InvalidSyntax, InvalidSyntaxJSON
@@ -74,13 +74,23 @@ def hash_transformation_rules(rules: Tuple[Any, ...]) -> str:
 def hash_string(string: str) -> str:
     return sha1(string.encode()).hexdigest()
 
+
+class RuleType:
+    location: Location
+    head: AST
+    body: Sequence[AST]
+
+
 def get_rules_from_input_program(rules: Tuple) -> Sequence[str]:
     from ..server.database import db_session
     from ..server.models import Encodings
 
     rules_from_input_program: Sequence[str] = []
-    program = db_session.query(Encodings).filter(Encodings.id == "0").first().program.split("\n")
     for rule in rules:
+        filename = rule.location.begin.filename
+        program = db_session.query(Encodings).filter(
+            Encodings.encoding_id == "0",
+            Encodings.filename == filename).first().program.split("\n")
         if isinstance(rule, str):
             rules_from_input_program.append(rule)
             continue
@@ -101,8 +111,8 @@ def get_rules_from_input_program(rules: Tuple) -> Sequence[str]:
     return rules_from_input_program
 
 
-def append_hashtag_to_minimize(r: str, rule: AST, program: Sequence[str], begin_line: int, begin_colu: int) -> str:
-    if rule.ast_type == ASTType.Minimize and r[:2] != ":~":
+def append_hashtag_to_minimize(r: str, rule: RuleType, program: Sequence[str], begin_line: int, begin_colu: int) -> str:
+    if cast(AST, rule).ast_type == ASTType.Minimize and r[:2] != ":~":
         for i in range(begin_line, 0, -1):
             colu_of_hashtag = program[i - 1].rfind("#")
             if colu_of_hashtag != -1:
@@ -117,7 +127,8 @@ def append_hashtag_to_minimize(r: str, rule: AST, program: Sequence[str], begin_
                 break
     return r
 
-def get_ast_from_input_string(rules_str: Tuple[str, ...]) -> Tuple[AST, ...]:
+
+def get_ast_from_input_string(rules_str: Tuple[str, ...]) -> Tuple[RuleType, ...]:
     rules_ast = []
     for rule in rules_str:
         parse_string(

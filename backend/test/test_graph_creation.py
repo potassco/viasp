@@ -83,7 +83,7 @@ def test_dependencies_register_on_negation(load_analyzer):
         b :- a.
     """
     analyzer = load_analyzer(program)
-    sorted_program = analyzer.get_sorted_program(program)
+    sorted_program = analyzer.get_sorted_program()
     assert len(sorted_program) == 3
     assert str(list(sorted_program[0].rules.ast)[0]) == "{ a }."
     assert str(list(sorted_program[0].rules.str_)[0]) == "{a}."
@@ -116,7 +116,7 @@ def test_integrity_constraints_get_sorted_last_and_merged(load_analyzer):
     :- c.
     """
     analyzer = load_analyzer(program)
-    sorted_program = analyzer.get_sorted_program(program)
+    sorted_program = analyzer.get_sorted_program()
     assert len(sorted_program) == 3
     assert any(str(rule) == "#false :- not b." for rule in sorted_program[2].rules.ast)
     assert any(str(rule) == ":- not b." for rule in sorted_program[2].rules.str_)
@@ -204,7 +204,7 @@ def test_multiple_sortings_yield_primary_sort(load_analyzer):
     h. i.
     """
     analyzer = load_analyzer(program)
-    sorted_program = list(analyzer.get_sorted_program(program))
+    sorted_program = list(analyzer.get_sorted_program())
     # assert first sorting is closest to the original program
     assert sorted_program[1] == Transformation(1, RuleContainer(str_=("c :- b.",)))
     assert sorted_program[2] == Transformation(2, RuleContainer(str_=("c :- a.",)))
