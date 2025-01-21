@@ -358,12 +358,12 @@ class ViaspRunner():
         self.backend_url: str = ""
 
     def run(self, args):
-        try:
-            self.run_wild(args)
-        except Exception as e:
-            error(_("ERROR").format(e))
-            error(_("ERROR_INFO"))
-            sys.exit(1)
+        # try:
+        self.run_wild(args)
+        # except Exception as e:
+        #     error(_("ERROR").format(e))
+        #     error(_("ERROR_INFO"))
+        #     sys.exit(1)
 
     def warn_unsat(self):
         warn(_("WARN_UNSATISFIABLE_STRING"))

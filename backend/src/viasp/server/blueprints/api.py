@@ -26,7 +26,7 @@ using_clingraph: List[str] = []
 
 def handle_call_received(call: ClingoMethodCall, encoding_id: str) -> None:
     if call.name == "load":
-        path = call.kwargs["path"]
+        path = call.kwargs["path"] if "path" in call.kwargs else "<string>"
         prg = call.kwargs["program"]
 
         db_encoding = db_session.query(Encodings).filter_by(
@@ -43,6 +43,7 @@ def handle_call_received(call: ClingoMethodCall, encoding_id: str) -> None:
             db_encoding.program += call.kwargs["program"]
         else:
             db_encoding = Encodings(encoding_id=encoding_id,
+                                    filename="<string>",
                                     program=call.kwargs["program"])
             db_session.add(db_encoding)
     else:
@@ -69,7 +70,7 @@ def get_program():
         if db_encoding is not None:
             db_encoding.program += program
         else:
-            db_encoding = Encodings(encoding_id=encoding_id, filename="<String>", program=program)
+            db_encoding = Encodings(encoding_id=encoding_id, filename="<string>", program=program)
             db_session.add(db_encoding)
 
 
@@ -215,10 +216,9 @@ def set_warnings():
     return "ok"
 
 
-def set_primary_sort(analyzer: ProgramAnalyzer, encodings_map: Dict[str, str],
-                     encoding_id: str):
+def set_primary_sort(analyzer: ProgramAnalyzer, encoding_id: str):
 
-    primary_sort = analyzer.get_sorted_program(encodings_map)
+    primary_sort = analyzer.get_sorted_program()
     primary_hash = hash_from_sorted_transformations(primary_sort)
 
     db_current_graph = db_session.query(CurrentGraphs).where(CurrentGraphs.encoding_id == encoding_id).first()
@@ -239,9 +239,8 @@ def set_primary_sort(analyzer: ProgramAnalyzer, encodings_map: Dict[str, str],
         generate_graph(encoding_id, analyzer)
 
 
-def save_recursions(analyzer: ProgramAnalyzer, encodings_map: Dict[str, str],
-                    encoding_id: str):
-    for t in analyzer.check_positive_recursion(encodings_map):
+def save_recursions(analyzer: ProgramAnalyzer, encoding_id: str):
+    for t in analyzer.check_positive_recursion():
         db_recursion = Recursions(encoding_id=encoding_id,
                     recursive_transformation_hash=t)
         db_session.add(db_recursion)
@@ -291,17 +290,16 @@ def show_selected_models():
     try:
         analyzer = ProgramAnalyzer()
         encoding_id = session['encoding_id']
-        results = db_session.execute(
-            select(Encodings.filename, Encodings.program).where(
-                Encodings.encoding_id == encoding_id)).all()
-        encodings_map = {filename: program for filename, program in results}
+        encodings = db_session.execute(
+            select(Encodings.program).where(
+                Encodings.encoding_id == encoding_id)).scalars().all()
 
         result = db_session.query(Transformers).filter(
             Transformers.encoding_id == encoding_id).first()
         transformer = current_app.json.loads(
             result.transformer) if result is not None else None
 
-        analyzer.add_program(encodings_map, transformer)
+        analyzer.add_program(encodings, transformer)
 
         warnings = [
             Warnings(encoding_id=encoding_id,
@@ -317,8 +315,8 @@ def show_selected_models():
         marked_models = wrap_marked_models(
             marked_models, analyzer.get_conflict_free_showTerm())
         if analyzer.will_work():
-            save_recursions(analyzer, encodings_map, encoding_id)
-            set_primary_sort(analyzer, encodings_map, encoding_id)
+            save_recursions(analyzer, encoding_id)
+            set_primary_sort(analyzer, encoding_id)
             save_analyzer_values(analyzer, encoding_id)
     except Exception as e:
         return str(e), 500

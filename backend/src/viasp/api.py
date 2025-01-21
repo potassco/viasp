@@ -18,8 +18,10 @@ from clingo import Control as InnerControl
 from clingo import Model as clingo_Model
 from clingo import ast
 from clingo.ast import AST, ASTSequence, ASTType, Transformer
+import clingo.ast
 from clingo.symbol import Symbol
 from clingo.script import enable_python
+import clingo.util
 
 from .shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_FRONTEND_PORT, STDIN_TMP_STORAGE_PATH, DEFAULT_BACKEND_PROTOCOL
 from .shared.io import clingo_symbols_to_stable_model, clingo_model_to_stable_model
@@ -174,28 +176,63 @@ def viasp(**kwargs) -> None:
             dev_tools_silence_routes_logging=True)
 
 
-# def load_program_file(path: Union[str, List[str]], **kwargs) -> None:
-#     r"""
-#     Load a (non-ground) program file into the viasp backend
+def _parse_input_program_for_files(input: Union[str, List[str]]) -> List[str]:
+    files = []
+    to_be_filtered = []
 
-#     :param path: ``str`` or ``list``
-#         path or list of paths to the program file
-#     :param \**kwargs:
-#         * *viasp_backend_url* (``str``) --
-#           url of the viasp backend
-#         * *_viasp_client* (``ClingoClient``) --
-#           a viasp client object
+    def on_rule(ast: AST) -> None:
+        nonlocal files
+        file_begin = getattr(getattr(ast.location, "begin", None), "filename",
+                             "")
+        file_end = getattr(getattr(ast.location, "end", None), "filename", "")
+        if file_begin not in files:
+            files.append(file_begin)
+        if file_end not in files:
+            files.append(file_end)
 
-#     See Also
-#     --------
-#     ``load_program_string``
-#     """
-#     connector = _get_connector(**kwargs)
-#     if isinstance(path, str):
-#         path = [path]
-#     for p in path:
-#         connector.register_function_call("load", signature(
-#             InnerControl.load), [], kwargs={"path": p})
+    if isinstance(input, str):
+        ast.parse_string(input, on_rule)
+        return list(filter(lambda x: x != "<string>", files))
+    else:
+        ast.parse_files(input, on_rule)
+        return list(filter(lambda x: x not in input, files))
+
+
+def load_program_file(path: Union[str, List[str]], **kwargs) -> None:
+    r"""
+    Load a (non-ground) program file into the viasp backend
+
+    :param path: ``str`` or ``list``
+        path or list of paths to the program file
+    :param \**kwargs:
+        * *viasp_backend_url* (``str``) --
+          url of the viasp backend
+        * *_viasp_client* (``ClingoClient``) --
+          a viasp client object
+
+    See Also
+    --------
+    ``load_program_string``
+    """
+    connector = _get_connector(**kwargs)
+    if isinstance(path, str):
+        path = [path]
+    program = _get_program_string(path)
+    connector.register_function_call("load",
+                                     signature(InnerControl.load), [],
+                                     kwargs={
+                                         "path": "<string>",
+                                         "program": program
+                                     })
+    files_mentioned_in_program = _parse_input_program_for_files(path)
+    for file in files_mentioned_in_program:
+        program = _get_program_string(file)
+        connector.register_function_call("load",
+                                         signature(InnerControl.load), [],
+                                         kwargs={
+                                             "path": file,
+                                             "program": program
+                                         })
 
 
 def load_program_string(program: str, **kwargs) -> None:
@@ -215,10 +252,21 @@ def load_program_string(program: str, **kwargs) -> None:
     ``load_program_file``
     """
     connector = _get_connector(**kwargs)
-    with open(STDIN_TMP_STORAGE_PATH, "w", encoding="utf-8") as f:
-        f.write(program)
-    connector.register_function_call("load", signature(
-        InnerControl.load), [], kwargs={"path": STDIN_TMP_STORAGE_PATH})
+    connector.register_function_call("load",
+                                     signature(InnerControl.load), [],
+                                     kwargs={
+                                         "path": "<string>",
+                                         "program": program
+                                     })
+    files_mentioned_in_program = _parse_input_program_for_files(program)
+    for file in files_mentioned_in_program:
+        program = _get_program_string(file)
+        connector.register_function_call("load",
+                                         signature(InnerControl.load), [],
+                                         kwargs={
+                                             "path": file,
+                                             "program": program
+                                         })
 
 
 
@@ -763,52 +811,3 @@ def unmark_from_file(path: str, **kwargs) -> None:
     ``unmark_from_string``
     """
     unmark_from_string(_get_program_string(path), **kwargs)
-
-
-def parse_input_program_for_files(program: str, path: List[str]) -> List[str]:
-    files = []
-
-    def on_rule(ast: AST) -> None:
-        nonlocal files
-        file_begin = getattr(getattr(ast.location, "begin", None), "filename", "")
-        file_end = getattr(getattr(ast.location, "end", None), "filename", "")
-        if file_begin not in files:
-            files.append(file_begin)
-        if file_end not in files:
-            files.append(file_end)
-
-    ast.parse_files(path, on_rule)
-    return files
-
-
-def load_program_file(path: Union[str, List[str]], **kwargs) -> None:
-    r"""
-    Load a (non-ground) program file into the viasp backend
-
-    :param path: ``str`` or ``list``
-        path or list of paths to the program file
-    :param \**kwargs:
-        * *viasp_backend_url* (``str``) --
-          url of the viasp backend
-        * *_viasp_client* (``ClingoClient``) --
-          a viasp client object
-
-    See Also
-    --------
-    ``load_program_string``
-    """
-    connector = _get_connector(**kwargs)
-    if isinstance(path, str):
-        path = [path]
-    input_program_string = _get_program_string(path)
-    files_mentioned_in_program = parse_input_program_for_files(
-        input_program_string, path)
-    for file in files_mentioned_in_program:
-        program = _get_program_string(file)
-        if file in path:
-            file = "<string>"
-        connector.register_function_call("load",
-                                         signature(InnerControl.load), [],
-                                         kwargs={
-                                             "path": file,
-                                             "program": program})

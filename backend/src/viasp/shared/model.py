@@ -7,9 +7,9 @@ from types import MappingProxyType
 from uuid import UUID, uuid4
 
 from clingo import Symbol, ModelType
-from clingo.ast import AST, Transformer, Rule
+from clingo.ast import AST, Transformer
 from .util import (DefaultMappingProxyType, hash_string, hash_transformation_rules, get_rules_from_input_program, get_ast_from_input_string,
-    append_hashtag_to_minimize, hash_from_sorted_transformations)
+    append_hashtag_to_minimize, RuleType)
 
 @dataclass()
 class SymbolIdentifier:
@@ -79,7 +79,7 @@ class ClingraphNode:
 
 @dataclass(frozen=False)
 class RuleContainer:
-    ast: Tuple[AST, ...] = field(default_factory=tuple, hash=True)
+    ast: Tuple[RuleType, ...] = field(default_factory=tuple, hash=True)
     str_: Tuple[str, ...] = field(default_factory=tuple, hash=False)
     hash: Tuple[str, ...] = field(default_factory=tuple, hash=True)
 
@@ -107,39 +107,33 @@ class RuleContainer:
         return isinstance(o, type(self)) and self.ast == o.ast
 
     def __repr__(self):
-        return str(self.str_)
+        return f"RuleContainer({self.str_})"
 
 
 def rule_container_from_ast(
-        rules: Tuple[Rule],
-        encodings_map: Dict[str, str]) -> RuleContainer:  # ignore: type
-    rules_from_input_program: Sequence[str] = []
+        rule: RuleType,  # ignore: type
+        program_str: str) -> RuleContainer:
+    rule_from_input_program: str = ""
+    program = program_str.split("\n")
 
-    for rule in rules:
-        begin_filename = rule.location.begin.filename
-        begin_line = rule.location.begin.line
-        begin_colu = rule.location.begin.column
-        end_filename = rule.location.begin.filename
-        end_line = rule.location.end.line
-        end_colu = rule.location.end.column
-        r = ""
-        print(f"Looking for rule in {begin_filename}",flush=True)
-        if begin_filename != end_filename:
-            raise Exception("Cannot handle rules that span multiple files")
-        program = encodings_map[begin_filename].split("\n")
-        if begin_line != end_line:
-            r += program[begin_line - 1][begin_colu-1:] + "\n"
-            for i in range(begin_line, end_line - 1):
-                r += program[i] + "\n"
-            r += program[end_line - 1][:end_colu]
-        else:
-            r += program[begin_line - 1][begin_colu - 1:end_colu-1]
-        r = append_hashtag_to_minimize(r, rule, program, begin_line, begin_colu)
-        rules_from_input_program.append(r)
+    begin_line = rule.location.begin.line
+    begin_colu = rule.location.begin.column
+    end_line = rule.location.end.line
+    end_colu = rule.location.end.column
+    if begin_line != end_line:
+        rule_from_input_program += program[begin_line - 1][begin_colu -
+                                                           1:] + "\n"
+        for i in range(begin_line, end_line - 1):
+            rule_from_input_program += program[i] + "\n"
+        rule_from_input_program += program[end_line - 1][:end_colu]
+    else:
+        rule_from_input_program += program[begin_line - 1][begin_colu -
+                                                           1:end_colu - 1]
+    rule_from_input_program = append_hashtag_to_minimize(
+        rule_from_input_program, rule, program, begin_line, begin_colu)
     return RuleContainer(
-        ast=rules,
-        str_=tuple(rules_from_input_program),
-        hash=tuple([hash_string(rule_str) for rule_str in rules_from_input_program])
+        ast=tuple([rule]),
+        str_=tuple([rule_from_input_program]),
     )
 
 

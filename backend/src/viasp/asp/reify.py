@@ -1,23 +1,20 @@
 from collections import defaultdict
-import encodings
 from typing import Dict, List, Tuple, Iterable, Set, Collection, Any, Union, Sequence, Optional, cast
 
 import clingo
 import networkx as nx
-from clingo import ast, Symbol, Number
+from clingo import ast, Number
 from clingo.symbol import SymbolType
 from clingo.ast import (
     Transformer,
     parse_string,
-    parse_files,
     ASTType,
-    AST,
-    Literal as astLiteral,
-    SymbolicAtom as astSymbolicAtom
+    ASTSequence,
+    AST
 )
-from viasp.shared.util import hash_transformation_rules, hash_string
+from viasp.shared.util import RuleType, hash_transformation_rules, hash_string
 
-from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, topological_sort, filter_body_aggregates
+from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, topological_sort
 from ..asp.utils import merge_cycles, remove_loops
 from viasp.asp.ast_types import (
     SUPPORTED_TYPES,
@@ -207,8 +204,8 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
     Receives a ASP program and finds it's dependencies within, can sort a program by it's dependencies.
     """
 
-    def __init__(self, dependants: Optional[Dict[Tuple[str, int], Set[ast.Rule]]] = None,  # type: ignore
-                    conditions: Optional[Dict[Tuple[str, int], Set[ast.Rule]]] = None,  # type: ignore
+    def __init__(self, dependants: Optional[Dict[Tuple[str, int], Set[RuleType]]] = None,
+                    conditions: Optional[Dict[Tuple[str, int], Set[RuleType]]] = None,
                  dependency_graph: Optional[nx.DiGraph] = None,
                  names: Optional[Set[str]] = None,
                  facts: Optional[Set[str]] = None,
@@ -216,18 +213,17 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         DependencyCollector.__init__(self, in_analyzer=True)
         FilteredTransformer.__init__(self)
         self.dependants: Dict[Tuple[str, int],
-                              Set[ast.Rule]] = defaultdict(set)  # type: ignore
+                              Set[RuleContainer]] = defaultdict(set)
         self.conditions: Dict[Tuple[str, int],
-                              Set[ast.Rule]] = defaultdict(set)  # type: ignore
+                              Set[RuleContainer]] = defaultdict(set)
         self.positive_conditions: Dict[Tuple[
-            str, int], Set[ast.Rule]] = defaultdict(  # type: ignore
-                set)
+            str, int], Set[RuleContainer]] = defaultdict(set)
         self.rule2signatures = defaultdict(set)
         self.facts: Set[str] = facts if facts is not None else set()
         self.constants: Set[str] = constants if constants is not None else set()
         self.constraints: Set[Rule] = set()  # type: ignore
         self.pass_through: Set[AST] = set()
-        self.rules: List[ast.Rule] = []  # type: ignore
+        self.rules: List[RuleType] = []  # type: ignore
         self.names: Set[str] = names if names is not None else set()
         self.temp_names: Set[str] = set()
         self.dependency_graph: Optional[nx.DiGraph] = dependency_graph
@@ -419,34 +415,38 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
     def register_rule_conditions(
             self,
             rule: ast.Rule,  # type: ignore
-            conditions: List[ast.Literal]) -> None:  # type: ignore
+            conditions: List[ast.Literal],  # type: ignore
+            program_str: str) -> None:
+        rule_container = rule_container_from_ast(rule, program_str)
         for c in conditions:
             c_sig = make_signature(c)
             if c_sig is not None:
-                self.conditions[c_sig].add(rule)
+                self.conditions[c_sig].add(rule_container)
 
     def register_rule_dependencies(
         self,
-        rule: ast.Rule,  # type: ignore
+        rule: RuleType,
         deps: Dict[
             ast.Literal,  # type: ignore
-            List[ast.Literal]]  # type: ignore
-    ) -> None:
+            List[ast.Literal]] , # type: ignore
+        program_str: str) -> None:  # type: ignore
+        rule_container = rule_container_from_ast(rule, program_str)
         for (cond, pos_cond) in deps.values():
             for c in filter(filter_body_arithmetic, cond):
                 c_sig = make_signature(c)
                 if c_sig is not None:
-                    self.conditions[c_sig].add(rule)
+                    self.conditions[c_sig].add(rule_container)
             for c in filter(filter_body_arithmetic, pos_cond):
                 c_sig = make_signature(c)
                 if c_sig is not None:
-                    self.positive_conditions[c_sig].add(rule)
+                    self.positive_conditions[c_sig].add(rule_container)
+
 
         for v in deps.keys():
             if v.ast_type == ASTType.Literal and v.atom.ast_type != ASTType.BooleanConstant:
                 v_sig = make_signature(v)
                 if v_sig is not None:
-                    self.dependants[v_sig].add(rule)
+                    self.dependants[v_sig].add(rule_container)
 
     def get_body_aggregate_elements(self, body: Sequence[AST]) -> List[AST]:
         body_aggregate_elements: List[AST] = []
@@ -463,43 +463,43 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
                                 positive_conditions=pos_cond,
                                 in_analyzer=in_analyzer)
 
-    def register_dependencies_and_append_rule(self, rule, deps):
-        self.register_rule_dependencies(rule, deps)
+    def register_dependencies_and_append_rule(self, rule, deps, program_str):
+        self.register_rule_dependencies(rule, deps, program_str)
         self.rules.append(rule)
 
-    def visit_Rule(self, rule: ast.Rule):  # type: ignore
+    def visit_Rule(self, rule: RuleType, program_str: str):
         deps = defaultdict(tuple)
         _ = self.visit(rule.head, deps=deps, in_head=True)
         self.process_body(rule.head, rule.body, deps)
-        self.register_dependencies_and_append_rule(rule, deps)
+        self.register_dependencies_and_append_rule(rule, deps, program_str)
         if is_fact(rule, deps):
             self.facts.add(str(rule.head))
 
-    def visit_ShowTerm(self, showTerm: ast.ShowTerm):  # type: ignore
+    def visit_ShowTerm(self, showTerm: ast.ShowTerm, program_str: str):  # type: ignore
         deps = defaultdict(tuple)
         _ = self.visit(showTerm.term, deps=deps, in_head=True)
         head_literal = ast.Literal(showTerm.location, ast.Sign.NoSign,
                                    ast.SymbolicAtom(showTerm.term))
         self.process_body(head_literal, showTerm.body, deps)
-        self.register_dependencies_and_append_rule(showTerm, deps)
+        self.register_dependencies_and_append_rule(showTerm, deps, program_str)
 
-    def visit_Minimize(self, minimize: ast.Minimize):  # type: ignore
+    def visit_Minimize(self, minimize: ast.Minimize, program_str: str):  # type: ignore
         deps = defaultdict(tuple)
         true_head_literal = ast.Literal(minimize.location, ast.Sign.NoSign,
                                         ast.BooleanConstant(1))
         deps[true_head_literal] = ([], [])
         self.process_body(true_head_literal, minimize.body, deps)
-        self.register_dependencies_and_append_rule(minimize, deps)
+        self.register_dependencies_and_append_rule(minimize, deps, program_str)
 
-    def visit_Defined(self, defined: AST):
+    def visit_Defined(self, defined: AST, **kwargs: Any) -> None:
         self.pass_through.add(defined)
 
     def add_program(
             self,
-            encodings_map: Dict[str, str],
+            encodings: Sequence[str],
             RegisteredTransformer: Optional[Transformer] = None) -> None:
         if RegisteredTransformer is not None:
-            for _, program in encodings_map.items():
+            for program in encodings:
                 registered_visitor = RegisteredTransformer()  # type: ignore
                 new_program: List[AST] = []
 
@@ -514,18 +514,19 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
                     program,
                     lambda statement: add(registered_visitor.visit(statement)))
                 for statement in new_program:
-                    self.visit(statement)
+                    self.visit(statement, program_str=program)
         else:
-            print(f"encodings_map: {encodings_map}", flush=True)
-            for _, program in encodings_map.items():
-                print(f"\nParse String: {program}", flush=True)
-                parse_string(program,
-                         lambda statement: self.visit(statement) and None)
+            for program in encodings:
+                try:
+                    parse_string(program,
+                         lambda statement: self.visit(statement, program_str=program) and None)
+                except Exception:
+                    # pass over syntax errors
+                    pass
 
     def sort_program(self, program) -> List[Transformation]:
-        # save_program(cursor, program, get_or_create_encoding_id())
-        parse_string(program, lambda rule: self.visit(rule) and None)
-        sorted_program = self.primary_sort_program_by_dependencies(program)
+        parse_string(program, lambda rule: self.visit(rule, program_str=program) and None)
+        sorted_program = self.primary_sort_program_by_dependencies()
         return [
             Transformation(i, prg)
             for i, prg in enumerate(sorted_program)
@@ -534,13 +535,12 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
     def get_sort_program_and_graph(
             self, program: str) -> Tuple[List[RuleContainer], nx.DiGraph]:
         parse_string(program, lambda rule: self.visit(rule) and None)
-        sorted_programs = self.primary_sort_program_by_dependencies(program)
+        sorted_programs = self.primary_sort_program_by_dependencies()
         return sorted_programs, self.make_dependency_graph(
-            self.dependants, self.conditions, program)
+            self.dependants, self.conditions)
 
-    def get_sorted_program(self, encodings_map: Dict[str, str]) -> List[Transformation]:
-        sorted_program = self.primary_sort_program_by_dependencies(
-            encodings_map)
+    def get_sorted_program(self) -> List[Transformation]:
+        sorted_program = self.primary_sort_program_by_dependencies()
         return self.make_transformations_from_sorted_program(sorted_program)
 
     def make_transformations_from_sorted_program(
@@ -556,10 +556,9 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         return transformations
 
     def make_dependency_graph(self, head_dependencies: Dict[Tuple[str, int],
-                                                            Set[AST]],
+                                                            Set[RuleContainer]],
                               body_dependencies: Dict[Tuple[str, int],
-                                                      Set[AST]],
-                              encodings_map: Dict[str, str]) -> nx.DiGraph:
+                                                      Set[RuleContainer]]) -> nx.DiGraph:
         """
         We draw a dependency graph based on which rule head contains which literals.
         That way we know, that in order to have a rule r with a body containing literal l, all rules that have l in their
@@ -572,29 +571,24 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
 
         for deps in head_dependencies.values():
             for dep in deps:
-                g.add_node(rule_container_from_ast(tuple([dep]), encodings_map))
+                g.add_node(dep)
         for deps in body_dependencies.values():
             for dep in deps:
-                g.add_node(rule_container_from_ast(tuple([dep]),
-                                                   encodings_map))
+                g.add_node(dep)
 
         for head_signature, rules_with_head in head_dependencies.items():
             dependent_rules = body_dependencies.get(head_signature, [])
             for parent_rule in rules_with_head:
                 for dependent_rule in dependent_rules:
-                    g.add_edge(
-                        rule_container_from_ast(tuple([parent_rule]),
-                                                encodings_map),
-                        rule_container_from_ast(tuple([dependent_rule]),
-                                                encodings_map))
+                    g.add_edge(parent_rule, dependent_rule)
 
         return g
 
     def primary_sort_program_by_dependencies(
-            self, encodings_map: Dict[str, str]) -> List[RuleContainer]:
-        graph = self.make_dependency_graph(self.dependants, self.conditions, encodings_map)
-        graph = merge_constraints(graph, encodings_map)
-        graph, _ = merge_cycles(graph, encodings_map)
+            self) -> List[RuleContainer]:
+        graph = self.make_dependency_graph(self.dependants, self.conditions)
+        graph = merge_constraints(graph)
+        graph, _ = merge_cycles(graph)
         graph, _ = remove_loops(graph)
         self.dependency_graph = cast(nx.DiGraph, graph.copy())
         sorted_program = topological_sort(graph, self.rules)
@@ -611,13 +605,13 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         return find_index_mapping_for_adjacent_topological_sorts(
             self.dependency_graph, sorted_program)
 
-    def check_positive_recursion(self, encodings_map) -> Set[str]:
+    def check_positive_recursion(self) -> Set[str]:
         positive_dependency_graph = self.make_dependency_graph(
-            self.dependants, self.positive_conditions, encodings_map)
+            self.dependants, self.positive_conditions)
 
-        positive_dependency_graph = merge_constraints(positive_dependency_graph, encodings_map)
+        positive_dependency_graph = merge_constraints(positive_dependency_graph)
         positive_dependency_graph_withput_cycles, where1 = merge_cycles(
-            positive_dependency_graph, encodings_map)
+            positive_dependency_graph)
         _, where2 = remove_loops(positive_dependency_graph_withput_cycles)
 
         recursion_rules = set()
@@ -861,7 +855,7 @@ class ProgramReifierForRecursions(ProgramReifier):
         self.derivable_str: str = kwargs.pop("conflict_free_derivable", "derivable")
         super().__init__(*args, **kwargs)
 
-    def visit_Rule(self, rule: ast.Rule, **kwargs: Any) -> List[AST]:  # type: ignore
+    def visit_Rule(self, rule: RuleType, **kwargs: Any) -> List[RuleType]:
         deps = defaultdict(tuple)
         loc = cast(ast.Location, rule.location)
         _ = self.visit(rule.head, deps=deps, in_head=True)
@@ -876,7 +870,7 @@ class ProgramReifierForRecursions(ProgramReifier):
             dependant = self.process_dependant_intervals(loc, dependant)
 
             _ = self.visit_sequence(
-                rule.body,
+                cast(ASTSequence, rule.body),
                 conditions=conditions,
             )
 
@@ -942,7 +936,7 @@ def reify(transformation: Transformation, **kwargs):
     visitor = ProgramReifier(transformation.id, **kwargs)
     result: List[AST] = []
     for rule, hash in zip(transformation.rules.ast, transformation.rules.hash):
-        result.extend(cast(Iterable[AST], visitor.visit(rule, rule_hash=hash)))
+        result.extend(cast(Iterable[AST], visitor.visit(cast(AST, rule), rule_hash=hash)))
     return result
 
 
@@ -984,7 +978,7 @@ def reify_recursion_transformation(transformation: Transformation,
     visitor = ProgramReifierForRecursions(**kwargs)
     result: List[AST] = []
     for rule, hash in zip(transformation.rules.ast, transformation.rules.hash):
-        result.extend(cast(Iterable[AST], visitor.visit(rule, rule_hash=hash)))
+        result.extend(cast(Iterable[AST], visitor.visit(cast(AST, rule), rule_hash=hash)))
     return result
 
 

@@ -15,16 +15,17 @@ from conftest import setup_client, register_clingraph, register_transformer, pro
 
 def test_program_database(db_session):
     encoding_id = "test"
+    filename = "<string>"
     program1 = "a. b:-a."
     program2 = "c."
-    db_session.add(Encodings(id=encoding_id, program=program1))
+    db_session.add(Encodings(encoding_id=encoding_id, filename=filename, program=program1))
     db_session.commit()
 
     res = db_session.query(Encodings).all()
     assert len(res) == 1
     assert res[0].program == program1
 
-    res = db_session.query(Encodings).filter_by(id=encoding_id).first()
+    res = db_session.query(Encodings).filter_by(encoding_id=encoding_id).first()
     res.program += program2
     db_session.commit()
 
@@ -32,28 +33,9 @@ def test_program_database(db_session):
     assert len(res) == 1
     assert res[0].program == program1 + program2
 
-    db_session.query(Encodings).filter_by(id=encoding_id).delete()
+    db_session.query(Encodings).filter_by(encoding_id=encoding_id).delete()
     db_session.commit()
     assert len(db_session.query(Encodings).all()) == 0, "Database should be empty after clearing."
-
-
-@pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning")
-def test_encoding_id_is_unique(db_session):
-    encoding_id = "test"
-    program1 = "a. b:-a."
-    program2 = "c."
-
-    db_session.add(Encodings(id=encoding_id, program=program1))
-    db_session.add(Encodings(id=encoding_id, program=program2))
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
-
-    db_session.add(Encodings(id=encoding_id+"1", program=program1))
-    db_session.add(Encodings(id=encoding_id+"2", program=program1))
-    db_session.commit()
-    res = db_session.query(Encodings).all()
-    assert len(res) == 2
 
 
 def test_models_database(app_context, db_session):

@@ -50,7 +50,7 @@ def test_conflict_variables_are_resolved():
     program = "".join(rules)
     expected = f'h(42, 11). h_(1,2). h__(1, "{hash_string(rules[1])}", model(X),(y(X),)) :- model(X), y(X).'
     analyzer = ProgramAnalyzer()
-    analyzer.add_program(program)
+    analyzer.add_program([program])
     assertProgramEqual(
         transform(program,
                   h=analyzer.get_conflict_free_h(),

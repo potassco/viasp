@@ -109,6 +109,18 @@ def test_load_program_string(unique_session):
     assert res.json == "sample.{encoding} :- sample."
 
 
+def test_load_program_string_with_include(unique_session):
+    debug_client = DebugClient(unique_session)
+    load_program_string('#include "test/resources/sample_encoding.lp".',
+                        _viasp_client=debug_client)
+
+    with unique_session.session_transaction() as sess:
+        print(f"unique session encoding_id {sess['encoding_id']}")
+    res = unique_session.get("control/program")
+    assert res.status_code == 200
+    assert res.json == '#include "test/resources/sample_encoding.lp".sample.{encoding} :- sample.\n'
+
+
 def test_add_program_file_add1(unique_session):
     sample_encoding = str(pathlib.Path(__file__).parent.resolve() / "resources" / "sample_encoding.lp")
 
