@@ -131,6 +131,18 @@ class ClingoClient(ViaspClient):
         else:
             error(_("TRANSFORMER_REGISTER_FAILED").format(r.status_code, r.reason))
 
+    def _register_constant(self, name, value):
+        r = self.session.post(f"{self.backend_url}/control/constant",
+                              data=json.dumps({
+                              "name": name,
+                              "value": value
+                          }),
+                          headers={'Content-Type': 'application/json'})
+        if r.ok:
+            info(_("REGISTER_CONSTANT_SUCCESS"))
+        else:
+            error(_("REGISTER_CONSTANT_FAILED").format(r.status_code, r.reason))
+
     def register_warning(self, warning):
         serializable_warning = json.dumps([warning], cls=DataclassJSONEncoder)
         r = self.session.post(f"{self.backend_url}/control/warnings",
@@ -140,3 +152,4 @@ class ClingoClient(ViaspClient):
             info(_("REGISTER_WARNING_SUCCESS"))
         else:
             error(_("REGISTER_WARNING_FAILED").format(r.status_code, r.reason))
+    

@@ -559,6 +559,23 @@ def register_transformer(transformer: Transformer, imports: str = "", path: str 
     connector = _get_connector(**kwargs)
     connector.register_transformer(transformer, imports, path)
 
+def register_constant(name: str, value: str, **kwargs) -> None:
+    r"""
+    Register a constant to the backend. The constant will be used in the program.
+
+    :param name: ``str``
+        The name of the constant.
+    :param value: ``str``
+        The value of the constant.
+    :param kwargs:
+        * *viasp_backend_url* (``str``) --
+          url of the viasp backend
+        * *_viasp_client* (``ClingoClient``) --
+          a viasp client object
+    """
+    connector = _get_connector(**kwargs)
+    connector.register_constant(name, value)
+
 # ------------------------------------------------------------------------------
 # Parse ASP facts from a string or files into a clingo model
 # ------------------------------------------------------------------------------

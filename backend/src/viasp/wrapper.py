@@ -116,6 +116,9 @@ class ShowConnector:
 
     def register_transformer(self, transformer, imports="", path=""):
         self._database._register_transformer(transformer, imports, path)
+    
+    def register_constant(self, name, value):
+        self._database._register_constant(name, value)
 
 
 class Control:
