@@ -175,7 +175,7 @@ def get_sort_program_and_get_graph(get_sort_program, app_context, db_session) ->
         wrapped_stable_models = [list(save_model(saved_model)) for saved_model in saved_models]
         reified = reify_list(sorted_program)
         recursion_rules = analyzer.check_positive_recursion()
-        g = build_graph(wrapped_stable_models, reified, sorted_program, analyzer, recursion_rules)
+        g = build_graph(wrapped_stable_models, reified, sorted_program, analyzer, recursion_rules, {})
         return (g, hash_from_sorted_transformations(sorted_program), sorted_program), analyzer
     return c
 

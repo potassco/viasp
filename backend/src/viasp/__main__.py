@@ -464,7 +464,8 @@ class ViaspRunner():
                     no_collect_variables, relaxer_opt_mode, clingo_options):
         info(_("SWITCH_TO_TRANSFORMED_VISUALIZATION"))
         relaxed_program = self.relax_program(encoding_files, options['stdin'],
-                                             head_name, no_collect_variables)
+                                             head_name, no_collect_variables,
+                                             options['constants'])
 
         ctl_options = [
             '--models',
@@ -526,6 +527,8 @@ class ViaspRunner():
             else:
                 viasp.api.load_program_file(path[1],
                                             viasp_backend_url=self.backend_url)
+        for c,v in options['constants'].items():
+            viasp.api.register_constant(c, v, viasp_backend_url=self.backend_url)
         for m in models:
             viasp.api.mark_from_clingo_model(
                 m, viasp_backend_url=self.backend_url)
@@ -537,17 +540,17 @@ class ViaspRunner():
                                     graphviz_type=options['graphviz_type'])
 
     def relax_program(self, encoding_files, stdin, head_name,
-                      no_collect_variables):
+                      no_collect_variables, constants):
         # get ASP files
         for path in encoding_files:
             if path[1] == "-":
                 viasp.api.add_program_string(
-                    "base", [],
-                    stdin,
-                    viasp_backend_url=self.backend_url)
+                    "base", [], stdin, viasp_backend_url=self.backend_url)
             else:
-                viasp.api.load_program_file(
-                    path[1], viasp_backend_url=self.backend_url)
+                viasp.api.load_program_file(path[1],
+                                            viasp_backend_url=self.backend_url)
+        for c,v in constants.items():
+            viasp.api.register_constant(c, v, viasp_backend_url=self.backend_url)
         relaxed_program = viasp.api.get_relaxed_program(
             head_name,
             not no_collect_variables,
@@ -556,12 +559,13 @@ class ViaspRunner():
         return relaxed_program
 
     def relax_program_quietly(self, encoding_files, stdin, head_name,
-                                no_collect_variables):
+                              no_collect_variables, constants):
         with open('viasp.log', 'w') as f:
             with redirect_stdout(f):
                 relaxed_program = self.relax_program(encoding_files, stdin,
-                                                  head_name,
-                                                  no_collect_variables)
+                                                     head_name,
+                                                     no_collect_variables,
+                                                     constants)
                 atexit._run_exitfuncs()
         return relaxed_program
 
@@ -604,9 +608,9 @@ class ViaspRunner():
         # print relaxed program
         if options['print_relax']:
             app = startup.run(host=host, port=port)
-            relaxed_program = self.relax_program_quietly(encoding_files,
-                                                 options['stdin'], head_name,
-                                                 no_collect_variables)
+            relaxed_program = self.relax_program_quietly(
+                encoding_files, options['stdin'], head_name,
+                no_collect_variables, options['constants'])
             plain(relaxed_program)
             sys.exit(0)
 

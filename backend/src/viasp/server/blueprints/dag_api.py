@@ -798,6 +798,14 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
     if db_transformer is not None:
         transformer = current_app.json.loads(db_transformer.transformer)
 
+    commandline_constants = dict()
+    db_constants = db_session.execute(
+        select(Constants.name, Constants.value).where(
+            Constants.encoding_id == encoding_id).order_by(
+                Constants.id)).all()
+    for const in db_constants:
+        commandline_constants[const.name] = const.value
+
     if analyzer is None:
         analyzer = ProgramAnalyzer()
         analyzer.add_program(program, transformer)
@@ -823,7 +831,7 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
         get_conflict_free_variable=analyzer.get_conflict_free_variable,
         clear_temp_names=analyzer.clear_temp_names)
     g = build_graph(marked_models, reified, sorted_program, analyzer,
-                    recursion_rules)
+                    recursion_rules, commandline_constants)
 
     save_graph(g, encoding_id, sorted_program)
 

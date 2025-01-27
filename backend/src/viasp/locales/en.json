@@ -14,6 +14,8 @@
     "CLINGRAPH_FAILED": "Failed Clingraph visualization [{}] ({})",
     "TRANSFORMER_REGISTER_SUCCESS": "Transformer registered successfully.",
     "TRANSFORMER_REGISTER_FAILED": "Failed to register Transformer [{}] ({})",
+    "REGISTER_CONSTANT_SUCCESS": "",
+    "REGISTER_CONSTANT_FAILED": "Failed to register constant [{}] ({})",
     "REGISTER_WARNING_SUCCESS": "",
     "REGISTER_WARNING_FAILED": "Failed to register warning [{}] ({})",
     "BACKENDHOST_HELP": "The host for the backend",

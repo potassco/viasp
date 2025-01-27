@@ -406,8 +406,8 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         return theory_guard_definition.update(
             **self.visit_children(theory_guard_definition, **kwargs))
 
-    def get_facts(self):
-        return extract_symbols(self.facts, self.constants)
+    def get_facts(self, other_constant_tuples: Dict[str, str]):
+        return extract_symbols(self.facts, self.constants, other_constant_tuples)
 
     def get_constants(self):
         return list(self.constants)
@@ -948,8 +948,14 @@ def reify_list(transformations: Iterable[Transformation],
     return reified
 
 
-def extract_symbols(facts, constants=set()):
-    ctl = clingo.Control()
+def extract_symbols(facts, constants=set(), other_constant_tuples=dict()):
+    options = []
+    for k, v in other_constant_tuples.items():
+        options.extend([
+            '--const',
+            f'{k}={v}'
+        ])
+    ctl = clingo.Control(options)
     ctl.add("INTERNAL", [], "".join(f"{f}." for f in facts))
     ctl.add("INTERNAL", [], "".join(f"{c}" for c in constants))
     ctl.ground([("INTERNAL", [])])

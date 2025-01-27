@@ -1,7 +1,7 @@
 """This module is concerned with finding reasons for why a stable model is found."""
 from collections import defaultdict
 from logging import warning
-from typing import List, Collection, Dict, Iterable, Union, Set
+from typing import List, Collection, Dict, Iterable, Union, Set, Tuple
 
 import networkx as nx
 
@@ -15,7 +15,6 @@ from .utils import insert_atoms_into_nodes, identify_reasons, calculate_spacing_
 from ..shared.model import Node, RuleContainer, Transformation, SymbolIdentifier, SearchResultSymbolWrapper
 from ..shared.simple_logging import info
 from ..shared.util import pairwise, get_leafs_from_graph
-from ..server.models import GraphSymbols
 
 
 def stringify_fact(fact: Symbol) -> str:
@@ -166,9 +165,10 @@ def build_graph(wrapped_stable_models: List[List[str]],
                 transformed_prg: Collection[AST],
                 sorted_program: List[Transformation],
                 analyzer: ProgramAnalyzer,
-                recursion_transformations_hashes: Set[str]) -> nx.DiGraph:
+                recursion_transformations_hashes: Set[str],
+                commandline_constants: Dict[str,str]) -> nx.DiGraph:
     paths: List[nx.DiGraph] = []
-    facts = analyzer.get_facts()
+    facts = analyzer.get_facts(commandline_constants)
     conflict_free_h = analyzer.get_conflict_free_h()
     conflict_free_h_showTerm = analyzer.get_conflict_free_h_showTerm()
     identifiable_facts = list(map(SymbolIdentifier, facts))

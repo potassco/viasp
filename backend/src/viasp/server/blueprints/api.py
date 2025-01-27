@@ -34,7 +34,9 @@ def handle_call_received(call: ClingoMethodCall, encoding_id: str) -> None:
         if db_encoding is not None:
             db_encoding.program += prg
         else:
-            db_encoding = Encodings(encoding_id=encoding_id, filename=path, program=prg)
+            db_encoding = Encodings(encoding_id=encoding_id,
+                                    filename=path,
+                                    program=prg)
             db_session.add(db_encoding)
     elif call.name == "add":
         db_encoding = db_session.query(Encodings).filter_by(
@@ -190,6 +192,27 @@ def set_transformer():
         db_session.commit()
     return "ok", 200
 
+@bp.route("/control/constant", methods=["POST"])
+@ensure_encoding_id
+def set_constants():
+    if request.method == "POST":
+        try:
+            data = request.json
+            if data is None:
+                return "Invalid constant object", 400
+            name = data["name"]
+            value = data["value"]
+        except BaseException:
+            return "Invalid constant object", 400
+        db_constant = Constants(encoding_id=session['encoding_id'], name=name, value=value)
+        db_session.add(db_constant)
+        try:
+            db_session.commit()
+        except Exception as e:
+            db_session.rollback()
+            return str(e), 500
+        return "ok", 200
+    raise NotImplementedError
 
 
 @bp.route("/control/warnings", methods=["POST", "DELETE", "GET"])

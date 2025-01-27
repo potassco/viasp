@@ -122,6 +122,14 @@ class Transformers(Base):
                                              primary_key=True)
     transformer: Mapped[bytes]
 
+class Constants(Base):
+    __tablename__ = "constants_table"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
+    name: Mapped[str]
+    value: Mapped[str]
+
 
 class Warnings(Base):
     __tablename__ = "warnings_table"
