@@ -1,6 +1,6 @@
-##########################
+==========================
 Command line functionality
-##########################
+==========================
 
 viASP provides command line functionality to create visualizations. It acts as a proxy to the clingo command meaning that it is usually sufficient to replace `clingo` with `viasp`:
 
@@ -15,23 +15,22 @@ viASP provides command line functionality to create visualizations. It acts as a
 You can now inspect the visualization at http://localhost:8050/. To stop the server, press ``CTRL+C``.
 
 
-The command line usage is described below. Additionally, all options can be found by running
+The basic command line usage is described below. All options can be found by running
 
 .. code-block:: bash
 
     $ viasp --help
 
 
-****************
 Loading Programs
-****************
+----------------
 
 Loading from files
-==================
+""""""""""""""""""
 
 Consider the file `hamiltonian.lp <https://github.com/potassco/viasp/blob/main/examples/hamiltonian.lp>`__
 
-.. code-block:: prolog
+.. code-block::
 
     node(1..4). start(1).
     edge(1,2). edge(2,3). edge(2,4). edge(3,1).
@@ -58,31 +57,23 @@ For programs split into multiple files, all of them can be loaded at once.
 
     $ viasp hamiltonian.lp model1.lp
 
-The output prints the stable models of the program and information about the viasp server and frontend url
+The output looks like the familiar clingo output, plus information about the viasp url
 
 .. code-block:: bash
     
-    Starting backend at http://localhost:5050
+    viasp version 2.0.0rc2
+    Reading from hamiltonian.lp
     Answer:    
     node(1) node(2) node(3) node(4) edge(1,2) edge(2,3) edge(2,4) edge(3,1) edge(3,4) edge(4,1) edge(4,3) hc(1,2) hc(2,3) hc(3,4) hc(4,1) start(1) reached(2) reached(3) reached(4) reached(1)
     SAT
-    [INFO] (2023-12-01 12:38:44) Set models.
-    [INFO] (2023-12-01 12:38:44) Reconstructing in progress.
-    [INFO] (2023-12-01 12:38:44) Drawing in progress.
-    Dash is running on http://localhost:8050/
+    SATISFIABLE
 
-    Press CTRL+C to quit
-
-
-To define how many models should be included at most, use the ``--models`` or ``-n`` option. By default, all models are included.
-
-.. code-block:: bash
-
-    $ viasp hamiltonian.lp -n 1
+    viASP is running at: http://127.0.0.1:8050
+    Press Ctrl+C to exit.
 
 
 Loading from stdin
-==================
+""""""""""""""""""
 
 Programs can be loaded from stdin
 
@@ -90,42 +81,35 @@ Programs can be loaded from stdin
 
     $ cat hamiltonian.lp | viasp
 
-Run clingo to obtain answer sets formatted as json with option `--outf=2`.
+Run clingo to obtain answer sets formatted as json with option ``--outf=2``.
 
 .. code-block:: bash
 
     $ clingo hamiltonian.lp --outf=2 | viasp hamiltonian.lp
 
-Note that the program is passed as an argument to viasp. It is not possible to pipe the program and answer sets at the same time.
+Note that the file is also passed as an argument to viasp, because it needs information about the input program to build the graph.
 
-Load a json file in the style of clingo's output directly in viASP. This avoids recalculating the answer sets using clingo. Optionally, select one or multiple answer sets from the file using the answer set's index starting with index 0.
+Load a json file retrieved through clingo's ``--outf=2`` directly in viASP. This avoids rerunning clingo to solve for potentionally expensive answer sets. One or multiple answer sets from the file may be selected using the its index.
 
 .. code-block:: bash
 
-    $ viasp hamiltonian.json hamiltonian.lp --select-model=1
+    $ viasp hamiltonian.json hamiltonian.lp --select-model=0
 
-************
+
 Optimization
-************
+------------
 
-The viASP command line passes on any optimization settings to the clingo backend, so that the optimization can be performed as usual.
+The viASP command line passes on any optimization settings to clingo, so that the optimization is performed as usual.
 
-To specify the optimization mode, use the ``--opt-mode`` option. The optimization mode can be one of ``opt``, ``enum``, ``optN``, or ``ignore``.
-
-.. code-block:: bash
-
-    $ viasp encoding.lp --opt-mode=optN
-
-When using optimization, not all models listed by clingo are visualized. Depending on the optimization mode, different models are marked marked for visualization: 
+Not all models listed by clingo are visualized. Depending on the optimization mode, different models are marked marked for visualization: 
 
 - ``opt``: Only the last (optimal) model is marked
 - ``optN``: All optimal models are marked
 - ``enum``: All models are marked
 - ``ignore``: All models are marked
 
-*********
 Clingraph
-*********
+---------
 
 viASP can integrate clingraph visualizations. To do so, pass the path to a separte visualization program as an argument.
 
@@ -137,16 +121,15 @@ To pass additional arguments to clingraph, use the ``--engine`` and ``--graphviz
 
 .. code-block:: bash
 
-    $ viasp encoding.lp --viz-encoding viz_encoding.lp --engine clingraph --graphviz-type dot
+    $ viasp encoding.lp --viz-encoding viz_encoding.lp --engine neato --graphviz-type digraph
 
 
-**********
 Relaxation
-**********
+----------
 
 Unsatisfiable programs can not be visualized by viASP. When such a program is encountered, viASP suggests using the relaxation mode through the ``--print-relax`` or ``--relax`` options. 
 
-The relaxation mode transforms all integrity constraints of the input program into a relaxed version. Answer sets of the transformed program can point to which of the integrity constraints is violated.
+Relaxation transforms all integrity constraints of the input program into a relaxed version. Its answer sets can be used to investigate which integrity constraint leads to unsatisfiability.
 
 .. admonition:: Example
 
@@ -164,13 +147,17 @@ The relaxation mode transforms all integrity constraints of the input program in
     .. code-block:: bash
 
         $ viasp unsat-example.lp
-        viasp version 2.0.0.rc1
+        viasp version 2.0.0
         Reading from unsat-example.lp
+        Solving...
 
-        Starting backend at http://localhost:5050
-        UNSAT
-        [INFO] The input program is unsatisfiable. To visualize the relaxed program 
-        use --print-relax or --relax.
+        UNSATISFIABLE
+
+        *** WARNING: (viasp): The input program is unsatisfiable. To visualize the relaxed program use:
+            Options for the relaxation of integrity constraints in unsatisfiable programs.
+                --print-relax:      Use the relaxer and output the transformed program
+                --relax      : Use the relaxer and visualize the transformed program
+
 
     Using the ``--print-relax`` option outputs the transformed program
 
@@ -184,7 +171,7 @@ The relaxation mode transforms all integrity constraints of the input program in
         unsat(r2) :- c(1).
         :~ unsat(R,T). [1@0,R,T]
 
-When solving the relaxed program, the atom ``unsat(r1, (X,))`` will be derived, if the constraint ``r1`` is violated for the variable ``X``. Answer sets with a minimal number of violated constraints is considered optimal.
+When solving the relaxed program, the atom ``unsat(r1, (X,))`` will be derived, if the constraint ``r1`` is violated for the variable ``X``. An answer set with a minimal number of violated constraints is considered optimal.
 
 .. admonition:: Example
 
@@ -200,17 +187,22 @@ When solving the relaxed program, the atom ``unsat(r1, (X,))`` will be derived, 
     .. code-block:: bash
 
         $ viasp unsat-example.lp --relax
-        viasp version 2.0.0.rc1
+        viasp version 2.0.0rc2
         Reading from unsat-example.lp
-        UNSAT
-        [INFO] Set models.
-        [INFO] Reconstructing in progress.
-        [INFO] No answer sets found. Switching to transformed visualization.
-        [INFO] Successfully transformed program constraints.
-        [INFO] Set models.
-        [INFO] Reconstructing in progress.
-        [INFO] Drawing in progress.
-        Dash is running on http://localhost:8050/
+        Solving...
+
+        UNSATISFIABLE
+
+        Solving...
+
+        Answer: 1
+        a(1) a(2) a(3) b(0) b(1) b(2) unsat(r1,(1,)) unsat(r1,(2,))
+        Optimization: 2
+        SATISFIABLE
+
+        viASP is running at: http://127.0.0.1:8050
+        Press Ctrl+C to exit.
+
 
     .. image:: ../img/relaxer-program.png
 
@@ -218,24 +210,23 @@ When solving the relaxed program, the atom ``unsat(r1, (X,))`` will be derived, 
     The visualized answer set to this transformed program shows that the original program is unsatisfiable due to the first integrity constraint. It is violated for the variables ``X=1`` or ``X=2``.
     
 
-By default, variables in the body of integrity constraints are collected in the heads of constraints. To turn off this behavior, use the ``--no-collect-variables`` option.
+By default, variables in the body of integrity constraints are collected in the heads of constraints. The option ``--no-collect-variables`` turns off this behavior.
 
-To specify the head name of the weak constraint, use the ``--head-name`` option. By default, the head name is ``unsat``, but a different name has to be specified, if the program already contains the predicate.
+To specify the head name of the weak constraint, use the ``--head-name`` option. By default, the head name is ``unsat``, but a different name needs to be specified, if the program already contains the predicate.
 
 .. code-block:: bash
 
     $ viasp encoding.lp --head-name _unsat
 
-The relaxer mode only shows one of the optimal answer sets of the transformed program. To change the optimization mode, use the ``--relaxer-opt-mode`` option. The optimization mode is one of clingo's opt mode options. 
+The relaxer mode only shows one optimal answer set of the transformed program. To change the optimization mode, use the ``--relaxer-opt-mode`` option. The optimization mode is one of clingo's opt mode options. 
 
 .. code-block:: bash
 
     $ viasp encoding.lp --relaxer-opt-mode=optN
 
 
-*************
 Other options
-*************
+-------------
 
 To specify the port of the backend, use the ``--port`` or ``-p`` option.
 

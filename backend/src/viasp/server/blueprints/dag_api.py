@@ -824,11 +824,11 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
     sorted_program = get_current_sort(encoding_id)
     reified: Collection[AST] = reify_list(
         sorted_program,
-        h=analyzer.get_conflict_free_h(),
-        h_showTerm=analyzer.get_conflict_free_h_showTerm(),
-        model=analyzer.get_conflict_free_model(),
-        conflict_free_showTerm=analyzer.get_conflict_free_showTerm(),
-        get_conflict_free_variable=analyzer.get_conflict_free_variable,
+        h_str=analyzer.get_conflict_free_h(),
+        h_showTerm_str=analyzer.get_conflict_free_h_showTerm(),
+        model_str=analyzer.get_conflict_free_model(),
+        conflict_free_showTerm_str=analyzer.get_conflict_free_showTerm(),
+        get_conflict_free_variable_str=analyzer.get_conflict_free_variable,
         clear_temp_names=analyzer.clear_temp_names)
     g = build_graph(marked_models, reified, sorted_program, analyzer,
                     recursion_rules, commandline_constants)

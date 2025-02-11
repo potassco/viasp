@@ -28,9 +28,8 @@ Explore ASP programs and their answer sets with viASP:
 
    viasp/installation
    viasp/commandline
-   viasp/usage
+   viasp/pythonapi
    viasp/api
-   viasp/colorPalette
    viasp/config
-   viasp/localization
+   viasp/howItWorks
    viasp/contributing

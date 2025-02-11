@@ -7,9 +7,9 @@ Quickstart script
 
 viASP consists of two parts, its frontend Dash component and the backend Flask server. Both need to be started and intialized on the local machine before each use.
 
-There are multiple ways aside from the command line functionality to quickly start all parts of viASP while remaining in control of the program flow. The following example shows how to start viASP from a simple python script.
+There are multiple ways, besides the command line, to quickly start all parts of viASP while remaining in control of the program flow. The following example shows how to start viASP from a simple python script.
 
-Run the script at ``example/quickstart.py`` to start viASP with a given encoding.
+Run the script at ``examples/quickstart.py`` to start viASP with a given encoding.
 
 .. code-block:: bash
 
@@ -21,7 +21,7 @@ Extending arbitrary python scripts
 
 To use viASP in your own python scripts using the clingo API, you can use the following code snippets:
 
-To start the viASP server, use the following code:
+To start the viASP server:
 
 .. code-block:: python
 
@@ -52,7 +52,7 @@ Start the graph generation:
 
     ctl.viasp.show()
 
-Run the Dash app:
+Finally, launch the graph visualization:
 
 .. code-block:: python
 
@@ -86,4 +86,4 @@ In this example, all of these snippets are combined into a script using the viAS
 
     if __name__ == "__main__":
         clingo_main(App(), ['0', 'encoding.lp'])
-        app.run()
+        app.run_server()

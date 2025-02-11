@@ -493,8 +493,8 @@ def get_relaxed_program(*args, **kwargs) -> Union[str, None]:
 
 def relax_constraints(*args, **kwargs) -> viaspControl:
     r"""
-    Relax constraints in the marked models. Returns
-    a new viaspControl object with the relaxed program loaded
+    Relax constraints in the loaded program. Returns
+    a new viasp.Control object with the relaxed program loaded
     and stable models marked.
 
     :param head_name: (``str``, optional) Name of head literal. Defaults to "unsat"

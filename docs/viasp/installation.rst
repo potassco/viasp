@@ -32,7 +32,7 @@ The project can also be installed from source. To do so, clone the repository at
 
     $ conda install pip
 
-3. install `graphviz <https://www.graphviz.org/download/>`__
+3. (optional) install `graphviz <https://www.graphviz.org/download/>`__
 4. use pip to install the project
 
 .. code-block:: bash

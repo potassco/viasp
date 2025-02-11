@@ -637,20 +637,20 @@ class ProgramReifier(DependencyCollector):
 
     def __init__(self,
                  component_nr=1,
-                 h="h",
-                 h_showTerm="h_showTerm",
-                 model="model",
-                 get_conflict_free_variable=lambda s: s,
+                 h_str="h",
+                 h_showTerm_str="h_showTerm",
+                 model_str="model",
+                 get_conflict_free_variable_str=lambda s: s,
                  clear_temp_names=lambda: None,
-                 conflict_free_showTerm: str = "showTerm"):
+                 conflict_free_showTerm_str: str = "showTerm"):
         self.component_nr = component_nr
         self.rule_nr = 0
-        self.h = h
-        self.h_showTerm = h_showTerm
-        self.model = model
-        self.get_conflict_free_variable = get_conflict_free_variable
+        self.h = h_str
+        self.h_showTerm = h_showTerm_str
+        self.model = model_str
+        self.get_conflict_free_variable = get_conflict_free_variable_str
         self.clear_temp_names = clear_temp_names
-        self.conflict_free_showTerm = conflict_free_showTerm
+        self.conflict_free_showTerm = conflict_free_showTerm_str
         super().__init__(in_analyzer=False)
 
     def make_component_lit(self, loc: ast.Location) -> ast.Literal:  # type: ignore
