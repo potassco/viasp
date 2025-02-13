@@ -29,6 +29,10 @@ export function make_rules_string(rule) {
     return rule.join(' ');
 }
 
+function new_uuid4_hex() {
+    return uuidv4().replace(/-/g, '');
+};
+
 export function make_default_nodes(oldNodes = []) {
     if (oldNodes.length > 0) {
         return oldNodes.map((node, i) => {
@@ -54,13 +58,13 @@ export function make_default_nodes(oldNodes = []) {
                     positive: true,
                 },
                 has_reason: false,
-                uuid: `${uuidv4()}-loading-${i}`,
+                uuid: new_uuid4_hex(),
             };
         });
         nodes.push({
             _type: 'Node',
             recursive: [],
-            uuid: `${uuidv4()}-loading-${i}`,
+            uuid: new_uuid4_hex(),
             atoms: diff,
             diff: diff,
             rule_nr: 0,
@@ -119,40 +123,21 @@ export function pixelToEm(px) {
 }
 
 export function getNextColor(
-    currentExplanationHighlightedSymbol,
-    currentSearchResultHighlightedSymbol,
+    currentHighlightedSymbols,
     colorArray
 ) {
     const arrayOfAllHighlights = [];
     const colorCounter = {};
     colorArray.forEach((i) => (colorCounter[i] = 0));
-
-    currentExplanationHighlightedSymbol.forEach((item) => {
+    currentHighlightedSymbols.forEach((item) => {
         arrayOfAllHighlights.push({
-            src: item.src,
-            tgt: item.tgt,
-            color: item.color,
-        });
-    });
-    currentSearchResultHighlightedSymbol.forEach((item) => {
-        arrayOfAllHighlights.push({
-            src: item.symbol_id,
-            tgt: null,
-            srcNode: item.node_id,
+            src: item.origin,
             color: item.color,
         });
     });
 
-    const distinctExplanationsColors = arrayOfAllHighlights.reduce(
-        (acc, item) => {
-            const key = `${item.src}-${item.color}`;
-            if (!acc.some((i) => `${i.src}-${i.color}` === key)) {
-                acc.push(item);
-            }
-            return acc;
-        },
-        []
-    );
+    const distinctExplanationsColors = new Set([...arrayOfAllHighlights]);
+
     distinctExplanationsColors.forEach((item) => {
         colorCounter[item.color] = colorCounter[item.color] + 1;
     });
@@ -168,22 +153,7 @@ export function getNextColor(
     return leastOccuringColor;
 }
 
-export function getNextHoverColor(
-    currentExplanationHighlightedSymbol,
-    currentSearchResultHighlightedSymbol,
-    symbol,
-    colorArray
-) {
-    const searchSymbolSourceIndex = currentExplanationHighlightedSymbol
-        .map((item) => item.src)
-        .indexOf(symbol);
-    if (searchSymbolSourceIndex !== -1) {
-        return currentExplanationHighlightedSymbol[searchSymbolSourceIndex]
-            .color;
-    }
-    return getNextColor(
-        currentExplanationHighlightedSymbol,
-        currentSearchResultHighlightedSymbol,
-        colorArray
-    );
+export function setNextHoverColor(newValue, explanationHighlightColors) {
+    const nextHoverColor = getNextColor(newValue, explanationHighlightColors);
+    document.documentElement.style.setProperty('--hover-color', nextHoverColor);
 }

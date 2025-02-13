@@ -27,6 +27,12 @@ export const RULEWRAPPER = PropTypes.exact({
     rule: PropTypes.string,
     hash: PropTypes.string
 })
+export const RULEWRAPPER_RECOIL = PropTypes.exact({
+    _type: PropTypes.oneOf(['RuleWrapper_RECOIL']),
+    rule: PropTypes.string,
+    highlights: PropTypes.arrayOf(PropTypes.string),
+    hash: PropTypes.string,
+});
 export const TRANSFORMATION = PropTypes.exact({
     _type: PropTypes.oneOf(['Transformation']),
     id: PropTypes.number,
@@ -108,4 +114,33 @@ export const SEARCHRESULTSYMBOLWRAPPER = PropTypes.exact({
     recent: PropTypes.bool,
     selected: PropTypes.number,
     scrollable: PropTypes.bool,
+});
+export const SYMBOLHIGHLIGHTS_RECOIL = PropTypes.exact({
+    _type: PropTypes.oneOf(['SymbolHighlights_RECOIL']),
+    symbolUuid: PropTypes.string,
+    repr: PropTypes.string,
+    includes: PropTypes.arrayOf(PropTypes.string),
+    origin: PropTypes.string,
+    color: PropTypes.string,
+    recent: PropTypes.bool,
+    selectedIndex: PropTypes.number,
+    scrollable: PropTypes.bool,
+    isAutocomplete: PropTypes.bool,
+    transformationHash: PropTypes.string,
+});
+export const RULEDOTHIGHLIGHTS_RECOIL = PropTypes.exact({
+    _type: PropTypes.oneOf(['RuleDotHighlights_RECOIL']),
+    symbolUuid: PropTypes.string,
+    transformationHash: PropTypes.string,
+    ruleHash: PropTypes.string,
+    color: PropTypes.string,
+    shown: PropTypes.bool,
+});
+export const RULEBACKGROUNDHIGHLIGHTS_RECOIL = PropTypes.exact({
+    _type: PropTypes.oneOf(['RuleBackgroundHighlights_RECOIL']),
+    symbolUuid: PropTypes.string,
+    transformationHash: PropTypes.string,
+    ruleHash: PropTypes.string,
+    color: PropTypes.string,
+    shown: PropTypes.bool,
 });

@@ -93,7 +93,7 @@ def test_dependencies_register_on_negation(load_analyzer):
     assert str(list(sorted_program[2].rules.str_)[0]) == "c :- not b."
 
 
-def test_integrity_constraints_are_preserved(get_sort_program_and_get_graph):
+def test_integrity_have_no_nodes(get_sort_program_and_get_graph):
     program = """
     1 {a; b} 1.
     :- not b.
@@ -102,10 +102,8 @@ def test_integrity_constraints_are_preserved(get_sort_program_and_get_graph):
     """
     graph_info, _ = get_sort_program_and_get_graph(program)
     g = graph_info[0]
-    assert any(any(str(r) == "#false :- not b." for r in t["transformation"].rules.ast) for _, _, t in g.edges(data=True))
-    assert any(any(str(r) == ":- not b." for r in t["transformation"].rules.str_) for _, _, t in g.edges(data=True))
-    assert any(any(str(r) == "#false :- c." for r in t["transformation"].rules.ast) for _, _, t in g.edges(data=True))
-    assert any(any(str(r) == ":- c." for r in t["transformation"].rules.str_) for _, _, t in g.edges(data=True))
+    assert any(all(str(r) != ":- not b." for r in t["transformation"].rules.str_) for _, _, t in g.edges(data=True))
+    assert any(all(str(r) != ":- c." for r in t["transformation"].rules.str_) for _, _, t in g.edges(data=True))
 
 
 def test_integrity_constraints_get_sorted_last_and_merged(load_analyzer):

@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import PropTypes from 'prop-types';
-import {useColorPalette} from '../contexts/ColorPalette';
-import {
-    useTransformations,
-    clearExplanationHighlightedSymbol,
-    clearSearchResultHighlightedSymbol,
-} from '../contexts/transformations';
-import {useSearchUserInput} from '../contexts/SearchUserInput';
+import {CSSTransition} from 'react-transition-group';
 import './settings.css';
 import {darken} from 'polished';
 import {Search} from './Search.react';
 import {styled} from 'styled-components';
 import { Constants } from "../constants";
+import {useRecoilValue, useSetRecoilState, useRecoilCallback} from 'recoil';
+import { colorPaletteState } from '../atoms/settingsState';
+import {
+    allHighlightedSymbolsState,
+    clearAllHighlightsCallback,
+} from '../atoms/highlightsState';
+import { searchInputState } from '../atoms/searchState';
 
 const ClearMarkedDiv = styled.div`
     display: flex;
@@ -22,13 +23,10 @@ const ClearMarkedSpan = styled.span`
     background: ${({$colorPalette}) => $colorPalette.primary};
     color: ${({$colorPalette}) => $colorPalette.light};
     padding: 0.7em 0.9em;
-    transition: opacity 0.8s;
     font-family: monospace;
     border-radius: 0.7em;
     z-index: 20;
     cursor: pointer;
-    opacity: ${({$highlightedSymbol}) =>
-        $highlightedSymbol.length === 0 ? 0 : 1};
 
     &:hover {
         background: ${({$colorPalette}) =>
@@ -38,31 +36,51 @@ const ClearMarkedSpan = styled.span`
     &:active {
         background: ${({$colorPalette}) => $colorPalette.infoBackground};
     }
+
+    &.fade-enter {
+        opacity: 0;
+    }
+    &.fade-enter-active {
+        opacity: 1;
+        transition: opacity 0.8s;
+    }
+    &.fade-exit {
+        opacity: 1;
+    }
+    &.fade-exit-active {
+        opacity: 0;
+        transition: opacity 0.8s;
+    }
 `;
 
 function ClearMarked() {
-    const colorPalette = useColorPalette();
-    const {
-        dispatch: dispatchT,
-        state: {allHighlightedSymbols},
-    } = useTransformations();
-    const [, setSearchUserInput] = useSearchUserInput();
+    const setSearchUserInput = useSetRecoilState(searchInputState);
+    const recoilHighlightedSymbols = useRecoilValue(allHighlightedSymbolsState);
+    const clearHighlights = useRecoilCallback(clearAllHighlightsCallback, []);
+    const colorPalette = useRecoilValue(colorPaletteState);
 
     function onClick() {
-        dispatchT(clearExplanationHighlightedSymbol());
-        dispatchT(clearSearchResultHighlightedSymbol());
         setSearchUserInput('');
+        clearHighlights();
     }
+
     return (
         <ClearMarkedDiv className="clear_marked">
-            <ClearMarkedSpan
-                className="txt-elem noselect unselected"
-                onClick={onClick}
-                $colorPalette={colorPalette}
-                $highlightedSymbol={allHighlightedSymbols}
+            <CSSTransition
+                in={recoilHighlightedSymbols.length > 0}
+                timeout={800}
+                classNames="fade"
+                mountOnEnter
+                unmountOnExit
             >
-                clear
-            </ClearMarkedSpan>
+                <ClearMarkedSpan
+                    className="txt-elem noselect unselected"
+                    onClick={onClick}
+                    $colorPalette={colorPalette}
+                >
+                    clear
+                </ClearMarkedSpan>
+            </CSSTransition>
         </ClearMarkedDiv>
     );
 }
@@ -89,7 +107,9 @@ export default function Settings() {
         <div className="settings noselect">
             <div className="drawer">
                 <div className="drawer_content">
-                    <Search />
+                    <Suspense fallback={null}>
+                        <Search />
+                    </Suspense>
                 </div>
                 <div className="drawer_content">
                     <ClearMarked />

@@ -1,12 +1,20 @@
-import React, {useState, useRef} from 'react';
-import {make_atoms_string, getNextHoverColor} from '../utils/index';
+import React, {useRef} from 'react';
+import {make_atoms_string} from '../utils/index';
 import './symbol.css';
 import PropTypes from 'prop-types';
-import {SYMBOLIDENTIFIER} from '../types/propTypes';
-import {useTransformations} from '../contexts/transformations';
 import {styled, keyframes, css} from 'styled-components';
-import {useColorPalette} from '../contexts/ColorPalette';
 import {useContentDiv} from '../contexts/ContentDivContext';
+import {useMessages, showError} from '../contexts/UserMessages';
+
+import {useRecoilValue, useRecoilCallback} from 'recoil';
+import {backendUrlState} from '../atoms/settingsState';
+import {currentSortState} from '../atoms/currentGraphState';
+import {symoblsByNodeStateFamily} from '../atoms/symbolsState';
+import {
+    symbolHighlightsStateFamily,
+    setReasonHighlightsCallback,
+    removeSymbolHighlightsCallback,
+} from '../atoms/highlightsState';
 
 const symbolPulsate = ($pulsatingColor) => keyframes`
     0% {
@@ -26,15 +34,39 @@ const SymbolElementSpan = styled.span`
     margin: 1px 1px;
     display: flex;
     border-radius: 7pt;
-    background: ${(props) => props.$backgroundColorStyle};
+    background: ${(props) => props.$backgroundColor};
     padding: 1pt 2pt;
     min-height: 0;
     width: fit-content;
     width: -moz-fit-content;
     ${(props) => (props.$pulsate ? pulsate(props.$pulsatingColor) : '')};
+    ${(props) => (props.$hasReason ?
+        '&:hover {background-color: var(--hover-color);}' : '')};
+    )}
 `;
 
+async function fetchReasonOf(backendURL, sourceId, nodeId, currentSort) {
+    const r = await fetch(`${backendURL}/graph/reason`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            sourceid: sourceId,
+            nodeid: nodeId,
+            currentSort: currentSort,
+        }),
+    });
+    if (!r.ok) {
+        throw new Error(`${r.status} ${r.statusText}`);
+    }
+    return await r.json();
+}
+
 function scrollParentToChild(parent, child) {
+    if (!child || !parent) {
+        return;
+    }
     var parentRect = parent.getBoundingClientRect();
     var parentViewableArea = {
         height: parent.clientHeight,
@@ -58,153 +90,113 @@ function scrollParentToChild(parent, child) {
     }
 }
 
+
 export function Symbol(props) {
-    const {symbolIdentifier, isSubnode, handleClick} = props;
-    const symbolIdentifierRef = useRef(symbolIdentifier.uuid);
-    const symbolElementRef = useRef(null);
-    const [isHovered, setIsHovered] = useState(false);
-    const colorPalette = useColorPalette();
     const {
-        state: {explanationHighlightedSymbols, searchResultHighlightedSymbols},
-    } = useTransformations();
+        symbolUuid,
+        isSubnode,
+        nodeUuid,
+        transformationHash,
+    } = props;
+    const recoilSymbol= useRecoilValue(
+        symoblsByNodeStateFamily({
+            transformationHash,
+            nodeUuid,
+            symbolUuid,
+        })
+    );
+    const thisSymbolHighlights = useRecoilValue(
+        symbolHighlightsStateFamily(symbolUuid)
+    );
+    const setThisSymbolHighlights = useRecoilCallback(
+        setReasonHighlightsCallback, []
+    );
+    const removeThisSymbolHighlights = useRecoilCallback(
+        removeSymbolHighlightsCallback, []
+    );
+    const backendUrl = useRecoilValue(backendUrlState);
+    const currentSort = useRecoilValue(currentSortState);
+    const symbolElementRef = useRef(null);
+    let backgroundColor = 'transparent';
+    const isPulsating = useRef(false);
+    const pulsatingColor = useRef('transparent');
 
-    const [backgroundColorStyle, setBackgroundColorStyle] =
-        useState('transparent');
-    const [isPulsating, setIsPulsating] = useState(false);
-    const [pulsatingColor, setPulsatingColor] = useState('transparent');
-
-    let atomString = make_atoms_string(symbolIdentifier.symbol);
+    let atomString = make_atoms_string(recoilSymbol.symbol);
     const suffix = `_${isSubnode ? 'sub' : 'main'}`;
     const contentDivRef = useContentDiv();
+    const isShowingExplanation = useRef(false);
+    const [, messageDispatch] = useMessages();
 
-    React.useEffect(() => {
-        if (isHovered) {
+    const handleClickOnSymbol = async (e) => {
+        e.stopPropagation();
+        if (!recoilSymbol.has_reason) {
             return;
         }
-        const symbolid = symbolIdentifierRef.current;
-        const searchResultHighlightIndices = searchResultHighlightedSymbols
-            .flatMap((item, index) =>
-                [item.includes[item.selected]].includes(symbolid) ? index : []
-            )
-            .filter((value, index, self) => self.indexOf(value) === index);
-        const reasonHighlightIndices = explanationHighlightedSymbols
-            .flatMap((item, index) =>
-                [item.tgt, item.src].includes(symbolid) ? index : []
-            )
-            .filter((value, index, self) => self.indexOf(value) === index);
-
-        if (
-            searchResultHighlightIndices.some(
-                (index) => searchResultHighlightedSymbols[index].recent
-            )
-        ) {
-            setIsPulsating(true);
-            setPulsatingColor(
-                searchResultHighlightedSymbols.filter((s) => s.recent)[0].color
+        try {
+            const data = await fetchReasonOf(
+                backendUrl,
+                symbolUuid,
+                nodeUuid,
+                currentSort
             );
-        } else {
-            setIsPulsating(false);
-            setPulsatingColor('transparent');
+            if (data.symbols.some((tgt) => tgt === null)) {
+                return;
+            }
+            if (!isShowingExplanation.current) {
+                setThisSymbolHighlights(transformationHash, symbolUuid, data);
+                isShowingExplanation.current = true;
+            } else {
+                removeThisSymbolHighlights(transformationHash,symbolUuid);
+                isShowingExplanation.current = false;
+            }
+        } catch (error) {
+            messageDispatch(showError(`Failed to get reason: ${error}`));
         }
-        if (
-            searchResultHighlightIndices.length > 0 ||
-            reasonHighlightIndices.length > 0
-        ) {
-            const searchResultUniqueColors = [
-                ...new Set(
-                    searchResultHighlightIndices
-                        .map(
-                            (index) =>
-                                searchResultHighlightedSymbols[index].color
-                        )
-                        .reverse()
-                ),
-            ];
-            const reasonUniqueColors = [
-                ...new Set(
-                    reasonHighlightIndices
-                        .map(
-                            (index) =>
-                                explanationHighlightedSymbols[index].color
-                        )
-                        .reverse()
-                ),
-            ];
+    };
 
-            const gradientStops = searchResultUniqueColors
-                .concat(reasonUniqueColors)
-                .map((color, index, array) => {
-                    const start = (index / array.length) * 100;
-                    const end = ((index + 1) / array.length) * 100;
-                    return `${color} ${start}%, ${color} ${end}%`;
-                })
-                .join(', ');
-            setBackgroundColorStyle(
-                `linear-gradient(-45deg, ${gradientStops})`
-            );
-        } else {
-            setBackgroundColorStyle('transparent');
-        }
 
-        if (
-            searchResultHighlightIndices.some(
-                (index) => searchResultHighlightedSymbols[index].recent
-            )
-        ) {
-            scrollParentToChild(
-                contentDivRef.current,
-                symbolElementRef.current
-            );
-        }
-    }, [
-        isHovered,
-        searchResultHighlightedSymbols,
-        explanationHighlightedSymbols,
-        contentDivRef,
-        symbolElementRef
-    ]);
+    if (thisSymbolHighlights.length > 0) {
+        const uniqueHighlightsColors = [
+            ...new Set(thisSymbolHighlights.map(h => h.color).reverse()),
+        ];
+
+        const gradientStops = uniqueHighlightsColors
+            .map((color, index, array) => {
+                const start = (index / array.length) * 100;
+                const end = ((index + 1) / array.length) * 100;
+                return `${color} ${start}%, ${color} ${end}%`;
+            })
+            .join(', ');
+        backgroundColor = `linear-gradient(-45deg, ${gradientStops})`
+    } else {
+        backgroundColor = 'transparent';
+    }
+
+    const recentQueryHighlights = thisSymbolHighlights.filter(
+        (h) => h.origin === 'query'
+    );
+    if (recentQueryHighlights.some((h) => h.recent)) {
+        scrollParentToChild(
+            contentDivRef.current,
+            symbolElementRef.current
+        );
+        isPulsating.current = true;
+        pulsatingColor.current = recentQueryHighlights[0].color;
+    } else {
+        isPulsating.current = false;
+        pulsatingColor.current = 'transparent';
+    }
 
     atomString = atomString.length === 0 ? '' : atomString;
 
-    const [previousBackgroundColorStyle, setPreviousBackgroundColorStyle] =
-        useState('transparent');
-    const handleMouseEnter = React.useCallback(() => {
-        setIsHovered(true);
-        if (symbolIdentifier.has_reason) {
-            setBackgroundColorStyle((prev) => {
-                setPreviousBackgroundColorStyle(prev);
-                return getNextHoverColor(
-                    explanationHighlightedSymbols,
-                    searchResultHighlightedSymbols,
-                    symbolIdentifierRef.current,
-                    colorPalette.explanationHighlights
-                );
-            });
-        }
-    }, [
-        explanationHighlightedSymbols,
-        searchResultHighlightedSymbols,
-        colorPalette.explanationHighlights,
-        symbolIdentifier.has_reason,
-    ]);
-
-    const handleMouseLeave = React.useCallback(() => {
-        setIsHovered(false);
-        setBackgroundColorStyle(previousBackgroundColorStyle);
-    }, [previousBackgroundColorStyle, setBackgroundColorStyle]);
-
-    // const handleMouseEnter = () => setIsHovered(true);
-    // const handleMouseLeave = () => setIsHovered(false);
-
     return (
         <SymbolElementSpan
-            id={symbolIdentifier.uuid + suffix}
-            $pulsate={isPulsating}
-            $pulsatingColor={pulsatingColor}
-            $backgroundColorStyle={backgroundColorStyle}
-            onClick={(e) => handleClick(e, symbolIdentifier)}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            id={symbolUuid + suffix}
+            $pulsate={isPulsating.current}
+            $pulsatingColor={pulsatingColor.current}
+            $backgroundColor={backgroundColor}
+            $hasReason={recoilSymbol.has_reason}
+            onClick={handleClickOnSymbol}
             ref={symbolElementRef}
         >
             {atomString}
@@ -214,19 +206,19 @@ export function Symbol(props) {
 
 Symbol.propTypes = {
     /**
-     * The symbolidentifier of the symbol to display
+     * The symbolidentifier Uuid of the symbol to display
      */
-    symbolIdentifier: SYMBOLIDENTIFIER,
+    symbolUuid: PropTypes.string,
     /**
      * If the symbol is a subnode
      */
     isSubnode: PropTypes.bool,
     /**
-     * All symbols that are currently highlighted
+     * The uuid of the node that the symbol is in
      */
-    highlightedSymbols: PropTypes.array,
+    nodeUuid: PropTypes.string,
     /**
-     * The function to be called if the symbol is clicked on
+     * The hash of the transformation that the symbol is in
      */
-    handleClick: PropTypes.func,
+    transformationHash: PropTypes.string,
 };

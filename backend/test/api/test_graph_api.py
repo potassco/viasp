@@ -113,16 +113,29 @@ def test_set_sort(unique_session, program):
     res = client.get("graph/sorts")
     sorted_program = res.json
 
-    res = client.post("graph/sorts", json={"moved_transformation": {"old_index": 1, "new_index": 1}})
+    res = client.get("graph/current")
+    current_sort = res.json
+
+    res = client.post("graph/sorts", json={"current_sort": current_sort, "moved_transformation": {"old_index": 1, "new_index": 1}})
     assert res.status_code == 200
+    current_sort = res.json["hash"]
 
     for old_index, t in enumerate(sorted_program):
         for new_index in range(t.adjacent_sort_indices["lower_bound"], t.adjacent_sort_indices["upper_bound"]+1):
-            res = client.post("graph/sorts", json={"moved_transformation": {"old_index": old_index, "new_index": new_index}})
+            res = client.post("graph/sorts",
+                              json={
+                                  "current_sort": current_sort,
+                                  "moved_transformation": {
+                                      "old_index": old_index,
+                                      "new_index": new_index
+                                  }
+                              })
             assert res.status_code == 200
+            current_sort = res.json["hash"]
             res = client.get("graph/sorts")
             assert (res.json == sorted_program) == (old_index == new_index)
             sorted_program = res.json
+
 
 
 @pytest.mark.parametrize("program", [

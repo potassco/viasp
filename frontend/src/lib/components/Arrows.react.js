@@ -1,57 +1,60 @@
-import React from "react";
+import React, {useCallback, Suspense} from "react";
 import Xarrow from "react-xarrows";
 import PropTypes from 'prop-types'
 import { v4 as uuidv4 } from 'uuid';
-import debounce from "lodash/debounce";
 import { styled } from 'styled-components';
-import { useTransformations } from "../contexts/transformations";
-import { useAnimationUpdater } from "../contexts/AnimationUpdater";
+import {useContentDiv} from '../contexts/ContentDivContext';
+import {Transition} from 'react-transition-group';
 
-const ArrowsContainer = styled.div`
+import { Constants } from "../constants";
+import {
+    isAnimatingState,
+} from '../atoms/currentGraphState';
+import {arrowHighlightsState} from '../atoms/highlightsState';
+import { useRecoilValue } from "recoil";
+
+const ArrowsContainer = styled.span`
     position: sticky;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; 
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    opacity: 0;
+    
+    &.enter, &.entered {
+        opacity: 1;
+    }
+    &.exit,
+    &.exited {
+        opacity: 0;
+    }
 `;
 
 export function Arrows() {
-    const {
-        state: {explanationHighlightedSymbols},
-    } = useTransformations();
-    const {
-        animationState,
-    } = useAnimationUpdater();
-    const [arrows, setArrows] = React.useState([]);
-    const observerRef = React.useRef();
+    const arrowHighlights = useRecoilValue(arrowHighlightsState);
+    const contentDiv = useContentDiv();
+    const isAnimating = useRecoilValue(
+        isAnimatingState
+    );
 
-    const calculateArrows = React.useCallback(() => {
-        return explanationHighlightedSymbols
+    const createArrows = useCallback((highlights) => {
+        return highlights
             .map((arrow) => {
-                const suffix1 = `_${
-                    document.getElementById(arrow.src + '_main')
-                        ? 'main'
-                        : 'sub'
-                }`;
-                const suffix2 = `_${
-                    document.getElementById(arrow.tgt + '_main')
-                        ? 'main'
-                        : 'sub'
-                }`;
+                const source = contentDiv.current.querySelector(
+                    `div[data-uuid^='${arrow.origin}']`
+                )?.firstChild?.id;
+                const target = contentDiv.current.querySelector(
+                    `div[data-uuid^='${arrow.symbolUuid}']`
+                )?.firstChild?.id;
                 return {
-                    src: arrow.src + suffix1,
-                    tgt: arrow.tgt + suffix2,
+                    src: source,
+                    tgt: target,
                     color: arrow.color,
                 };
             })
-            .filter((arrow) => {
-                // filter false arrows that are not in the DOM
-                return (
-                    document.getElementById(arrow.src) &&
-                    document.getElementById(arrow.tgt)
-                );
-            })
+            .filter((arrow) => arrow.src && arrow.tgt)
             .map((arrow) => {
                 return (
                     <Xarrow
@@ -67,40 +70,28 @@ export function Arrows() {
                     />
                 );
             });
-    }, [explanationHighlightedSymbols]);
+    }, [contentDiv]);
 
-    const debouncedCalculateArrows = React.useMemo(
-        () => debounce(() => setArrows(calculateArrows()), 10),
-        [calculateArrows]
-    )
 
-    React.useEffect(() => {
-        debouncedCalculateArrows();
-    }, [animationState, explanationHighlightedSymbols, debouncedCalculateArrows]);
-    // }, [animationState, explanationHighlightedSymbols, debouncedCalculateArrows]);
-
-    React.useEffect(() => {
-        const observer = new MutationObserver(debouncedCalculateArrows);
-        observerRef.current = observer;
-
-        const config = {attributes: true, childList: true, subtree: true};
-        const targetNode = document.getElementById('content');
-
-        if (targetNode) {
-            observer.observe(targetNode, config);
-        }
-
-        return () => {
-            if (observerRef.current) {
-                observerRef.current.disconnect();
-            }
-        };
-    }, [debouncedCalculateArrows]);
-
-    return (
-        <ArrowsContainer className="arrows_container">
-            {arrows.length > 0 ? arrows : null}
-        </ArrowsContainer>
+    return (arrowHighlights.length === 0) ? null : (
+        <Transition
+            key="arrows"
+            timeout={{
+                enter: 0,
+                appear: Constants.arrowsAppearTimeout,
+                exit: 200,
+            }}
+            appear={true}
+            in={!isAnimating}
+            mountOnEnter
+            unmountOnExit
+        >
+            {(state) => (
+                <ArrowsContainer className={`arrows-container ${state}`}>
+                    {createArrows(arrowHighlights)}
+                </ArrowsContainer>
+            )}
+        </Transition>
     );
 }
 
@@ -109,4 +100,5 @@ Arrows.propTypes = {
      * The ID used to identify this component in Dash callbacks.
      */
     id: PropTypes.string,
-}
+};
+

@@ -147,6 +147,10 @@ def make_transformation_mapping(transformations: Iterable[Transformation]):
     return {t.id: t for t in transformations}
 
 
+def separate_constraints(sorted_program: List[Transformation]) -> Tuple[List[Transformation], List[Transformation]]:
+    return [t for t in sorted_program if t.is_constraints_only], [t for t in sorted_program if not t.is_constraints_only]
+
+
 def append_noops(result_graph: nx.DiGraph,
                  sorted_program: Iterable[Transformation],
                  pass_through: Set[AST]):
@@ -172,7 +176,9 @@ def build_graph(wrapped_stable_models: List[List[str]],
     conflict_free_h = analyzer.get_conflict_free_h()
     conflict_free_h_showTerm = analyzer.get_conflict_free_h_showTerm()
     identifiable_facts = list(map(SymbolIdentifier, facts))
-    mapping = make_transformation_mapping(sorted_program)
+    _, sorted_program_no_constraints = separate_constraints(
+        sorted_program)
+    mapping = make_transformation_mapping(sorted_program_no_constraints)
     fact_node = Node(frozenset(identifiable_facts), -1,
                      frozenset(identifiable_facts))
     if not len(mapping):
@@ -188,6 +194,7 @@ def build_graph(wrapped_stable_models: List[List[str]],
         new_path = make_reason_path_from_facts_to_stable_model(
             mapping, fact_node, h_symbols, recursion_transformations_hashes,
             conflict_free_h, analyzer)
+        print(f"asdfasdfasdf", flush=True)
         paths.append(new_path)
 
     result_graph = nx.DiGraph()
@@ -236,16 +243,15 @@ def get_recursion_subgraph(
 
     justifier_rules = reify_recursion_transformation(
         transformation,
-        h=analyzer.get_conflict_free_h(),
-        h_showTerm=analyzer.get_conflict_free_h_showTerm(),
-        model=analyzer.get_conflict_free_model(),
-        conflict_free_showTerm=analyzer.get_conflict_free_showTerm(),
-        get_conflict_free_variable=analyzer.get_conflict_free_variable,
+        h_str=analyzer.get_conflict_free_h(),
+        h_showTerm_str=analyzer.get_conflict_free_h_showTerm(),
+        model_str=analyzer.get_conflict_free_model(),
+        conflict_free_showTerm_str=analyzer.get_conflict_free_showTerm(),
+        get_conflict_free_variable_str=analyzer.get_conflict_free_variable,
         clear_temp_names=analyzer.clear_temp_names,
-        conflict_free_model=analyzer.get_conflict_free_model(),
-        conflict_free_iterindex=analyzer.get_conflict_free_iterindex(),
-        conflict_free_derivable=analyzer.get_conflict_free_derivable()
-    )
+        conflict_free_model_str=analyzer.get_conflict_free_model(),
+        conflict_free_iterindex_str=analyzer.get_conflict_free_iterindex(),
+        conflict_free_derivable_str=analyzer.get_conflict_free_derivable())
     justification_program += "\n".join(map(str, justifier_rules))
     justification_program += f"\n{model_str}(@new())."
 
@@ -283,29 +289,24 @@ def index_of_symbolstr_in_results(results: List[SearchResultSymbolWrapper], symb
 def search_nonground_term_in_symbols(query, db_graph_symbols):
     model_atoms: List[str] = []
     symbol_uuid_str: str = "SYMBOLUUID"
+    branch_position_str: str = "BRANCHPOSITION"
     results: List[SearchResultSymbolWrapper] = []
-    for s in db_graph_symbols:
-        model_atoms.append(f'model({s.symbol}, "{s.symbol_uuid}").')
+    unsorted_results: Dict[str,List[Tuple[str, float]]] = dict()
+    for s, branch_position in db_graph_symbols:
+        model_atoms.append(f'model({s.symbol}, "{s.symbol_uuid}", "{branch_position}").')
 
     control = Control()
-    query_rule = f'result({query},{symbol_uuid_str}):-model({query},{symbol_uuid_str}).'
-
+    query_rule = f'result({query},{symbol_uuid_str}, {branch_position_str}):-model({query},{symbol_uuid_str},{branch_position_str}).'
     try:
         control.add("base", [], query_rule)
         control.add("base", [], "\n".join(model_atoms))
         control.ground([("base", [])])
 
-        for x in control.symbolic_atoms.by_signature("result", 2):
-            index = index_of_symbolstr_in_results(results, str(x.symbol.arguments[0]))
-            if index == -1:
-                results.append(SearchResultSymbolWrapper(
-                    repr = str(x.symbol.arguments[0]),
-                    includes = [str(x.symbol.arguments[1].string)],
-                    is_autocomplete = False,
-                    awaiting_input = False,
-                ))
+        for x in control.symbolic_atoms.by_signature("result", 3):
+            if str(x.symbol.arguments[0]) in unsorted_results:
+                unsorted_results[str(x.symbol.arguments[0])].append((str(x.symbol.arguments[1].string), float(x.symbol.arguments[2].string)))
             else:
-                results[index].includes.append(str(x.symbol.arguments[1].string))
+                unsorted_results[str(x.symbol.arguments[0])] = [(str(x.symbol.arguments[1].string), float(x.symbol.arguments[2].string))]
 
     except RuntimeError:
         return [
@@ -317,6 +318,15 @@ def search_nonground_term_in_symbols(query, db_graph_symbols):
                 hide_in_suggestions=True,
             )
         ]
+    for symbol_str, symbol_and_branch_position in unsorted_results.items():
+        symbol_and_branch_position.sort(key=lambda x: x[1])
+        results.append(SearchResultSymbolWrapper(
+            repr = symbol_str,
+            includes = [x for x,_ in symbol_and_branch_position],
+            is_autocomplete = False,
+            awaiting_input = False,
+        ))
+
     return results if len(results) else [SearchResultSymbolWrapper(
         repr = query,
         includes = [],

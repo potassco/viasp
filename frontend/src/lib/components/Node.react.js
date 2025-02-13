@@ -1,34 +1,33 @@
-import React, {Suspense} from 'react';
+import React, {Suspense, useEffect, useCallback, useMemo, useRef, useState} from 'react';
 import './node.css';
 import PropTypes from 'prop-types';
 import {Symbol} from './Symbol.react';
-import {hideNode, showNode, useShownNodes} from '../contexts/ShownNodes';
 import {useColorPalette} from '../contexts/ColorPalette';
-import {useHighlightedNode} from '../contexts/HighlightedNode';
-import {
-    toggleShownRecursion,
-    useTransformations,
-    setNodeIsCollapsibleV,
-    setNodeShowMini,
-    setNodeIsExpandableV,
-    checkTransformationExpandableCollapsible,
-    addExplanationHighlightedSymbol,
-    removeExplanationHighlightedSymbol,
-    removeHighlightExplanationRule,
-    removeExplanationRuleBackgroundHighlight,
-} from '../contexts/transformations';
+import {styled} from 'styled-components';
 import {useSettings} from '../contexts/Settings';
 import {NODE} from '../types/propTypes';
 import {useFilters} from '../contexts/Filters';
 import AnimateHeight from 'react-animate-height';
 import {IconWrapper} from '../LazyLoader';
 import useResizeObserver from '@react-hook/resize-observer';
-import {findChildByClass, emToPixel} from '../utils';
+import { emToPixel} from '../utils';
 import debounce from 'lodash.debounce';
 import { Constants } from '../constants';
-import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
-import {useAnimationUpdater} from '../contexts/AnimationUpdater';
-import {useMessages, showError} from '../contexts/UserMessages';
+import {useRecoilState, useRecoilValue, useSetRecoilState} from 'recoil';
+import {
+    nodeAtomByNodeUuidStateFamily,
+    nodeIsExpandableVByNodeUuidStateFamily,
+    nodeIsCollapsibleVByNodeUuidStateFamily,
+    nodeShowMiniByNodeUuidStateFamily,
+    nodeIsExpandVAllTheWayByNodeUuidStateFamily,
+    longestSymbolInNodeByNodeUuidStateFamily,
+} from '../atoms/nodesState';
+import {allHighlightedSymbolsState} from '../atoms/highlightsState';
+import {
+    shownRecursionState,
+    isCurrentlyAnimatingHeightStateFamily,
+} from '../atoms/currentGraphState';
+import { ContentDivProvider, useContentDiv } from '../contexts/ContentDivContext';
 
 function any(iterable) {
     for (let index = 0; index < iterable.length; index++) {
@@ -39,314 +38,242 @@ function any(iterable) {
     return false;
 }
 
-function fetchReasonOf(backendURL, sourceId, nodeId) {
-    return fetch(`${backendURL('graph/reason')}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({sourceid: sourceId, nodeid: nodeId}),
-    }).then((r) => {
-        if (!r.ok) {
-            throw new Error(`${r.status} ${r.statusText}`);
-        }
-        return r.json();
-    });
-}
-
-function middlewareRemoveExplanationHighlightedSymbol(dispatch, action) {
-    dispatch(
-        removeExplanationHighlightedSymbol(
-            action.arrows,
-            action.rule_hash,
-            action.source_symbol_id
-        )
-    );
-    setTimeout(() => {
-        dispatch(
-            removeHighlightExplanationRule(
-                action.rule_hash,
-                action.source_symbol_id
-            )
-        );
-    }, Constants.ruleHighlightFadeDuration);
-}
-
-function middlewareAddExplanationHighlightedSymbol(dispatch, action) {
-    dispatch(
-        addExplanationHighlightedSymbol(
-            action.arrows,
-            action.rule_hash,
-            action.source_symbol_id,
-            action.colors
-        )
-    );
-    setTimeout(() => {
-        dispatch(
-            removeExplanationRuleBackgroundHighlight(
-                action.rule_hash,
-                action.source_symbol_id
-            )
-        );
-    }, Constants.ruleHighlightDuration);
-}
 
 function NodeContent(props) {
+    const {
+        nodeUuid,
+        setHeight,
+        parentRef,
+        transformationId,
+        transformationHash,
+        subnodeIndex,
+    } = props;
     const {state} = useSettings();
-    const {node, setHeight, parentID, isSubnode, transformationId} = props;
     const colorPalette = useColorPalette();
     const [{activeFilters}] = useFilters();
-    const {
-        dispatch: dispatchT,
-        state: {allHighlightedSymbols, explanationHighlightedSymbols},
-    } = useTransformations();
-    const {backendURL} = useSettings();
-    const [, messageDispatch] = useMessages();
+    const highlightedSymbols = useRecoilValue(allHighlightedSymbolsState);
+    const recoilNode = useRecoilValue(
+        nodeAtomByNodeUuidStateFamily({
+            transformationHash,
+            nodeUuid,
+            subnodeIndex,
+        })
+    );
+    const setIsExpandableV = useSetRecoilState(
+        nodeIsExpandableVByNodeUuidStateFamily(nodeUuid)
+    );
+    const setIsCollapsibleV = useSetRecoilState(
+        nodeIsCollapsibleVByNodeUuidStateFamily(nodeUuid)
+    );
+    const [isExpandVAllTheWay, setIsExpandVAllTheWay] = useRecoilState(
+        nodeIsExpandVAllTheWayByNodeUuidStateFamily(nodeUuid)
+    );
+    const symbolYPosition = useRef({});
+    const setLongestSymbol = useSetRecoilState(
+        longestSymbolInNodeByNodeUuidStateFamily(nodeUuid)
+    );
+
+    const isSubnode = typeof subnodeIndex !== 'undefined';
 
     let contentToShow;
     if (state.show_all) {
-        contentToShow = node.atoms;
+        contentToShow = recoilNode.atom.map((s) => s.uuid);
     } else {
-        contentToShow = node.diff;
+        contentToShow = recoilNode.diff.map((s) => s.uuid);
     }
 
-    const isMounted = React.useRef(true);
-    const setContainerRef = React.useRef(null);
+    const isMounted = useRef(false);
+    const setContainerRef = useRef(null);
 
-    React.useEffect(() => {
-        return () => {
-            isMounted.current = false;
-        };
-    }, []);
-
-    const symbolShouldBeShown = React.useCallback(
-        (symbolId) => {
-            return (
-                activeFilters.length === 0 ||
-                any(
-                    activeFilters
-                        .filter((filter) => filter._type === 'Signature')
-                        .map(
-                            (filter) =>
-                                filter.name === symbolId.symbol.name &&
-                                filter.args === symbolId.symbol.arguments.length
-                        )
-                )
+    /*
+     * Y Position of symbols in node
+     */
+    const symbolVisibilityManager = useCallback(
+        (symbolUuid) => {
+            const childElement = setContainerRef.current?.querySelector(
+                `div[data-uuid="${symbolUuid}"]`
             );
-        },
-        [activeFilters]
-    );
 
-    function handleClick(e, src) {
-        e.stopPropagation();
-        if (src.has_reason) {
-            fetchReasonOf(backendURL, src.uuid, node.uuid)
-                .then((result) => {
-                    if (result.symbols.every((tgt) => tgt !== null)) {
-                        const existingArrows =
-                            explanationHighlightedSymbols.map((e) =>
-                                JSON.stringify({src: e.src, tgt: e.tgt})
-                            );
-                        if (
-                            result.symbols.some((arrow) => {
-                                return !existingArrows.includes(
-                                    JSON.stringify(arrow)
-                                );
-                            })
-                        ) {
-                            middlewareAddExplanationHighlightedSymbol(
-                                dispatchT,
-                                {
-                                    arrows: result.symbols,
-                                    rule_hash: result.rule,
-                                    source_symbol_id: src.uuid,
-                                    colors: colorPalette.explanationHighlights,
-                                }
-                            );
-                        } else {
-                            middlewareRemoveExplanationHighlightedSymbol(
-                                dispatchT,
-                                {
-                                    arrows: result.symbols,
-                                    rule_hash: result.rule,
-                                    source_symbol_id: src.uuid,
-                                }
-                            );
-                        }
-                    }
-                })
-                .catch((error) => {
-                    messageDispatch(
-                        showError(`Failed to get reason: ${error}`)
-                    );
-                });
-        }
-    }
-
-    const symbolVisibilityManager = React.useCallback(
-        (compareHighlightedSymbol, symbol) => {
-            const i = compareHighlightedSymbol.indexOf(symbol.uuid);
-            const childElement = document.getElementById(
-                symbol.uuid + `_${isSubnode ? 'sub' : 'main'}`
-            );
-            const parentElement = document.getElementById(parentID);
+            const parentElement = parentRef.current;
 
             if (!childElement || !parentElement) {
-                return {fittingHeight: 0, isMarked: i !== -1};
+                return;
             }
             const childRect = childElement.getBoundingClientRect();
             const parentRect = parentElement.getBoundingClientRect();
-            const belowLineMargin = 5;
-            return {
-                fittingHeight:
-                    childRect.bottom - parentRect.top + belowLineMargin,
-                isMarked: i !== -1,
+            const belowLineMargin = 27;
+            symbolYPosition.current = {
+                ...symbolYPosition.current,
+                [symbolUuid]: childRect.top - parentRect.top + belowLineMargin,
             };
         },
-        [isSubnode, parentID]
+        [parentRef]
+    );
+    const debouncedSymbolVisibilityManager = useCallback(
+        (s) => {
+            const debouncedFunction = debounce(
+                () => symbolVisibilityManager(s),
+                Constants.DEBOUNCETIMEOUT
+            );
+            debouncedFunction();
+        },
+        [symbolVisibilityManager]
     );
 
-    const visibilityManager = React.useCallback(() => {
-        var allHeights = contentToShow
-            .filter((symbol) => symbolShouldBeShown(symbol))
-            .map((s) =>
-                symbolVisibilityManager(
-                    allHighlightedSymbols,
-                    s,
-                    contentToShow.length === 1
-                )
-            );
-        var markedItems = allHeights.filter((item) => item.isMarked);
-        var maxSymbolHeight = Math.max(
-            emToPixel(Constants.minimumNodeHeight),
-            ...allHeights.map((item) => item.fittingHeight)
-        );
+    const setHeightFromContent = useCallback(
+        (contentToShow, highlightedSymbols, isExpandVAllTheWay) => {
+            const getNewHeight = () => {
+                const lowestSymbolHeight = Math.max(
+                    emToPixel(Constants.minimumNodeHeight),
+                    ...contentToShow.map((s) => symbolYPosition.current[s])
+                );
+                const isNodeInsignificantlyBiggerThanStandardNodeHeight =
+                    lowestSymbolHeight * Constants.foldNodeThreshold <
+                    emToPixel(Constants.standardNodeHeight);
+                if (
+                    isNodeInsignificantlyBiggerThanStandardNodeHeight
+                ) {
+                    setIsExpandableV(false);
+                    setIsExpandVAllTheWay(false);
+                    setIsCollapsibleV(false)
+                    return lowestSymbolHeight;
+                }
+                if (
+                    isExpandVAllTheWay
+                ) {
+                    setIsExpandableV(false);
+                    return lowestSymbolHeight;
+                }
 
-        if (node.loading === true) {
-            setHeight(Math.min(emToPixel(Constants.standardNodeHeight), maxSymbolHeight));
-            dispatchT(setNodeIsExpandableV(transformationId, node.uuid, false));
+
+                const markedItems = contentToShow.filter((s) =>
+                    highlightedSymbols.map((h) => h.symbolUuid).includes(s)
+                );
+                if (
+                    markedItems.length > 0 &&
+                    any(
+                        markedItems.map(
+                            (item) =>
+                                symbolYPosition.current[item] >
+                                emToPixel(Constants.standardNodeHeight)
+                        )
+                    )
+                ) {
+                    const newHeight = Math.max(
+                        emToPixel(Constants.minimumNodeHeight),
+                        ...contentToShow
+                            .filter((s) => markedItems.includes(s))
+                            .map((s) => symbolYPosition.current[s])
+                    );
+                    const isNodeInsignificantlyBiggerThanMaxNodeHeight =
+                        newHeight * Constants.foldNodeThreshold >
+                        lowestSymbolHeight;
+                    if (isNodeInsignificantlyBiggerThanMaxNodeHeight) {
+                        setIsExpandableV(false);
+                        return lowestSymbolHeight;
+                    }
+                    setIsExpandableV(true);
+                    return newHeight;
+                }
+                const newHeight = Math.min(
+                    emToPixel(Constants.standardNodeHeight),
+                    Math.max(
+                        emToPixel(Constants.minimumNodeHeight),
+                        ...contentToShow.map((s) =>
+                            symbolYPosition.current[s]
+                                ? symbolYPosition.current[s]
+                                : 0
+                        )
+                    )
+                );
+                setIsExpandableV(true);
+                return newHeight;
+            };
+            setHeight(getNewHeight());
+        },
+        [setHeight, setIsExpandableV, setIsCollapsibleV, setIsExpandVAllTheWay]
+    );
+    const debouncedSetHeightFromContent = useMemo(() => {
+        return debounce(setHeightFromContent, Constants.DEBOUNCETIMEOUT);
+    }, [setHeightFromContent]);
+
+    useEffect(() => {
+        contentToShow.forEach((s) => {
+            debouncedSymbolVisibilityManager(s);
+        });
+    }, [debouncedSymbolVisibilityManager, contentToShow]);
+    useResizeObserver(setContainerRef, () => {
+        contentToShow.forEach((s) => {
+            debouncedSymbolVisibilityManager(s);
+        });
+    });
+
+    useEffect(() => {
+        if (isMounted.current) {
+            debouncedSetHeightFromContent(
+                contentToShow,
+                highlightedSymbols,
+                isExpandVAllTheWay
+            );
+        } else {
+            isMounted.current = true;
+        }
+    }, [
+        debouncedSetHeightFromContent,
+        contentToShow,
+        highlightedSymbols,
+        isExpandVAllTheWay,
+    ]);
+    useResizeObserver(setContainerRef, () => {
+        debouncedSetHeightFromContent(
+            contentToShow,
+            highlightedSymbols,
+            isExpandVAllTheWay
+        );
+    });
+
+    /*
+     * look for longest symbol in node
+     * Run exactly once, after initial render
+     */
+    const symbolLengthManager = () => {
+        if (!setContainerRef.current) {
             return;
         }
-        if (node.isExpandVAllTheWay) {
-            setHeight(maxSymbolHeight);
-            dispatchT(setNodeIsExpandableV(transformationId, node.uuid, false));
-        } else {
-            // marked node is under the standard height fold
-            if (
-                markedItems.length &&
-                any(
-                    markedItems.map(
-                        (item) =>
-                            item.fittingHeight > emToPixel(Constants.standardNodeHeight)
-                    )
-                )
-            ) {
-                const newHeight = Math.max(
-                    ...markedItems.map((item) => item.fittingHeight)
-                );
-                setHeight(newHeight);
-                dispatchT(
-                    setNodeIsExpandableV(
-                        transformationId,
-                        node.uuid,
-                        maxSymbolHeight > newHeight
-                    )
-                );
-            } else {
-                // marked node is not under the standard height fold
-                setHeight(
-                    Math.min(emToPixel(Constants.standardNodeHeight), maxSymbolHeight)
-                );
-                dispatchT(
-                    setNodeIsExpandableV(
-                        transformationId,
-                        node.uuid,
-                        maxSymbolHeight > emToPixel(Constants.standardNodeHeight)
-                    )
-                );
-            }
-        }
-        dispatchT(checkTransformationExpandableCollapsible(transformationId));
-    }, [
-        contentToShow,
-        allHighlightedSymbols,
-        setHeight,
-        symbolShouldBeShown,
-        symbolVisibilityManager,
-        node.loading,
-        dispatchT,
-        node.uuid,
-        node.isExpandVAllTheWay,
-        transformationId,
-    ]);
-
-    React.useEffect(() => {
-        visibilityManager();
-        onFullyLoaded(() => {
-            if (isMounted.current) {
-                visibilityManager();
+        const symbolElements =
+            setContainerRef.current.querySelectorAll('.set_value > div');
+        let maxWidth = 23;
+        symbolElements.forEach((el) => {
+            const w = el.getBoundingClientRect().width;
+            if (w > maxWidth) {
+                maxWidth = w;
             }
         });
-    }, [
-        visibilityManager,
-        allHighlightedSymbols,
-        state,
-        node.isExpandVAllTheWay,
-        activeFilters,
-    ]);
-
-    function onFullyLoaded(callback) {
-        setTimeout(function () {
-            requestAnimationFrame(callback);
-        });
-    }
-    useResizeObserver(setContainerRef, visibilityManager);
-
-    // const nodeUuidRef = React.useRef(node.uuid);
-    // const {setAnimationState} = useAnimationUpdater();
-    // const setAnimationStateRef = React.useRef(setAnimationState);
-    // const animateResize = React.useCallback((entry) => {
-    //     const nodeUuid = nodeUuidRef.current;
-    //     const setAnimationState = setAnimationStateRef.current;
-    //     setAnimationState((oldValue) => ({
-    //         [nodeUuid]: {
-    //             ...oldValue[nodeUuid],
-    //             width: entry.contentRect.width,
-    //             height: entry.contentRect.height,
-    //             top: entry.contentRect.top,
-    //             left: entry.contentRect.left,
-    //         },
-    //     }));
-    // }, []);
-
-    // const debouncedAnimateResize = React.useCallback(
-    //     (entry) => {
-    //         return debounce(
-    //             () => animateResize(entry),
-    //             Constants.DEBOUNCETIMEOUT
-    //         );
-    //     },
-    //     [animateResize]
-    // );
-    // useResizeObserver(setContainerRef, debouncedAnimateResize);
+        setLongestSymbol(maxWidth);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(symbolLengthManager, []);
 
     const classNames2 = `set_value`;
-    const renderedSymbols = contentToShow
-        .filter((symbol) => symbolShouldBeShown(symbol))
-        .map((s) => {
-            return (
+    const renderedSymbols = contentToShow.map((s) => {
+        return (
+            <div key={s} data-uuid={s}>
                 <Symbol
-                    key={JSON.stringify(s)}
-                    symbolIdentifier={s}
+                    symbolUuid={s}
                     isSubnode={isSubnode}
-                    handleClick={handleClick}
+                    nodeUuid={nodeUuid}
+                    transformationHash={transformationHash}
+                    transformationId={transformationId}
                 />
-            );
-        });
+            </div>
+        );
+    });
 
     return (
         <div
-            className={`set_container ${node.loading === true ? 'hidden' : ''}`}
+            className={`set_container ${
+                recoilNode.loading === true ? 'hidden' : ''
+            }`}
             style={{color: colorPalette.dark}}
             ref={setContainerRef}
         >
@@ -359,48 +286,45 @@ function NodeContent(props) {
 
 NodeContent.propTypes = {
     /**
-     * object containing the node data to be displayed
+     * The id of the node
      */
-    node: NODE,
+    nodeUuid: PropTypes.string,
     /**
      * The function to be called to set the node height
      */
     setHeight: PropTypes.func,
     /**
-     * The id of the parent node
+     * The ref to the parent node
      */
-    parentID: PropTypes.string,
-    /**
-     * If the node is a subnode
-     */
-    isSubnode: PropTypes.bool,
+    parentRef: PropTypes.object,
     /**
      * The id of the transformation the node belongs to
      */
-    transformationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    transformationId: PropTypes.string,
+    /**
+     * The transformation hash
+     */
+    transformationHash: PropTypes.string,
+    /**
+     * The index of the subnode, optional
+     */
+    subnodeIndex: PropTypes.number,
 };
 
 function RecursionButton(props) {
     const {node} = props;
-    const {state, dispatch, reloadEdges} = useTransformations();
     const colorPalette = useColorPalette();
+    const setShownRecursionState = useSetRecoilState(shownRecursionState);
 
     function handleClick(e) {
         e.stopPropagation();
-        dispatch(toggleShownRecursion(node.uuid));
-        const shownRecursionNodes = Object.values(state.transformationNodesMap)
-            .flat()
-            .filter((n) => n.shownRecursion)
-            .map((n) => n.uuid);
-        if (node.shownRecursion) {
-            shownRecursionNodes.splice(
-                shownRecursionNodes.indexOf(node.uuid),
-                1
-            );
-        } else {
-            shownRecursionNodes.push(node.uuid);
-        }
-        reloadEdges(shownRecursionNodes, state.clingraphGraphics.length > 0);
+
+        setShownRecursionState((old) => {
+            if (old.includes(node.uuid)) {
+                return old.filter((n) => n !== node.uuid);
+            }
+            return [...old, node.uuid];
+        })
     }
 
     return (
@@ -433,149 +357,115 @@ RecursionButton.propTypes = {
     node: NODE,
 };
 
-function useHighlightedNodeToCreateClassName(node) {
-    const [highlightedNode] = useHighlightedNode();
-    const [classNames, setClassNames] = React.useState(
-        `txt-elem node_border mouse_over_shadow ${node.uuid} ${
-            highlightedNode === node.uuid ? 'highlighted_node' : null
-        }`
-    );
 
-    React.useEffect(() => {
-        setClassNames(
-            `txt-elem node_border mouse_over_shadow ${node.uuid} ${
-                highlightedNode === node.uuid ? 'highlighted_node' : null
-            }`
-        );
-    }, [node.uuid, highlightedNode]);
+const NodeDiv = styled.div`
+    background-color: ${({$colorPalette}) => $colorPalette.light};
+    color: ${({$colorPalette}) => $colorPalette.primary};
+    overflow: hidden;
 
-    return classNames;
-}
+    border-radius: 0.7em;
+    border: 1pt solid;
+    margin: 12pt 3% 12pt 3%;
+    position: relative;
+    height: max-content;
+    overflow: hidden;
 
-function checkForOverflowE(
-    branchSpace,
-    showMini,
-    overflowBreakingPoint,
-    setOverflowBreakingPoint,
-    setShowMini
-) {
-    if (
-        typeof branchSpace !== 'undefined' &&
-        branchSpace !== null &&
-        branchSpace.current
-    ) {
-        const e = branchSpace.current;
-        const setContainer = findChildByClass(e, 'set_too_high');
-        const nodeBorder = findChildByClass(e, 'node_border');
-        const wouldOverflowNow = setContainer
-            ? setContainer.scrollWidth >
-              nodeBorder.offsetWidth - emToPixel(Constants.overflowThreshold)
-            : false;
-        // We overflowed previously but not anymore
-        if (
-            overflowBreakingPoint <=
-            e.offsetWidth - emToPixel(Constants.overflowThreshold)
-        ) {
-            setShowMini(false);
-        }
-        if (!showMini && wouldOverflowNow) {
-            // We have to react to overflow now but want to remember when we'll not overflow anymore
-            // on a resize
-            setOverflowBreakingPoint(e.offsetWidth);
-            setShowMini(true);
-        }
-        // We never overflowed and also don't now
-        if (overflowBreakingPoint === null && !wouldOverflowNow) {
-            setShowMini(false);
-        }
+    &:hover {
+        transition: drop-shadow 0.1s;
+        filter: drop-shadow(0 0 0.14em #333);
     }
-}
+`;
+
+const SuperNodeDiv = styled(NodeDiv)`
+    background-color: transparent;
+    &:hover {
+        filter: none;
+    }
+`;
 
 export function Node(props) {
-    const {node, isSubnode, branchSpace, transformationId} = props;
-    const [overflowBreakingPoint, setOverflowBreakingPoint] =
-        React.useState(null);
-    const colorPalette = useColorPalette();
-    const {dispatch: dispatchShownNodes} = useShownNodes();
-    const {dispatch: dispatchTransformation} = useTransformations();
-    const classNames = useHighlightedNodeToCreateClassName(node);
-    const [height, setHeight] = React.useState(emToPixel(Constants.minimumNodeHeight));
-    const dispatchShownNodesRef = React.useRef(dispatchShownNodes);
-    const nodeuuidRef = React.useRef(node.uuid);
-    const animateHeightRef = React.useRef(null);
-    const {animationState} = useAnimationUpdater();
-
-    useDebouncedAnimateResize(animateHeightRef, nodeuuidRef);
-
-    const notifyClick = (node) => {
-        // setShownDetail(node.uuid);
-    };
-    React.useEffect(() => {
-        const dispatch = dispatchShownNodesRef.current;
-        const nodeuuid = nodeuuidRef.current;
-        dispatch(showNode(nodeuuid));
-        return () => {
-            dispatch(hideNode(nodeuuid));
-        };
-    }, []);
-
-    React.useEffect(() => {
-        dispatchTransformation(
-            setNodeIsCollapsibleV(
-                transformationId,
-                node.uuid,
-                height > emToPixel(Constants.standardNodeHeight)
-            )
-        );
-    }, [height, dispatchTransformation, node.uuid, transformationId]);
-
-    const checkForOverflow = React.useCallback(() => {
-        checkForOverflowE(
-            branchSpace,
-            node.showMini,
-            overflowBreakingPoint,
-            setOverflowBreakingPoint,
-            (showMini) => {
-                dispatchTransformation(
-                    setNodeShowMini(transformationId, node.uuid, showMini)
-                );
-                dispatchTransformation(
-                    checkTransformationExpandableCollapsible(transformationId)
-                );
-            }
-        );
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [branchSpace, overflowBreakingPoint, node.showMini]);
-
-    const debouncedCheckForOverflow = React.useMemo(() => {
-        return debounce(checkForOverflow, Constants.DEBOUNCETIMEOUT);
-    }, [checkForOverflow]);
-
-    React.useEffect(() => {
-        checkForOverflow();
-    }, [checkForOverflow, node.showMini, animationState]);
-
-    useResizeObserver(
-        document.getElementById('content'),
-        debouncedCheckForOverflow
+    const {
+        transformationHash,
+        nodeUuid,
+        branchSpace,
+        transformationId,
+        subnodeIndex,
+    } = props;
+    const node = useRecoilValue(
+        nodeAtomByNodeUuidStateFamily({
+            transformationHash,
+            nodeUuid,
+            subnodeIndex,
+        })
     );
 
-    const divID = `${node.uuid}_animate_height`;
+    const colorPalette = useColorPalette();
+    const [height, setHeight] = useState(
+        emToPixel(Constants.minimumNodeHeight)
+    );
+    const animateHeightRef = useRef(null);
+    const [showMini, setShowMini] = useRecoilState(
+        nodeShowMiniByNodeUuidStateFamily(nodeUuid)
+    );
+    const longestSymbol = useRecoilValue(
+        longestSymbolInNodeByNodeUuidStateFamily(nodeUuid)
+    );
+    const setIsResizing = useSetRecoilState(
+        isCurrentlyAnimatingHeightStateFamily(nodeUuid)
+    );
+
+    const manageShowMini = useCallback(() => {
+        if (longestSymbol > 0 && branchSpace.current) {
+            const branchSpaceWidth = branchSpace.current.offsetWidth;
+            if (
+                longestSymbol + emToPixel(Constants.HOverflowThresholdInEm) >
+                branchSpaceWidth
+            ) {
+                setShowMini(true);
+                return;
+            }
+            setShowMini(false);
+        }
+    }, [longestSymbol, branchSpace, setShowMini]);
+
+    const debouncedManageShowMini = useMemo(() => {
+        return debounce(manageShowMini, Constants.DEBOUNCETIMEOUT);
+    }, [manageShowMini]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(debouncedManageShowMini, [branchSpace.current?.offsetWidth]);
+    const contentDiv = useContentDiv();
+    useResizeObserver(contentDiv, debouncedManageShowMini);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(debouncedManageShowMini, [longestSymbol]);
+
+    const timerRef = useRef(null);
+    const startAnimateHeight = () => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+        }
+        setIsResizing(true);
+        timerRef.current = setTimeout(() => {
+            setIsResizing(false);
+        }, Constants.isAnimatingTimeout);
+    };
+
+    const endAnimateHeight = () => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+        }
+        timerRef.current = setTimeout(() => {
+            setIsResizing(false);
+        }, Constants.isAnimatingTimeout);
+    };
 
     return (
-        <div
-            className={classNames}
-            style={{
-                backgroundColor: colorPalette.light,
-                color: colorPalette.primary,
-            }}
+        <NodeDiv
             id={node.uuid}
-            onClick={(e) => {
-                e.stopPropagation();
-                notifyClick(node);
-            }}
+            className={`txt-elem ${node.uuid}`}
+            $colorPalette={colorPalette}
         >
-            {node.showMini ? (
+            {showMini ? (
                 <div
                     style={{
                         backgroundColor: colorPalette.primary,
@@ -585,33 +475,40 @@ export function Node(props) {
                 />
             ) : (
                 <AnimateHeight
-                    id={divID}
+                    id={`${node.uuid}_animate_height`}
                     duration={500}
                     height={height}
                     ref={animateHeightRef}
                     contentClassName={`set_too_high ${
                         node.loading === true ? 'loading' : null
                     }`}
+                    onHeightAnimationStart={startAnimateHeight}
+                    onHeightAnimationEnd={endAnimateHeight}
                 >
                     <NodeContent
-                        node={node}
+                        nodeUuid={nodeUuid}
                         setHeight={setHeight}
-                        parentID={divID}
-                        isSubnode={isSubnode}
+                        parentRef={animateHeightRef}
                         transformationId={transformationId}
+                        transformationHash={transformationHash}
+                        subnodeIndex={subnodeIndex}
                     />
                     <RecursionButton node={node} />
                 </AnimateHeight>
             )}
-        </div>
+        </NodeDiv>
     );
 }
 
 Node.propTypes = {
     /**
-     * object containing the node data to be displayed
+     * String containing the transformation hash
      */
-    node: NODE,
+    transformationHash: PropTypes.string,
+    /**
+     * String containing the node uuid
+     */
+    nodeUuid: PropTypes.string,
     /**
      * If the node is a subnode of a recursive node
      */
@@ -623,66 +520,62 @@ Node.propTypes = {
     /**
      * The id of the transformation the node belongs to
      */
-    transformationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    transformationId: PropTypes.string,
+    /**
+     * The index of the subnode, optional
+     */
+    subnodeIndex: PropTypes.number,
 };
 
 export function RecursiveSuperNode(props) {
-    const {node, branchSpace, transformationId} = props;
-    const [overflowBreakingPoint, setOverflowBreakingPoint] = React.useState();
+    const {transformationHash, nodeUuid, branchSpace, transformationId} = props;
+    const node = useRecoilValue(
+        nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
+    );
     const colorPalette = useColorPalette();
-    const {dispatch: dispatchShownNodes} = useShownNodes();
-    const classNames = `node_border ${node.uuid}`;
-    const {dispatch: dispatchTransformation} = useTransformations();
-
-    const dispatchShownNodesRef = React.useRef(dispatchShownNodes);
-    const nodeuuidRef = React.useRef(node.uuid);
-
-    React.useEffect(() => {
-        const dispatch = dispatchShownNodesRef.current;
-        const nodeuuid = nodeuuidRef.current;
-        dispatch(showNode(nodeuuid));
-        return () => {
-            dispatch(hideNode(nodeuuid));
-        };
-    }, []);
-
-    const checkForOverflow = React.useCallback(() => {
-        checkForOverflowE(
-            branchSpace,
-            node.showMini,
-            overflowBreakingPoint,
-            setOverflowBreakingPoint,
-            (showMini) =>
-                dispatchTransformation(
-                    setNodeShowMini(transformationId, node.uuid, showMini)
-                )
-        );
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [branchSpace, node.showMini, overflowBreakingPoint]);
-
-    const debouncedCheckForOverflow = React.useMemo(() => {
-        return debounce(checkForOverflow, Constants.DEBOUNCETIMEOUT);
-    }, [checkForOverflow]);
-
-    React.useEffect(() => {
-        checkForOverflow();
-    }, [checkForOverflow, node]);
-
-    useResizeObserver(
-        document.getElementById('content'),
-        debouncedCheckForOverflow
+    const longestSymbol = useRecoilValue(
+        longestSymbolInNodeByNodeUuidStateFamily(nodeUuid)
+    );
+    const [showMini, setShowMini] = useRecoilState(
+        nodeShowMiniByNodeUuidStateFamily(nodeUuid)
     );
 
+    const manageShowMini = useCallback(() => {
+        if (longestSymbol > 0 && branchSpace.current) {
+            const branchSpaceWidth = branchSpace.current.offsetWidth;
+            if (
+                longestSymbol +
+                    emToPixel(
+                        Constants.HOverflowThresholdForRecursiveNodesInEm
+                    ) >
+                branchSpaceWidth
+            ) {
+                setShowMini(true);
+                return;
+            }
+            setShowMini(false);
+        }
+    }, [longestSymbol, branchSpace, setShowMini]);
+
+    const debouncedManageShowMini = useMemo(() => {
+        return debounce(manageShowMini, Constants.DEBOUNCETIMEOUT);
+    }, [manageShowMini]);
+
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // useEffect(debouncedManageShowMini, [branchSpace.current?.offsetWidth]);
+    useResizeObserver(branchSpace, debouncedManageShowMini)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(debouncedManageShowMini, [longestSymbol]);
+
+
     return (
-        <div
-            className={classNames}
-            style={{color: colorPalette.primary}}
+        <SuperNodeDiv
+            className={node.uuid}
             id={node.uuid}
-            onClick={(e) => {
-                e.stopPropagation();
-            }}
+            $colorPalette={colorPalette}
         >
-            {node.showMini ? (
+            {showMini ? (
                 <div
                     style={{
                         backgroundColor: colorPalette.primary,
@@ -693,27 +586,33 @@ export function RecursiveSuperNode(props) {
             ) : (
                 <>
                     <RecursionButton node={node} />
-                    {node.recursive.map((subnode) => {
+                    {node.recursive.map((subnode, i) => {
                         return (
                             <Node
                                 key={subnode.uuid}
-                                node={subnode}
-                                isSubnode={true}
+                                transformationHash={transformationHash}
+                                nodeUuid={nodeUuid}
+                                branchSpace={branchSpace}
                                 transformationId={transformationId}
+                                subnodeIndex={i}
                             />
                         );
                     })}
                 </>
             )}
-        </div>
+        </SuperNodeDiv>
     );
 }
 
 RecursiveSuperNode.propTypes = {
     /**
-     * object containing the node data to be displayed
+     * The transformation hash
      */
-    node: NODE,
+    transformationHash: PropTypes.string,
+    /**
+     * The node uuid
+     */
+    nodeUuid: PropTypes.string,
     /**
      * The ref to the branch space
      */
@@ -721,5 +620,5 @@ RecursiveSuperNode.propTypes = {
     /**
      * The id of the transformation the node belongs to
      */
-    transformationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    transformationId: PropTypes.string,
 };

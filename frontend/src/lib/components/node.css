@@ -4,41 +4,16 @@
     line-height: 18pt;
     min-height: 18pt;
     cursor: pointer;
-}
-
-.node_border {
-    border-radius: 0.7em;
-    border: 1pt solid;
-    margin: 12pt 3% 12pt 3%;
-    position: relative;
-    height: max-content;
-    overflow: hidden;
-}
-
-.mouse_over_shadow:hover {
-    transition: drop-shadow 0.1s;
-    filter: drop-shadow(0 0 0.14em #333);
+    
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
 }
 
 .highlighted_node {
     transition: drop-shadow 0.1s;
     filter: drop-shadow(0 0 0.14em #333);
-}
-
-.bauchbinde {
-    bottom: 0;
-    left: 0;
-    right: 0;
-    /* padding-top: 1em; */
-    /* margin-top: 1em; */
-    background-color: transparent;
-    /* cursor: pointer; */
-}
-
-.bauchbinde_text {
-    position: relative;
-    text-align: center;
-    overflow: hidden;
 }
 
 .set_too_high {
@@ -52,7 +27,7 @@
 
 .set_value {
     width: fit-content;
-    margin: 0.38em 1em 0.5em 1em;
+    margin: 0.38em 1em 0.38em 1em;
 
     position: relative;
     flex: 0 0 auto;
@@ -60,6 +35,11 @@
     flex-flow: row wrap;
     justify-content: center;
     align-items: center;
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
 }
 
 .mini {

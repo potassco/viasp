@@ -58,6 +58,7 @@ class GraphNodes(Base):
     node: Mapped[str]
     node_uuid: Mapped[str] = mapped_column(primary_key=True)
     recursive_supernode_uuid: Mapped[str] = mapped_column(nullable=True)
+    space_multiplier: Mapped[float]
 
 @dataclass
 class GraphSymbols(Base):

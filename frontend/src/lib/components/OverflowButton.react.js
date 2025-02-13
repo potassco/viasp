@@ -1,109 +1,151 @@
 import React, {Suspense} from 'react';
 import PropTypes from 'prop-types';
 import {useColorPalette} from '../contexts/ColorPalette';
-import {useTransformations, setNodeIsExpandAllTheWay} from '../contexts/transformations';
-import {NODE} from '../types/propTypes';
 import {IconWrapper} from '../LazyLoader';
-import rgba from 'color-rgba';
+import {Constants} from '../constants';
+import {
+    useRecoilValue,
+    useSetRecoilState,
+    noWait,
+    useRecoilCallback,
+} from 'recoil';
+import {overflowButtonState, rowHasOverflowButtonState } from '../atoms/currentGraphState';
+import {
+    nodeUuidsByTransforamtionStateFamily,
+    nodeIsExpandVAllTheWayByNodeUuidStateFamily,
+    nodeIsCollapsibleVByNodeUuidStateFamily,
+} from '../atoms/nodesState';
+import { lighten } from 'polished';
+import { styled } from 'styled-components';
+
+const BauchbindeDiv = styled.div`
+    @property --gradPoint {
+        syntax: '<percentage>';
+        inherits: false;
+        initial-value: 100%;
+    }
+    @property --color1 {
+        syntax: '<color>';
+        inherits: false;
+        initial-value: ${(props) => props.$gradientColor1};
+    }
+    @property --color2 {
+        syntax: '<color>';
+        inherits: false;
+        initial-value: ${(props) => props.$gradientColor2};
+    }
+
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(
+        var(--color1) var(--gradPoint),
+        var(--color2) calc(var(--gradPoint) + 100%)
+    );
+    height: 1em;
+    transition: --gradPoint 500ms;
+    ${(props) =>
+        props.$showButton ? `--gradPoint: 0%;` : `--gradPoint: 100%;`}
+
+`;
+
+
+const BauchbindeTextDiv = styled.div`
+    position: relative;
+    text-align: center;
+    overflow: hidden;
+`;
 
 export function OverflowButton(props) {
-    const {transformationId, nodes} = props;
-    const [isIconRotated, setIsIconRotated] = React.useState(false);
+    const {transformationHash} = props;
     const colorPalette = useColorPalette();
-    const {
-        dispatch,
-        state: {shownRecursion},
-    } = useTransformations();
+    const overflowButtonLoadable = useRecoilValue(
+        noWait(overflowButtonState(transformationHash))
+    );
+    const rowHasOverflowButtonLoadable = useRecoilValue(
+        noWait(rowHasOverflowButtonState(transformationHash))
+    );
+
+    const toggleOverflowButton = useRecoilCallback(
+        ({snapshot, set}) =>
+            async () => {
+                const nodeUuidsByTransforamtion = await snapshot.getPromise(
+                    nodeUuidsByTransforamtionStateFamily(transformationHash)
+                );
+                set(rowHasOverflowButtonState(transformationHash), true);
+                nodeUuidsByTransforamtion.forEach((nodeUuid) => {
+                    set(
+                        nodeIsExpandVAllTheWayByNodeUuidStateFamily(nodeUuid),
+                        (oldValue) => !oldValue
+                    );
+                    set(
+                        nodeIsCollapsibleVByNodeUuidStateFamily(nodeUuid),
+                        (oldValue) => !oldValue
+                    );
+                })
+                set(rowHasOverflowButtonState(transformationHash), false);
+            },
+        [transformationHash]
+    );
 
     function handleClick(e) {
         e.stopPropagation();
-        nodes.forEach((node) => {
-            if (shownRecursion.indexOf(node.uuid) === -1) {
-                dispatch(
-                    setNodeIsExpandAllTheWay(
-                        transformationId,
-                        node.uuid,
-                        node.isExpandableV
-                    )
-                );
-                node.recursive.forEach((subnode) =>
-                    dispatch(
-                        setNodeIsExpandAllTheWay(
-                            transformationId,
-                            subnode.uuid,
-                            node.isExpandableV
-                        )
-                    )
-                );
-            } else {
-                node.recursive.forEach((subnode) => {
-                    dispatch(
-                        setNodeIsExpandAllTheWay(
-                            transformationId,
-                            subnode.uuid,
-                            subnode.isExpandableV
-                        )
-                    );
-                });
-                dispatch(
-                    setNodeIsExpandAllTheWay(
-                        transformationId,
-                        node.uuid,
-                        node.recursive.some((n) => n.isExpandableV)
-                    )
-                );
-            }
-        });
+        toggleOverflowButton();
     }
 
-    const expandableValues = nodes
-        .map((node) => {
-            if (shownRecursion.indexOf(node.uuid) === -1) {
-                return node.isExpandableV;
-            }
-            return node.recursive.map((sn) => sn.isExpandableV).join(',');
-        })
-        .join(',');
-    React.useEffect(() => {
-        setIsIconRotated(!expandableValues.includes('true'));
-    }, [expandableValues]);
-
-    const [r, g, b, _] = rgba(colorPalette.dark);
-
+    const gradientColor1 = `transparent`;
     // Construct the new color
-    const gradientColor1 = `rgba(${r}, ${g}, ${b}, 0.2)`;
-    const gradientColor2 = `transparent`;
+    const gradientColor2 = lighten(
+        Constants.overflowButtonColorLightenFactor,
+        colorPalette.dark
+    );
+
+    const overwriteShowButton = rowHasOverflowButtonLoadable.state === 'hasValue'
+        ? rowHasOverflowButtonLoadable.contents
+        : false
+    if (overflowButtonLoadable.state !== 'hasValue' && !overwriteShowButton) {
+        return null;
+    }
+    const overflowButton = overflowButtonLoadable.contents;
+
+    const showButton = overwriteShowButton 
+        ? true
+        : (!overflowButton.rowAllNodesShowMini &&
+            (overflowButton.rowIsExpandableV ||
+                overflowButton.rowIsCollapsibleV)
+        ); 
 
     return (
-        <div
-            style={{
-                background: `linear-gradient(to top, ${gradientColor1}, ${gradientColor2})`,
-                height: '1em',
-            }}
-            className={'bauchbinde'}
-            onClick={handleClick}
+        <BauchbindeDiv
+            $gradientColor1={gradientColor1}
+            $gradientColor2={gradientColor2}
+            $showButton={showButton}
+            className={'bauchbinde overflowbutton'}
+            onClick={showButton ? handleClick : null}
         >
-            <div className={'bauchbinde_text'}>
-                <Suspense fallback={<div>...</div>}>
-                    <IconWrapper
-                        icon={'arrowDownDoubleFill'}
-                        className={isIconRotated ? 'rotate_icon' : ''}
-                    />
-                </Suspense>
-            </div>
-        </div>
+            {showButton ? (
+                <BauchbindeTextDiv className={'bauchbinde_text'}>
+                    <Suspense fallback={<div>^</div>}>
+                        <IconWrapper
+                            icon={'arrowDownDoubleFill'}
+                            className={
+                                !overflowButton.rowIsExpandableV
+                                    ? 'rotate_icon'
+                                    : ''
+                            }
+                        />
+                    </Suspense>
+                </BauchbindeTextDiv>
+            ) : null}
+        </BauchbindeDiv>
     );
 }
 
 OverflowButton.propTypes = {
     /**
-     * The id of the transformation
+     * The hash of the transformation
      */
-    transformationId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    /**
-     * The nodes object of the transformation
-     */
-    nodes: PropTypes.arrayOf(NODE),
+    transformationHash: PropTypes.string,
 };
 
 

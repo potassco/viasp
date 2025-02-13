@@ -548,9 +548,13 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
     ) -> List[Transformation]:
         adjacency_index_mapping = self.get_index_mapping_for_adjacent_topological_sorts(
             sorted_program)
+        is_constraints_only = [all([is_constraint(rule) for rule in rules.ast]) for rules in sorted_program]
         transformations = [
-            Transformation(i, prg, adjacency_index_mapping[i])
-            for i, prg in enumerate(sorted_program)
+            Transformation(i, 
+                           rules, 
+                           adjacency_index_mapping[i],
+                           is_constraints_only[i])
+            for i, rules in enumerate(sorted_program)
         ]
         transformations.sort(key=lambda t: t.id)
         return transformations
@@ -850,9 +854,9 @@ class LiteralWrapper(Transformer):
 class ProgramReifierForRecursions(ProgramReifier):
 
     def __init__(self, *args, **kwargs):
-        self.model_str: str = kwargs.pop("conflict_free_model", "model")
-        self.n_str: str = kwargs.pop("conflict_free_iterindex", "n")
-        self.derivable_str: str = kwargs.pop("conflict_free_derivable", "derivable")
+        self.model_str: str = kwargs.pop("conflict_free_model_str", "model")
+        self.n_str: str = kwargs.pop("conflict_free_iterindex_str", "n")
+        self.derivable_str: str = kwargs.pop("conflict_free_derivable_str", "derivable")
         super().__init__(*args, **kwargs)
 
     def visit_Rule(self, rule: RuleType, **kwargs: Any) -> List[RuleType]:

@@ -85,6 +85,16 @@ def handle_request_for_children(
         ordered_children = [node.uuid for node in ordered_children]
     return ordered_children
 
+
+def handle_request_for_children_with_sortHash(
+        transformation_hash: str,
+        current_hash: str,
+        encoding_id: str) -> Collection[Union[Node, uuid.UUID]]:
+    result = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_hash, transformation_hash=transformation_hash, recursive_supernode_uuid = None).order_by(GraphNodes.branch_position).all()
+    ordered_children = [current_app.json.loads(n.node) for n in result]
+    return ordered_children
+
+
 def clear_encoding_session_data(encoding_id: str):
     db_session.query(Encodings).filter_by(encoding_id=encoding_id).delete()
     db_session.query(Models).filter_by(encoding_id = encoding_id).delete()
@@ -114,41 +124,56 @@ def get_children(transformation_hash):
     if request.method == "GET":
         ids_only = request.args.get("ids_only", default=False, type=bool)
         to_be_returned = handle_request_for_children(transformation_hash,
-                                                     ids_only, session['encoding_id'])
+                                                     ids_only,
+                                                     session['encoding_id'])
+        return jsonify(to_be_returned)
+    raise NotImplementedError
+
+
+@bp.route("/graph/children", methods=["POST"])
+@ensure_encoding_id
+def get_children_of_transformation_hash_and_current_Sort():
+    if request.method == "POST":
+        if request.json is None:
+            return jsonify({'error': 'Missing JSON in request'}), 400
+        if "transformationHash" not in request.json:
+            return jsonify({'error':
+                            'Missing transformation_hash in request'}), 400
+        transformation_hash = request.json["transformationHash"]
+        if "currentSort" not in request.json:
+            return jsonify({'error': 'Missing current_sort in request'}), 400
+        current_hash = request.json["currentSort"]
+
+        to_be_returned = handle_request_for_children_with_sortHash(
+            transformation_hash, current_hash, session['encoding_id'])
         return jsonify(to_be_returned)
     raise NotImplementedError
 
 
 def get_src_tgt_mapping_from_graph(encoding_id: str,
+                                   current_hash=None,
                                    shown_recursive_ids=[],
                                    shown_clingraph=False):
-    current_graph_hash = get_current_graph_hash(encoding_id)
+    if current_hash is None:
+        current_hash = get_current_graph_hash(encoding_id)
     db_edges = db_session.query(GraphEdges).filter_by(
         encoding_id=encoding_id,
-        graph_hash=current_graph_hash,
+        graph_hash=current_hash,
         recursive_supernode_uuid=None).all()
 
     for recursive_uuid in shown_recursive_ids:
-        db_edges.extend(db_session.query(GraphEdges).filter_by(
-            encoding_id=encoding_id,
-            graph_hash=current_graph_hash,
-            recursive_supernode_uuid=recursive_uuid).all())
+        db_edges.extend(
+            db_session.query(GraphEdges).filter_by(
+                encoding_id=encoding_id,
+                graph_hash=current_hash,
+                recursive_supernode_uuid=recursive_uuid).all())
 
     # Clingraph
-    distinct_sources = db_session.query(GraphEdges.source).filter_by(
-        encoding_id=encoding_id,
-        graph_hash=current_graph_hash,
-        recursive_supernode_uuid = None).distinct()
-    last_nodes_in_graph = [e.target for e in db_session.query(GraphEdges).filter(
-        GraphEdges.encoding_id == encoding_id,
-        GraphEdges.graph_hash == current_graph_hash,
-        GraphEdges.recursive_supernode_uuid == None,
-        ~GraphEdges.target.in_(distinct_sources)
-    ).all()]
+    last_nodes = last_nodes_in_graph(encoding_id, current_hash)
 
     if shown_clingraph:
         clingraph_names = db_session.query(Clingraphs).where(Clingraphs.encoding_id == encoding_id).all()
-        for src, tgt in list(zip(last_nodes_in_graph, clingraph_names)):
+        for src, tgt in list(zip(last_nodes, clingraph_names)):
             db_edges.append(GraphEdges(
                 source=src,
                 target=tgt.filename,
@@ -164,9 +189,9 @@ def find_reason_by_uuid(symbolid, nodeid, encoding_id):
     symbolstr = str(
         getattr(next(filter(lambda x: x.uuid == symbolid, node.diff)),
                 "symbol", ""))
-    reasonids = [
-        getattr(r, "uuid", "") for r in node.reason.get(symbolstr, [])
-    ]
+    reasonids = list(
+        set(getattr(r, "uuid", "") for r in node.reason.get(symbolstr, [])
+    ))
     return reasonids
 
 
@@ -198,9 +223,7 @@ def find_reason_rule_by_uuid(symbolid, nodeid, encoding_id) -> Optional[int]:
 
     return reasonrule
 
-def get_current_sort(encoding_id):
-    current_hash = get_current_graph_hash(encoding_id)
-
+def get_current_sort_by_hash(encoding_id, current_hash):
     db_current_sort = db_session.query(Graphs).filter_by(
         encoding_id=encoding_id, hash=current_hash).one_or_none()
     if db_current_sort is None or db_current_sort.sort is None:
@@ -209,23 +232,27 @@ def get_current_sort(encoding_id):
     current_sort.sort(key=lambda x: x.id)
     return current_sort
 
+def get_current_sort(encoding_id):
+    current_hash = get_current_graph_hash(encoding_id)
+    return get_current_sort_by_hash(encoding_id, current_hash)
+
 @bp.route("/graph/sorts", methods=["GET", "POST"])
 @ensure_encoding_id
 def handle_new_sort():
     if request.method == "POST":
         if request.json is None:
             return jsonify({'error': 'Missing JSON in request'}), 400
-        if "moved_transformation" not in request.json:
+        try:
+            data = request.json
+            moved_transformation = data["moved_transformation"]
+            old_index = moved_transformation["old_index"]
+            new_index = moved_transformation["new_index"]
+            current_sort = data["current_sort"]
+        except KeyError:
             return "Invalid Request", 400
-        moved_transformation = request.json["moved_transformation"]
-        if "old_index" not in moved_transformation or "new_index" not in moved_transformation:
-            return "Invalid Request", 400
-        if moved_transformation["old_index"] == moved_transformation["new_index"]:
-            return "ok", 200
         encoding_id = session['encoding_id']
 
-        current_graph_hash = get_current_graph_hash(encoding_id)
-        result = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=current_graph_hash).one_or_none()
+        result = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=current_sort).one_or_none()
         if result is None:
             raise DatabaseInconsistencyError
         sorted_program_rules = [t.rules for t in current_app.json.loads(result.sort)]
@@ -280,12 +307,15 @@ def get_edges():
     if request.method == "POST":
         if request.json is None:
             abort(Response("No json data provided.", 400))
+        current_hash = request.json[
+            "currentSort"] if "currentSort" in request.json else None
         shown_recursive_ids = request.json[
             "shownRecursion"] if "shownRecursion" in request.json else []
         shown_clingraph = request.json[
             "usingClingraph"] if "usingClingraph" in request.json else False
         to_be_returned = get_src_tgt_mapping_from_graph(
-            session['encoding_id'], shown_recursive_ids, shown_clingraph)
+            session['encoding_id'], current_hash, shown_recursive_ids,
+            shown_clingraph)
     elif request.method == "GET":
         to_be_returned = get_src_tgt_mapping_from_graph(session['encoding_id'])
 
@@ -303,6 +333,24 @@ def get_rule(uuid):
             return jsonify(transformation)
     abort(404)
 
+@bp.route("/graph/transformations", methods=["POST"])
+@ensure_encoding_id
+def get_transformation_by_id_and_current_sort():
+    if request.method == "POST":
+        if request.json is None:
+            return jsonify({'error': 'Missing JSON in request'}), 400
+        if "id" not in request.json:
+            return jsonify({'error': 'Missing id in request'}), 400
+        if "currentSort" not in request.json:
+            return jsonify({'error': 'Missing current_sort in request'}), 400.
+        id = request.json["id"]
+        current_hash = request.json["currentSort"]
+
+        current_sort = get_current_sort_by_hash(session['encoding_id'], current_hash)
+        for t in current_sort:
+            if t.id == id:
+                return jsonify(t)
+    raise NotImplementedError
 
 @bp.route("/graph/model/<uuid>", methods=["GET"])
 @ensure_encoding_id
@@ -338,6 +386,17 @@ def get_facts():
 def get_sorted_program():
     result = get_current_sort(session['encoding_id'])
     return jsonify(result)
+
+@bp.route("/transformations/current", methods=["GET"])
+@ensure_encoding_id
+def number_of_transformations():
+    encoding_id = session['encoding_id']
+    current_graph_hash = get_current_graph_hash(encoding_id)
+    db_graph = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=current_graph_hash).one_or_none()
+    if db_graph is None:
+        return jsonify(0)
+    sorted_program = current_app.json.loads(db_graph.sort)
+    return jsonify(len(sorted_program))
 
 
 @bp.route("/graph/current", methods=["GET", "POST", "DELETE"])
@@ -465,7 +524,8 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    transformation_hash=edge["transformation"].hash,
                    branch_position=branch_position,
                    node=current_app.json.dumps(target),
-                   node_uuid=target.uuid.hex)
+                   node_uuid=target.uuid.hex,
+                   space_multiplier=target.space_multiplier)
         )
         for symbol in target.diff:
             db_symbols.append(
@@ -482,7 +542,8 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                                branch_position=branch_position,
                                node=current_app.json.dumps(subnode),
                                node_uuid=subnode.uuid.hex,
-                               recursive_supernode_uuid=target.uuid.hex)
+                               recursive_supernode_uuid=target.uuid.hex,
+                               space_multiplier=1)
                 )
                 for symbol in subnode.diff:
                     db_symbols.append(
@@ -526,7 +587,8 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    transformation_hash="-1",
                    branch_position=0,
                    node=current_app.json.dumps(fact_node),
-                   node_uuid=fact_node.uuid.hex))
+                   node_uuid=fact_node.uuid.hex,
+                   space_multiplier=1))
     for symbol in fact_node.diff:
         db_symbols.append(
             GraphSymbols(node=fact_node.uuid.hex,
@@ -638,19 +700,27 @@ def get_all_symbols_in_graph(encoding_id, current_graph_hash):
             graph_hash=current_graph_hash,
             recursive_supernode_uuid=None)).scalars().all()
     db_graph_symbols = db_session.execute(
-        select(GraphSymbols).filter(GraphSymbols.node.in_(db_graph_node_uuids))).scalars().all()
+        select(GraphSymbols, GraphNodes.branch_position).join(
+            GraphNodes, GraphNodes.node_uuid == GraphSymbols.node).filter(
+                GraphSymbols.node.in_(db_graph_node_uuids)).order_by(
+                    GraphNodes.branch_position.desc())
+        ).all()
     return db_graph_symbols
 
 
-def search_ground_term_in_symbols(query, db_graph_symbols):
+def search_ground_term_in_symbols(query, db_graph_symbols, is_autocomplete=False):
     all_filtered_symbols = list(
-        filter(lambda x: query in x.symbol, db_graph_symbols))
+        filter(lambda x: query in x[0].symbol, db_graph_symbols))
     all_filtered_symbols.reverse()
     symbols_results = []
-    for symbol in all_filtered_symbols:
+    for symbol, _ in all_filtered_symbols:
         if symbol.symbol not in symbols_results:
             symbols_results.append(
-                SearchResultSymbolWrapper(symbol.symbol, [symbol.symbol_uuid]))
+                SearchResultSymbolWrapper(
+                    repr=symbol.symbol, 
+                    includes=[symbol.symbol_uuid], 
+                    is_autocomplete=is_autocomplete
+                ))
         else:
             symbols_results[symbols_results.index(
                 symbol.symbol)].includes.append(symbol.symbol_uuid)
@@ -689,8 +759,11 @@ def search():
         #            transformation.rules.str_) and transformation not in result:
         #         result.append(transformation)
 
-        db_graph_symbols = get_all_symbols_in_graph(encoding_id, current_graph_hash)
-        results = search_ground_term_in_symbols(query, db_graph_symbols)
+        db_graph_symbols = get_all_symbols_in_graph(encoding_id,
+                                                    current_graph_hash)
+        results = search_ground_term_in_symbols(query,
+                                                db_graph_symbols,
+                                                is_autocomplete=True)
         if len(results) == 0:
             results = search_nonground_term_in_symbols(query, db_graph_symbols)
         results.sort()
@@ -709,9 +782,36 @@ def get_image(uuid):
     return send_file(file_path, mimetype='image/png')
 
 
-def last_nodes_in_graph(graph):
-    return [n.uuid for n in graph.nodes() if graph.out_degree(n) == 0]
+def last_nodes_in_graph(encoding_id, current_hash):
+    distinct_sources = db_session.query(GraphEdges.source).filter_by(
+        encoding_id=encoding_id,
+        graph_hash=current_hash,
+        recursive_supernode_uuid = None).distinct()
+    return [
+        e.target for e in db_session.query(GraphEdges).filter(
+            GraphEdges.encoding_id == encoding_id,
+            GraphEdges.graph_hash == current_hash,
+            GraphEdges.recursive_supernode_uuid == None,
+            ~GraphEdges.target.in_(distinct_sources)).all()
+    ]
 
+def handle_get_clingraph_children(encoding_id, current_hash):
+    db_clingraph = db_session.query(Clingraphs).filter_by(encoding_id=session['encoding_id']).all()
+
+    last_nodes = last_nodes_in_graph(encoding_id, current_hash)
+    last_space_multiplier = [
+        db_session.query(
+            GraphNodes.space_multiplier).filter_by(encoding_id=encoding_id,
+                                                   graph_hash=current_hash,
+                                                   node_uuid=n).one()
+        for n in last_nodes
+    ]
+    to_be_returned = [{
+        "_type": "ClingraphNode",
+        "uuid": c.filename,
+        "space_multiplier": last_space_multiplier[i][0]
+    } for i, c in enumerate(db_clingraph[::-1])]
+    return to_be_returned
 
 @bp.route("/clingraph/children", methods=["POST", "GET"])
 @ensure_encoding_id
@@ -722,6 +822,17 @@ def get_clingraph_children():
             "_type": "ClingraphNode",
             "uuid": c.filename
         } for c in db_clingraph[::-1]]
+        return jsonify(to_be_returned)
+    if request.method == "POST":
+        if request.json is None:
+            return jsonify({'error': 'Missing JSON in request'}), 400
+        if "currentSort" not in request.json:
+            return jsonify({'error': 'Missing current_sort in request'}), 400
+        current_hash = request.json["currentSort"]
+        encoding_id = session['encoding_id']
+
+        to_be_returned = handle_get_clingraph_children(encoding_id,
+                                                       current_hash)
         return jsonify(to_be_returned)
     raise NotImplementedError
 
@@ -741,12 +852,9 @@ def get_reasons_of():
         try:
             reason_uuids = find_reason_by_uuid(source_uuid, node_uuid,
                                                encoding_id)
-            print(f"1Reasons of {source_uuid} in {node_uuid}", flush=True)
             reason_rule_uuid = find_reason_rule_by_uuid(
                 source_uuid, node_uuid, encoding_id)
-            print(f"2Reasons of {source_uuid} in {node_uuid}", flush=True)
         except Exception as e:
-            print(f"AReasons of {e}", flush=True)
             return jsonify({
                 "symbols": [{
                     "src": None,
@@ -784,7 +892,6 @@ def wrap_marked_models(
 
 
 def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None) -> nx.DiGraph:
-    db_program = db_session.query(Encodings).filter_by(id=encoding_id).one_or_none()
     encoding = db_session.execute(
             select(Encodings.program).where(
                 Encodings.encoding_id == encoding_id)).scalars().all()

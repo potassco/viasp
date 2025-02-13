@@ -1,92 +1,73 @@
 import './facts.css';
-import React from 'react';
+import React, {useRef, Suspense} from 'react';
+import {styled} from 'styled-components';
 import { Constants } from "../constants";
-import {MAPZOOMSTATE} from '../types/propTypes';
-import {Node} from './Node.react';
 import { useColorPalette} from '../contexts/ColorPalette';
 import {OverflowButton} from './OverflowButton.react';
-import {useTransformations} from '../contexts/transformations';
-import {make_default_nodes} from '../utils';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 
-export function Facts(props) {
-    const {transform} = props;
-    const {
-        state: {transformationDropIndices, transformationNodesMap},
-    } = useTransformations();
+import { useRecoilValue } from 'recoil';
+import {
+    nodeUuidsByTransforamtionStateFamily,
+    nodeAtomByNodeUuidStateFamily,
+} from '../atoms/nodesState';    
+import { reorderTransformationDropIndicesState } from '../atoms/reorderTransformationDropIndices';
+import { BranchSpace } from './BranchSpace.react';
+
+
+const RowContainer = styled.div`
+    opacity: ${(props) =>
+        props.$draggedRowCanBeDroppedHere
+            ? 1
+            : 1 - Constants.opacityMultiplier};
+    transition: opacity 0.5s ease-out;
+`;
+
+const RowRowDiv = styled.div`
+    background: ${(props) => props.$background};
+    width: 100%;
+`;
+
+export function Facts() {
+    const [nodeUuid] = useRecoilValue(
+        nodeUuidsByTransforamtionStateFamily("-1")
+    );
+    const fact = useRecoilValue(nodeAtomByNodeUuidStateFamily({transformationHash: "-1", nodeUuid}));
+    const tDropIndices = useRecoilValue(reorderTransformationDropIndicesState);
+
     const colorPalette = useColorPalette();
-    const [fact, setFact] = React.useState(make_default_nodes()[0]);
-    const [style, setStyle] = React.useState({
-        background: colorPalette.rowShading[0],
-        opacity: 1.0,
-    });
-    const branchSpaceRef = React.useRef(null);
-    const rowbodyRef = React.useRef(null);
-    const transformationIdRef = React.useRef('-1');
+    const rowbodyRef = useRef(null);
+    const transformationIdRef = useRef('-1');
 
     useDebouncedAnimateResize(rowbodyRef, transformationIdRef);
-
-    React.useEffect(() => {
-        if (transformationNodesMap && transformationNodesMap['-1']) {
-            setFact(transformationNodesMap['-1'][0]);
-        }
-    }, [transformationNodesMap]);
-
-    React.useEffect(() => {
-        if (transformationDropIndices !== null) {
-            setStyle((prevStyle) => ({
-                ...prevStyle,
-                opacity: 1 - Constants.opacityMultiplier,
-            }));
-        } else {
-            setStyle((prevStyle) => ({...prevStyle, opacity: 1.0}));
-        }
-    }, [transformationDropIndices]);
-
-    React.useEffect(() => {
-        if (transform.scale < 1) {
-            setStyle((prevStyle) => ({
-                ...prevStyle,
-                width: `${transform.scale * 100}%`,
-            }));
-        } else {
-            setStyle((prevStyle) => ({
-                ...prevStyle,
-                width: '100%',
-            }));
-        }
-    }, [transform.scale]);
 
     if (fact === null) {
         return <div className="row_container"></div>;
     }
     return (
-        <div className="row_container facts_banner" >
-            <div className="row_row" style={style} ref={rowbodyRef}>
-                <div
-                    className="branch_space"
-                    key={fact.uuid}
-                    style={{flex: '0 0 100%'}}
-                    ref={branchSpaceRef}
-                >
-                    <Node
-                        key={fact.uuid}
-                        node={fact}
-                        isSubnode={false}
-                        branchSpace={branchSpaceRef}
-                        transformationId={transformationIdRef.current}
+        <RowContainer
+            className="row_container facts_banner"
+            $draggedRowCanBeDroppedHere={tDropIndices === null}
+        >
+            <RowRowDiv
+                className="row_row"
+                $background={colorPalette.rowShading[0]}
+                ref={rowbodyRef}
+            >
+                <Suspense fallback={<div>Loading...</div>}>
+                    <BranchSpace
+                        key={`branch_space_${nodeUuid}`}
+                        transformationHash={'-1'}
+                        transformationId={'-1'}
+                        nodeUuid={nodeUuid}
                     />
-                </div>
-            </div>
-            { !fact.showMini && (fact.isExpandableV || fact.isCollapsibleV) ?  (
+                </Suspense>
+            </RowRowDiv>
             <OverflowButton
-                transformationId={transformationIdRef.current}
-                nodes={[fact]}
-            /> ) : null }
-        </div>
+                transformationHash={'-1'}
+            />
+        </RowContainer>
     );
 }
 
-Facts.propTypes = {
-    transform: MAPZOOMSTATE,
-};
+Facts.propTypes = {};

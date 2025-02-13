@@ -1,16 +1,26 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import {styled} from 'styled-components';
 import {
     NODE,
     SIGNATURE,
     TRANSFORMATION,
-    SEARCHRESULTSYMBOLWRAPPER,
+    SYMBOLHIGHLIGHTS_RECOIL,
 } from '../types/propTypes';
-import {styled} from 'styled-components';
 import {useColorPalette} from '../contexts/ColorPalette';
 import {darken, lighten} from 'polished';
 import { Constants } from "../constants";
 import {NavigationArea} from './NavigationArea.react';
+
+import {useRecoilValue, useSetRecoilState} from 'recoil';
+import {colorPaletteState} from '../atoms/settingsState';
+import {
+    filteredSuggestionsState,
+    showSuggestionsState,
+    isAutocompleteVisibleState,
+    activeSuggestionState,
+    selectedSuggestionState,
+} from '../atoms/searchState';
 
 const SuggestionTextSpan = styled.span`
     margin-left: 0.8em;
@@ -35,7 +45,7 @@ SuggestionContent.propTypes = {
     /**
      * The Search Result to be displayed, either a Transformation, a Node or a Signature
      */
-    value: SEARCHRESULTSYMBOLWRAPPER,
+    value: SYMBOLHIGHLIGHTS_RECOIL,
 };
 
 const SearchRowLi = styled.li`
@@ -61,21 +71,146 @@ const ActiveSearchResultDiv = styled.div`
     padding-right: 3em;
 `;
 
-export const Suggestion = React.forwardRef((props, ref) => {
+const ResultsListUL = styled.ul`
+    list-style: none;
+    right: 0;
+    left: 0;
+    margin-top: 0;
+    margin-left: 0;
+    padding-left: 0em;
+    padding-right: 0em;
+    margin-bottom: 1px;
+    border-radius: 0.7em;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: ${(props) => (props.$isVisible ? '8em' : '0')};
+    transition: max-height 0.3s ease-out;
+    -ms-overflow-style: none; /* Internet Explorer 10+ */
+    scrollbar-width: none; /* Firefox */
+    &::-webkit-scrollbar {
+        /* Safari and Chrome */
+        display: none;
+    }
+`;
+
+
+const AutocompleteResultsUL = styled(ResultsListUL)`
+    background-color: ${(props) =>
+        lighten(
+            Constants.hoverColorLightenFactor,
+            props.$colorPalette.primary
+        )};
+    color: ${(props) => props.$colorPalette.light};
+`;
+
+const SearchResultsUL = styled(ResultsListUL)`
+    background-color: ${(props) => props.$colorPalette.primary};
+    color: ${(props) => props.$colorPalette.light};
+`;
+
+export function SearchResultSuggestionsList(props) {
+    const {select} = props;
+    const filteredSuggestions = useRecoilValue(filteredSuggestionsState);
+    const isAutocompleteVisible = useRecoilValue(isAutocompleteVisibleState);
+    const colorPalette = useRecoilValue(colorPaletteState);
+    const showSuggestions = useRecoilValue(showSuggestionsState);
+    const setActiveSuggestion = useSetRecoilState(activeSuggestionState);
+    const selectedSuggestion = useRecoilValue(selectedSuggestionState);
+        
+
+
+    if (!filteredSuggestions.length) {
+        return (
+            <SearchResultsUL
+                className="results-list"
+                $colorPalette={colorPalette}
+                $isVisible={false}
+            />
+        );
+    }
+    if (isAutocompleteVisible) {
+        return (
+            <AutocompleteResultsUL
+                className="results-list"
+                $colorPalette={colorPalette}
+                $isVisible={showSuggestions}
+            >
+                {filteredSuggestions.map((suggestion, index) => {
+                    return (
+                        <Suggestion
+                            key={index}
+                            index={index}
+                            value={suggestion}
+                            select={() => {select(index)}}
+                            mouseHoverCallback={() =>
+                                setActiveSuggestion(index)
+                            }
+                            isAutocompleteSuggestion
+                        />
+                    );
+                })}
+            </AutocompleteResultsUL>
+        );
+    }
+    return (
+        <SearchResultsUL
+            className="results-list"
+            $colorPalette={colorPalette}
+            $isVisible={showSuggestions}
+        >
+            {filteredSuggestions.map((suggestion, index) => (
+                <Suggestion
+                        key={index}
+                        index={index}
+                        value={suggestion}
+                        select={() => {
+                            select(index);
+                        }}
+                        mouseHoverCallback={() => setActiveSuggestion(index)}
+                        isAutocompleteSuggestion={false}
+                        isSelectedResult={selectedSuggestion === index}
+                    />
+            ))}
+        </SearchResultsUL>
+    );
+}
+
+SearchResultSuggestionsList.propTypes = {
+    /**
+     * onClick Callback
+     */
+    select: PropTypes.func,
+};
+
+export function Suggestion(props) {
     const {
         value,
-        active,
+        index,
         select,
         mouseHoverCallback,
         isAutocompleteSuggestion,
         isSelectedResult,
     } = props;
     const colorPalette = useColorPalette();
+    const activeSuggestion = useRecoilValue(activeSuggestionState);
+    const SearchRowRef = React.useRef(null);
 
     const classes = ['search_row'];
-    if (active) {
+    if (index === activeSuggestion) {
         classes.push('active');
     }
+
+
+    React.useEffect(() => {
+        if (index === activeSuggestion) {
+            SearchRowRef.current.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+            });
+        }
+    }, [activeSuggestion, index]);
+
+
     return (
         <SearchRowLi
             className={classes.join(' ')}
@@ -88,7 +223,7 @@ export const Suggestion = React.forwardRef((props, ref) => {
                       )
                     : colorPalette.primary
             }
-            ref={ref}
+            ref={SearchRowRef}
             onMouseEnter={mouseHoverCallback}
             onClick={isSelectedResult ? null : () => select(value)}
         >
@@ -100,14 +235,13 @@ export const Suggestion = React.forwardRef((props, ref) => {
                     <NavigationArea
                         className="navigation_area"
                         visible={true}
-                        searchResult={value}
                         searchInputAreaRef={null}
                     />
                 </ActiveSearchResultDiv>
             )}
         </SearchRowLi>
     );
-});
+};
 
 Suggestion.propTypes = {
     /**
@@ -117,12 +251,12 @@ Suggestion.propTypes = {
         SIGNATURE,
         TRANSFORMATION,
         NODE,
-        SEARCHRESULTSYMBOLWRAPPER,
+        SYMBOLHIGHLIGHTS_RECOIL,
     ]),
     /**
-     *  Whether the result is highlighted or not.
+     *  Index of the Suggestion in the Search Results
      */
-    active: PropTypes.bool,
+    index: PropTypes.number,
     /**
      *  onClick Callback
      */

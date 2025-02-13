@@ -77,6 +77,7 @@ def object_hook(obj):
     elif t == "ClingraphNode":
         return ClingraphNode(**obj)
     elif t == "Transformation":
+        obj['id'] = int(obj['id'])
         return Transformation(**obj)
     elif t == "RuleContainer":
         return RuleContainer(str_=obj["str_"], hash=obj["hash"])
@@ -140,9 +141,10 @@ def dataclass_to_dict(o):
     elif isinstance(o, Transformation):
         return {
             "_type": "Transformation",
-            "id": o.id,
+            "id": str(o.id),
             "rules": o.rules,
             "adjacent_sort_indices": o.adjacent_sort_indices,
+            "is_constraints_only": o.is_constraints_only,
             "hash": o.hash
         }
     elif isinstance(o, RuleContainer):

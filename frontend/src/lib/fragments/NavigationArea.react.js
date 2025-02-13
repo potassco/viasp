@@ -1,16 +1,15 @@
 import React from 'react';
-import { Constants } from "../constants";
 import PropTypes from 'prop-types';
 import {styled} from 'styled-components';
-import {SEARCHRESULTSYMBOLWRAPPER} from '../types/propTypes';
-import {
-    useTransformations,
-    removeSearchResultHighlightedSymbol,
-    rotateSearchResultHighlightedSymbol,
-    unsetRecentSearchResultHighlightedSymbol,
-} from '../contexts/transformations';
 import {useColorPalette} from '../contexts/ColorPalette';
 import IconWrapper from './IconWrapper.react';
+import {useRecoilValue, useSetRecoilState} from 'recoil';
+import {
+    symbolSearchHighlightsState,
+} from '../atoms/highlightsState';
+import {
+    selectedBranchState,
+} from '../atoms/searchState';
 
 const NavigationAreaDiv = styled.div`
     color: ${(props) => props.$colorPalette.light};
@@ -95,48 +94,27 @@ PrevButton.propTypes = {
 };
 
 export function NavigationArea(props) {
-    const {visible, searchResult, searchInputAreaRef} = props;
-    const {dispatch: dispatchT} = useTransformations();
+    const {visible, searchInputAreaRef} = props;
     const colorPalette = useColorPalette();
-    const [timeoutId, setTimeoutId] = React.useState(null);
-    const [selected, setSelected] = React.useState(0);
-    const [includesLength, setIncludesLength] = React.useState(0);
-    const {
-        state: {searchResultHighlightedSymbols},
-    } = useTransformations();
+    const searchResultRecoilHighlights =
+        useRecoilValue(symbolSearchHighlightsState);
+    const setSelectedBranch = useSetRecoilState(selectedBranchState);
 
-    React.useEffect(() => {
-        const index = searchResultHighlightedSymbols?.findIndex(
-            (symbol) => symbol.repr === searchResult?.repr
-        );
-        if (index !== -1) {
-            setSelected(searchResultHighlightedSymbols[index].selected);
-            setIncludesLength(
-                searchResultHighlightedSymbols[index].includes.length
-            );
-        } else {
-            setSelected(0);
-        }
-    }, [searchResult, searchResultHighlightedSymbols]);
-
-    if (!searchResult) {
+    if (searchResultRecoilHighlights.length === 0) {
         return null;
     }
 
     function onClose() {
-        dispatchT(removeSearchResultHighlightedSymbol(searchResult));
         searchInputAreaRef?.current.focus();
     }
 
     function onRotate(direction) {
-        if (timeoutId) {
-            clearTimeout(timeoutId);
-        }
-        dispatchT(rotateSearchResultHighlightedSymbol(direction));
-        const newTimeoutId = setTimeout(() => {
-            dispatchT(unsetRecentSearchResultHighlightedSymbol(searchResult));
-        }, Constants.searchResultHighlightDuration);
-        setTimeoutId(newTimeoutId);
+        setSelectedBranch(
+            (selectedBranch) =>
+                (searchResultRecoilHighlights[0].includes.length + selectedBranch +
+                    direction) %
+                searchResultRecoilHighlights[0].includes.length
+        );
         searchInputAreaRef?.current.focus();
     }
 
@@ -151,14 +129,14 @@ export function NavigationArea(props) {
                     onRotate(-1);
                 }}
                 // disabled={selected < 1}
-                disabled={includesLength < 2}
+                disabled={searchResultRecoilHighlights[0].includes.length < 2}
             />
             <NextButton
                 onForward={() => {
                     onRotate(+1);
                 }}
                 // disabled={selected + 1 >= includesLength}
-                disabled={includesLength < 2}
+                disabled={searchResultRecoilHighlights[0].includes.length < 2}
             />
             {/* <CloseButton onClose={onClose} /> */}
         </NavigationAreaDiv>
@@ -170,10 +148,6 @@ NavigationArea.propTypes = {
      * Whether the navigation area should be visible.
      * */
     visible: PropTypes.bool,
-    /**
-     * The search result to navigate through.
-     * */
-    searchResult: SEARCHRESULTSYMBOLWRAPPER,
     /**
      * The reference to the search input element.
      * */

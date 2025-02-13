@@ -1,138 +1,96 @@
-import React from 'react';
+import React, {useEffect, useState, useMemo, useCallback} from 'react';
 import './box.css';
 import PropTypes from 'prop-types';
-import {CLINGRAPHNODE} from '../types/propTypes';
 import {useColorPalette} from '../contexts/ColorPalette';
-import {useSettings} from '../contexts/Settings';
-import {useHighlightedNode} from '../contexts/HighlightedNode';
-import {
-    useTransformations,
-    setClingraphShowMini,
-} from '../contexts/transformations';
+import {styled} from 'styled-components'
 import {debounce} from 'lodash';
 import useResizeObserver from '@react-hook/resize-observer';
 import { Constants } from "../constants";
 import {emToPixel} from '../utils';
+import { useRecoilState, useRecoilValue } from 'recoil';
+import { clingraphAtomByUuidState } from '../atoms/clingraphState';
+import { backendUrlState } from '../atoms/settingsState';
+import { nodeShowMiniByNodeUuidStateFamily } from '../atoms/nodesState';
+import { useContentDiv } from '../contexts/ContentDivContext';
 
-function useHighlightedNodeToCreateClassName(node) {
-    const [highlightedBox] = useHighlightedNode();
-    const [classNames, setClassNames] = React.useState(
-        `box_border mouse_over_shadow ${node.uuid} ${
-            highlightedBox === node.uuid ? 'highlighted_box' : null
-        }`
-    );
 
-    React.useEffect(() => {
-        setClassNames(
-            `box_border mouse_over_shadow ${node.uuid} ${
-                highlightedBox === node.uuid ? 'highlighted_box' : null
-            }`
-        );
-    }, [node.uuid, highlightedBox]);
-    return classNames;
-}
+const BoxDiv = styled.div`
+    backgroundcolor: ${({$colorPalette}) => $colorPalette.primary};
+    color: ${({$colorPalette}) => $colorPalette.primary};
+    border-radius: 1px 1px 1px 1px;
+    border: 2px solid;
+    margin: 25px 5px 15px 5px;
+    position: relative;
 
-function checkForOverflowE(
-    branchSpace,
-    imageWidth,
-    showMini,
-    overflowBreakingPoint,
-    setOverflowBreakingPoint,
-    setShowMini
-) {
-    if (
-        typeof branchSpace !== 'undefined' &&
-        branchSpace !== null &&
-        branchSpace.current
-    ) {
-        const e = branchSpace.current;
-        const wouldOverflowNow =
-            imageWidth > 0
-                ? imageWidth > e.offsetWidth - emToPixel(Constants.overflowThreshold)
-                : false;
-        // We overflowed previously but not anymore
-        if (
-            overflowBreakingPoint <=
-            e.offsetWidth - emToPixel(Constants.overflowThreshold)
-        ) {
-            setShowMini(false);
-        }
-        if (!showMini && wouldOverflowNow) {
-            // We have to react to overflow now but want to remember when we'll not overflow anymore
-            // on a resize
-            setOverflowBreakingPoint(e.offsetWidth);
-            setShowMini(true);
-        }
-        // We never overflowed and also don't now
-        if (overflowBreakingPoint === null && !wouldOverflowNow) {
-            setShowMini(false);
-        }
+    &:hover {
+        transition: drop-shadow .1s;
+        filter: drop-shadow(0 0 2px #333);
     }
-}
+`;
 
 export function Box(props) {
-    const {node, branchSpace} = props;
-    const [overflowBreakingPoint, setOverflowBreakingPoint] =
-        React.useState(null);
+    const {clingraphUuid, branchSpace} = props;
+    const clingraphAtom = useRecoilValue(
+        clingraphAtomByUuidState(clingraphUuid)
+    );
     const colorPalette = useColorPalette();
-    const {backendURL} = useSettings();
-    const classNames = useHighlightedNodeToCreateClassName(node);
-    const [imageSize, setImageSize] = React.useState({width: 0, height: 0});
-    const {dispatch: dispatchTransformation} = useTransformations();
+    const backendUrl = useRecoilValue(backendUrlState);
+    const clingraphUrl = `${backendUrl}/clingraph/${clingraphUuid}`;
+    const [imageSize, setImageSize] = useState({width: 0, height: 0});
+    const [showMini, setShowMini] = useRecoilState(
+        nodeShowMiniByNodeUuidStateFamily(clingraphUuid)
+    );
+    const contentDiv = useContentDiv();
+    
 
-    React.useEffect(() => {
+    // get size of image
+    useEffect(() => {
         let mounted = true;
-        if (mounted && node.uuid && !node.loading) {
+        if (mounted && clingraphUuid && !clingraphAtom.loading) {
             const img = new Image();
             img.onload = function () {
-                setImageSize({width: this.width, height: this.height});
+                setImageSize({width: img.width, height: img.height});
             };
-            img.src = `${backendURL('clingraph')}/${node.uuid}`;
+            img.src = clingraphUrl;
         }
         return () => {
             mounted = false;
         };
-    }, [backendURL, node.uuid, node.loading]);
+    }, [clingraphUuid, clingraphAtom.loading, clingraphUrl]);
 
-    const checkForOverflow = React.useCallback(() => {
-        checkForOverflowE(
-            branchSpace,
-            imageSize.width,
-            node.showMini,
-            overflowBreakingPoint,
-            setOverflowBreakingPoint,
-            (showMini) => {
-                dispatchTransformation(
-                    setClingraphShowMini(node.uuid, showMini)
-                );
+    // manage show mini
+    const manageShowMini = useCallback(() => {
+        if (imageSize.width > 0 && branchSpace.current) {
+            const branchSpaceWidth = branchSpace.current.offsetWidth;
+            if (
+                imageSize.width +
+                    emToPixel(
+                        Constants.HOverflowThresholdForRecursiveNodesInEm
+                    ) >
+                branchSpaceWidth
+            ) {
+                setShowMini(true);
+                return;
             }
-        );
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [branchSpace, overflowBreakingPoint, node.showMini]);
+            setShowMini(false);
+        }
+    }, [imageSize.width, branchSpace, setShowMini]);
 
-    const debouncedCheckForOverflow = React.useMemo(() => {
-        return debounce(checkForOverflow, Constants.DEBOUNCETIMEOUT);
-    }, [checkForOverflow]);
+    const debouncedManageShowMini = useMemo(() => {
+        return debounce(manageShowMini, Constants.DEBOUNCETIMEOUT);
+    }, [manageShowMini]);
 
-    React.useEffect(() => {
-        checkForOverflow();
-    }, [checkForOverflow, node.showMini]);
-
-    useResizeObserver(
-        document.getElementById('content'),
-        debouncedCheckForOverflow
-    );
+    useResizeObserver(contentDiv, debouncedManageShowMini);
+    /* eslint-disable react-hooks/exhaustive-deps */
+    useEffect(debouncedManageShowMini, [imageSize.width]);
 
     return (
-        <div
-            className={classNames}
-            style={{
-                backgroundColor: colorPalette.primary,
-                color: colorPalette.primary,
-            }}
-            id={node.uuid}
+        <BoxDiv
+            id={clingraphUuid}
+            className={clingraphUuid}
+            $colorPalette={colorPalette}
         >
-            {node.showMini ? (
+            {showMini ? (
                 <div
                     style={{
                         backgroundColor: colorPalette.primary,
@@ -147,26 +105,26 @@ export function Box(props) {
                         color: colorPalette.primary,
                     }}
                 >
-                    {node.loading ? (
+                    {clingraphAtom.loading ? (
                         <div className={'loading'} style={imageSize}></div>
                     ) : (
                         <img
-                            src={`${backendURL('clingraph')}/${node.uuid}`}
+                            src={clingraphUrl}
                             // width={`30px`}
                             alt="Clingraph"
                         />
                     )}
                 </div>
             )}
-        </div>
+        </BoxDiv>
     );
 }
 
 Box.propTypes = {
     /**
-     * object containing the node data to be displayed
+     * The uuid of the clingraph node
      */
-    node: CLINGRAPHNODE,
+    clingraphUuid: PropTypes.string,
     /**
      * The ref to the branch space the node sits in
      */

@@ -1,172 +1,110 @@
-import React from 'react';
-import {Node, RecursiveSuperNode} from './Node.react';
+import React, {Suspense, useRef, useEffect} from 'react';
+import {styled} from 'styled-components';
 import {OverflowButton} from './OverflowButton.react';
-import { Constants } from "../constants";
+import {Constants} from '../constants';
 import './row.css';
 import PropTypes from 'prop-types';
 import {RowHeader} from './RowHeader.react';
-import {
-    useTransformations,
-    setTransformationDropIndices,
-    TransformationContext,
-} from '../contexts/transformations';
-import {MAPZOOMSTATE, TRANSFORMATIONWRAPPER} from '../types/propTypes';
+import {BranchSpace} from './BranchSpace.react';
 import {ColorPaletteContext} from '../contexts/ColorPalette';
-import {make_default_nodes} from '../utils';
-import {AnimationUpdater} from '../contexts/AnimationUpdater';
 import {DragHandle} from './DragHandle.react';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
+import {useMapShift} from '../contexts/MapShiftContext';
+import {useRecoilState, useRecoilValue, useSetRecoilState, waitForNone} from 'recoil';
+import {proxyTransformationStateFamily} from '../atoms/transformationsState';
+import {nodeUuidsByTransforamtionStateFamily} from '../atoms/nodesState';
+import {reorderTransformationDropIndicesState} from '../atoms/reorderTransformationDropIndices';
+import {transformationMountedStateFamily} from '../atoms/currentGraphState';
 
+
+const RowSignalContainerDiv = styled.div`
+    position: relative;
+    max-height: 100%;
+    opacity: 1;
+`
 
 export class RowTemplate extends React.Component {
-    static contextType = TransformationContext;
     constructor(props) {
         super(props);
         this.rowRef = React.createRef();
-        this.state = {
-            canBeDropped: false,
-            transformations: [],
-            possibleSorts: [],
-        };
         this.intervalId = null;
-    }
-
-    componentDidMount() {
-        this.setState({
-            transformations: this.context.state.transformations,
-            possibleSorts: this.context.state.possibleSorts,
-        });
+        this.setIsCurrentlyPickedUp = null;
+        this.isCurrentlyPickedUp = false;
     }
 
     componentDidUpdate(prevProps, prevState) {
         if (
-            this.props.itemSelected > prevProps.itemSelected &&
-            this.context.state.transformationDropIndices !==
-                this.props.item.adjacent_sort_indices &&
-            prevProps.itemSelected !== this.props.itemSelected
+            this.props.itemSelected > Constants.rowAnimationPickupThreshold &&
+            !this.isCurrentlyPickedUp
         ) {
-            this.context.dispatch(
-                setTransformationDropIndices(this.props.item.adjacent_sort_indices)
-            )
+            this.setIsCurrentlyPickedUp(true);
+            this.isCurrentlyPickedUp = true;
         }
         if (
-            this.props.itemSelected < prevProps.itemSelected &&
-            this.context.state.transformationDropIndices ===
-                this.props.item.adjacent_sort_indices &&
-            prevProps.itemSelected !== this.props.itemSelected
+            this.props.itemSelected < Constants.rowAnimationPickupThreshold &&
+            this.isCurrentlyPickedUp
         ) {
-            this.context.dispatch(setTransformationDropIndices(null));
-        }
-        if (this.props.itemSelected > Constants.rowAnimationPickupThreshold && this.intervalId === null) {
-            this.intervalId = setInterval(() => {
-                const element = this.rowRef.current;
-                if (element === null) {
-                    return;
-                }
-                this.setAnimationState((oldValue) => ({
-                    ...oldValue,
-                    [this.props.item.id]: {
-                        ...oldValue[this.props.item.id],
-                        width: element.clientWidth,
-                        height: element.clientHeight,
-                        top: element.offsetTop,
-                        left: element.offsetLeft,
-                    },
-                }));
-            }, Constants.rowAnimationIntervalInMs);
-        }
-        if (this.props.itemSelected < Constants.rowAnimationPickupThreshold && this.intervalId !== null) {
-            clearInterval(this.intervalId);
-            this.intervalId = null;
+            this.isCurrentlyPickedUp = false;
+            this.setIsCurrentlyPickedUp(false);
         }
     }
 
     componentWillUnmount() {
-        if (this.intervalId !== null) {
-            clearInterval(this.intervalId);
+        if (this.isCurrentlyPickedUp) {
+            this.isCurrentlyPickedUp = false;
+            this.setIsCurrentlyPickedUp(false);
         }
     }
 
     render() {
-        const {item: transformation, itemSelected, anySelected, dragHandleProps, commonProps} = this.props;
+        const {
+            item: transformation,
+            itemSelected,
+            anySelected,
+            dragHandleProps,
+            commonProps,
+        } = this.props;
+        this.setIsCurrentlyPickedUp = commonProps.setIsCurrentlyPickedUp;
+
 
         return (
-            <AnimationUpdater.Consumer>
-                {({setAnimationState}) => {
-                    this.setAnimationState = setAnimationState;
-                    return (
-                        <TransformationContext.Consumer>
-                            {({state: {transformationDropIndices}}) => {
-                                return (
-                                    <ColorPaletteContext.Consumer>
-                                        {({rowShading}) => {
-                                            const scaleConstant = 0.005;
-                                            const shadowConstant = 15;
-                                            const scale =
-                                                itemSelected * scaleConstant +
-                                                1;
-                                            const shadow =
-                                                itemSelected * shadowConstant +
-                                                0;
-                                            const background = rowShading;
-                                            const thisCanDrop =
-                                                transformationDropIndices !== null
-                                                    ? transformationDropIndices.lower_bound <= (transformation.id) && transformation.id <= transformationDropIndices.upper_bound
-                                                    : false;
-                                                
+            <ColorPaletteContext.Consumer>
+                {({rowShading}) => {
+                    const scaleConstant = 0.005;
+                    const shadowConstant = 15;
+                    const scale = itemSelected * scaleConstant + 1;
+                    const shadow =
+                        itemSelected * shadowConstant + 0;
+                    const background = rowShading[
+                                (transformation.id + 1) %
+                                    rowShading.length
+                            ];
 
-                                            const containerStyle = {
-                                                position: 'relative',
-                                                maxHeight: '100%',
-                                                transform: `scale(${scale})`,
-                                                transformOrigin: 'left',
-                                                boxShadow: `rgba(0, 0, 0, 0.3) 0px ${shadow}px ${
-                                                    2 * shadow
-                                                }px 0px`,
-                                                background:
-                                                    background[
-                                                        (transformation.id + 1) %
-                                                            background.length
-                                                    ],
-                                                opacity:
-                                                    thisCanDrop || itemSelected
-                                                        ? 1
-                                                        : 1 -
-                                                          Constants.opacityMultiplier *
-                                                              this.props
-                                                                  .anySelected,
-                                            };
-                                            return (
-                                                <div
-                                                    className="row_signal_container"
-                                                    style={containerStyle}
-                                                    ref={this.rowRef}
-                                                >
-                                                    {transformation ===
-                                                    null ? null : (
-                                                        <Row
-                                                            key={
-                                                                transformation.hash
-                                                            }
-                                                            transformation={
-                                                                transformation
-                                                            }
-                                                            dragHandleProps={
-                                                                dragHandleProps
-                                                            }
-                                                            transform = {commonProps.transform}
-                                                        />
-                                                    )}
-                                                </div>
-                                            );
-                                        }}
-                                    </ColorPaletteContext.Consumer>
-                                );
+                    return (
+                        <RowSignalContainerDiv
+                            className={`row_signal_container ${transformation.id}`}
+                            ref={this.rowRef}
+                            key={transformation.id}
+                            $scale={scale}
+                            $shadow={shadow}
+                            $background={background}
+                            style={{
+                                "transform": `scale(${scale})`,
+                                "transformOrigin": "left",
+                                "boxShadow": `rgba(0, 0, 0, 0.3) 0px ${shadow}px 
+                                    ${2 * shadow}px 0px`,
+                                "background": background,
                             }}
-                        </TransformationContext.Consumer>
+                        >
+                            <Row
+                                key={transformation.id}
+                                transformationId={transformation.id}
+                                dragHandleProps={dragHandleProps}
+                            />
+                        </RowSignalContainerDiv>
                     );
                 }}
-            </AnimationUpdater.Consumer>
+            </ColorPaletteContext.Consumer>
         );
     }
 }
@@ -175,7 +113,7 @@ RowTemplate.propTypes = {
     /**
      * The Transformation object to be displayed
      **/
-    item: TRANSFORMATIONWRAPPER,
+    item: PropTypes.object,
     /**
      * It starts at 0, and quickly increases to 1 when the item is picked up by the user.
      */
@@ -190,152 +128,121 @@ RowTemplate.propTypes = {
      **/
     dragHandleProps: PropTypes.object,
     /**
-     * The common props for all rows
+     * Common props passed identically to all RowTemplates
      **/
-    commonProps: PropTypes.shape({
-        transform: MAPZOOMSTATE
-    }),
+    commonProps: PropTypes.object,
 };
 
-export function Row(props) {
-    const {transformation, dragHandleProps, transform} = props;
-    const {
-        state: {transformations, transformationNodesMap},
-    } = useTransformations();
-    const [nodes, setNodes] = React.useState(make_default_nodes());
-    const rowbodyRef = React.useRef(null);
-    const headerRef = React.useRef(null);
-    const handleRef = React.useRef(null);
-    const transformationIdRef = React.useRef(transformation.id);
+const RowContainer = styled.div`
+    opacity: ${(props) =>
+        props.$draggedRowCanBeDroppedHere
+            ? 1
+            : 1 - Constants.opacityMultiplier};
+    transition: opacity 0.5s ease-out;
+`;
 
-    useDebouncedAnimateResize(rowbodyRef, transformationIdRef);
-
-    React.useEffect(() => {
-        if (headerRef.current && handleRef.current) {
-            const headerHeight = headerRef.current.offsetHeight;
-            handleRef.current.style.top = `${headerHeight}px`;
-        }
-    }, []);
-
-
-    React.useEffect(() => {
-        if (
-            transformationNodesMap &&
-            transformationNodesMap[transformation.id]
-        ) {
-            setNodes(transformationNodesMap[transformation.id]);
-        }
-    }, [transformationNodesMap, transformation.id]);
-
-
-    const showNodes =
-        transformations.find(
-            ({shown, id}) => id === transformation.id && shown
-        ) !== null;
-
-    const branchSpaceRefs = React.useRef([]);
-    React.useEffect(() => {
-        branchSpaceRefs.current = nodes.map(
-            (_, i) => branchSpaceRefs.current[i] ?? React.createRef()
+export const Row = React.memo(
+    (props) => {
+        const {transformationId, dragHandleProps} = props;
+        const rowbodyRef = useRef(null);
+        const headerRef = useRef(null);
+        const handleRef = useRef(null);
+        const {mapShiftValue: transform} = useMapShift();
+        const tDropIndices = useRecoilValue(
+            reorderTransformationDropIndicesState
         );
-    }, [nodes]);
+        const transformation = useRecoilValue(
+            proxyTransformationStateFamily(transformationId)
+        );
+        const nodes = useRecoilValue(
+            nodeUuidsByTransforamtionStateFamily(transformation.hash)
+        );
 
+        useEffect(() => {
+            if (headerRef.current && handleRef.current) {
+                const headerHeight = headerRef.current.offsetHeight;
+                handleRef.current.style.top = `${headerHeight}px`;
+            }
+        }, []);
 
-    return (
-        <div className={`row_container ${transformation.hash}`}>
-            {transformation.rules.length === 0 ? null : (
-                <RowHeader ruleWrappers={transformation.rules} />
-            )}
-            {dragHandleProps === null ||
-            transformation.adjacent_sort_indices === null ||
-            transformation.adjacent_sort_indices.lower_bound ===
-                transformation.adjacent_sort_indices.upper_bound ? null : (
-                <DragHandle ref={handleRef} dragHandleProps={dragHandleProps} />
-            )}
-            {!showNodes ? null : (
+        const draggedRowCanBeDroppedHere =
+            tDropIndices !== null
+                ? tDropIndices.lower_bound <= transformationId &&
+                  transformationId <= tDropIndices.upper_bound
+                : true;
+
+        return (
+            <Suspense fallback={<div>Loading Row...</div>}>
+            <RowContainer
+                className={`row_container ${transformation.hash}`}
+                $draggedRowCanBeDroppedHere={draggedRowCanBeDroppedHere}
+            >
+                {transformation.rules.length === 0 ||
+                typeof transformationId === 'undefined' ? null : (
+                    <RowHeader
+                        transformationId={transformationId}
+                        transformationHash={transformation.hash}
+                    />
+                )}
+                {dragHandleProps === null ||
+                transformation.adjacent_sort_indices === null ||
+                transformation.adjacent_sort_indices.lower_bound ===
+                    transformation.adjacent_sort_indices
+                        .upper_bound ? null : (
+                    <DragHandle
+                        ref={handleRef}
+                        dragHandleProps={dragHandleProps}
+                    />
+                )}
                 <div
                     ref={rowbodyRef}
                     className="row_row"
                     style={{
                         width: `${
-                            nodes.length === 1 ? 100 : transform.scale * 100
+                            nodes.length === 1
+                                ? 100
+                                : transform.scale * 100
                         }%`,
                         transform: `translateX(${
-                            nodes.length === 1 ? 0 : transform.translation.x
+                            nodes.length === 1
+                                ? 0
+                                : transform.translation.x
                         }px)`,
+                        paddingBottom: `${transformation.is_constraints_only ? '2em': '0'}`,
                     }}
                 >
-                    {nodes.map((child, index) => {
-                        const space_multiplier = child.space_multiplier * 100;
-                        if (
-                            child.recursive.length > 0 &&
-                            child.shownRecursion
-                        ) {
-                            return (
-                                <div
-                                    className="branch_space"
-                                    key={child.uuid}
-                                    style={{flex: `0 0 ${space_multiplier}%`}}
-                                    ref={branchSpaceRefs.current[index]}
-                                >
-                                    <RecursiveSuperNode
-                                        key={child.uuid}
-                                        node={child}
-                                        branchSpace={
-                                            branchSpaceRefs.current[index]
-                                        }
-                                        transformationId={transformation.id}
-                                    />
-                                </div>
-                            );
-                        }
-                        return (
-                            <div
-                                className="branch_space"
-                                key={child.uuid}
-                                style={{flex: `0 0 ${space_multiplier}%`}}
-                                ref={branchSpaceRefs.current[index]}
-                            >
-                                <Node
-                                    key={child.uuid}
-                                    node={child}
-                                    isSubnode={false}
-                                    branchSpace={branchSpaceRefs.current[index]}
-                                    transformationId={transformation.id}
-                                />
-                            </div>
-                        );
-                    })}
+                    {nodes.map((node) => (
+                        <BranchSpace
+                            key={`branch_space_${node}`}
+                            transformationHash={transformation.hash}
+                            transformationId={transformation.id}
+                            nodeUuid={node}
+                        />
+                    ))}
                 </div>
-            )}
-            {!transformation.allNodesShowMini &&
-            (transformation.isExpandableV ||
-                transformation.isCollapsibleV) ? (
                 <OverflowButton
-                    transformationId={transformation.id}
-                    nodes={nodes}
+                    transformationHash={transformation.hash}
                 />
-            ) : null}
-        </div>
-    );
-}
+            </RowContainer>
+            </Suspense>
+        );
+    },
+    (prevProps, nextProps) => {
+        return (
+            prevProps?.transformationId === nextProps.transformationId &&
+            prevProps?.dragHandleProps === nextProps.dragHandleProps
+        );
+    }
+);
 
 Row.propTypes = {
     /**
      * The Transformation wrapper object to be displayed
      */
-    transformation: TRANSFORMATIONWRAPPER,
+    transformationId: PropTypes.number,
     /**
      * an object which should be spread as props on the HTML element to be used as the drag handle.
      * The whole item will be draggable by the wrapped element.
      **/
     dragHandleProps: PropTypes.object,
-    /**
-     * It starts at 0, and quickly increases to 1 when the item is picked up by the user.
-     */
-    itemSelected: PropTypes.number,
-    /**
-     * The current zoom transformation of the graph
-     */
-    transform: MAPZOOMSTATE,
 };

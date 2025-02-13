@@ -142,6 +142,7 @@ class Transformation:
     id: int = field(hash=True)
     rules: RuleContainer = field(default_factory=RuleContainer, hash=True)
     adjacent_sort_indices: Dict[str, int] = field(default_factory=dict, hash=False)
+    is_constraints_only: bool = field(default=False, hash=False)
     hash: str = field(default="", hash=True)
 
     def __post_init__(self):
