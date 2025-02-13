@@ -1,44 +1,80 @@
-============
+************
 How it Works
+************
+
+Architecture
 ============
 
-viASP's backend generates the graph based on  
+viASP is built on a server and client architecture. When using the ``viasp`` cli, the processes are combined, so that only the frontend is visible to the user.
+
+The server is a Flask backend, which uses Clingo, SQLAlchemy with sqlite database, networkx for graph operations, and waitress for serving the app. A log file ``viasp.log`` is always created in the current working directory.
+
+The client is a React frontend served by Dash. Recoil is used for state management, styled-components for styling.
+
+
+viASP Graph generation
+=======================
+
+The viASP server generates the graph based on  
 
 1. The input program
 2. The marked stable models
 
-The steps taken for generating the graph can be broken down in to two parts: first, the program is first sorted, then associated the atoms of the stable model with the rules they are derived by.
+After receiving these inputs, the ``show`` command has to be called to initiate graph generation.
+
+The generation of the viASP graph can be broken down into two steps: 
+
+1. sorting the input program, then 
+2. associate the marked models' symbols with the rules they are derived by.
 
 Sorting the program
-===================
+-------------------
 
-The input program is sorted by the viASP server. The program is received through the api calls ``load_program_file`` or ``load_program_string``. They reach the ``/control/add_call`` endpoint, which stores the program in the server database.
+The viASP server sorts the input program, which is received through the api calls ``load_program_file`` or ``load_program_string``. 
+They reach the ``/control/add_call`` endpoint, storing the program in the server's database.
 
-Once the ``show`` command is called, all program strings loaded in this session are retrieved from the database. The programs are then sorted by the server.
+If the program is split into multiple files (e.g. encoding and instance files), they can be loaded separately as long as they are loaded in the same session.
 
-Every rule in the program becomes a node in the dependency graph. Dependents and conditions are analyzed to create edges between the nodes. 
-Some processing on graph removes loops and cycles, and collects integrity constraints into a node. The rules in the loops or cycles are combined and marked to become a recursive component in the final graph.
-When topologically sorted, the rules are ordered in a way so that rules that depend on other rules are placed after the rules they depend on.
+Once the ``show`` command is called, all program strings are retrieved from the database. The rules in the program are sorted by building and sorting a dependency graph.
+
+Each rule in the program becomes a node in the dependency graph. 
+The edges point from rules with symbol signatures in the head to rules with the signature in the body.
+
+Some processing on the graph removes loops and cycles, and collects integrity constraints into a single node. The rules in the loops or cycles are combined and marked to become a recursive component in the final graph.
+
+Because some rules are combined at this step, the nodes are referred to as components from here on (the code may still refer to them under their old terminology as transformation).
+
+After topological sorting, the components are ordered in such a way that components that depend on other components are placed after the components they depend on. In many cases, multiple valid orderings are possible. The sorting algorithm employed by viASP prefers the order of the components in the input program. 
+
+The viASP allows the user to rearrange components. An order that is achieved by moving one component to a different position is called an adjacent sort. Each component's possible adjacent sort positions are stored as a range in the ``adjacent_sort_indices`` attribute of the component.
 
 The sorted program may be queried from the server using the ``/graph/sorted_progam`` endpoint.
 
-Graph Generation
-================
+Associate Symbols with their Rules and Reasons
+----------------------------------------------
 
-The justifier program is used to find out which rules are responsible for the atoms in the stable model. A justifier program is genertated by the ``ProgramReifier`` Transformer class using the sorted program.
+Justifier Program
+^^^^^^^^^^^^^^^^^
 
-From every rule in the sorted program, a justifier rule is generated 
+A justifier program is generated from the sorted program by the ``ProgramReifier`` Transformer class to find out which rules are responsible for the symbols in the stable model. 
+It also generates the reasons, which are shown in the viASP graph when the symbol is clicked. 
+
+From every rule in the sorted program, a justifier rule is generated. 
+
+A normal input rule:
 
 .. code-block:: 
 
-    # input rule
     d1 :- r1, ..., rl.
 
-    # justifier rule
-    h(I, d1, (r1, ..., rl)) :– d1, r1, ..., rl.
+is transformed into the justifier rule
+
+.. code-block:: 
+
+    h(I, J, d1, (r1, ..., rl)) :- d1, r1, ..., rl.
 
 
-The justifier rule connects the atom ``d1`` in the head of an input rule to the index ``I`` of the rule that derives it due to the reasons ``r1, ..., rl``. 
+This connects the symbol ``d1`` in the head of an input rule with the reasons ``r1, ..., rl`` and the index ``I`` of the component in the sorted program, and the hash ``J`` identifying the rule. 
 
 .. admonition:: Example
 
@@ -52,11 +88,17 @@ The justifier rule connects the atom ``d1`` in the head of an input rule to the 
 
     .. code-block:: 
 
-        h(1, reached(V), (reached(U), hc(U,V))) :- reached(V), reached(U), hc(U,V).
+        h(1, 0, reached(V), (reached(U), hc(U,V))) :- reached(V), reached(U), hc(U,V).
 
-The justifier program is loaded in a clingo Control instance and combined with the stable model. Grounding yields the ``h`` symbolic atoms, which can be queried from the Control object. The grounding is repeated for every stable model.
+A more complete discussion of the justifier program, including all ASP constructs and edge cases, is given in the .
 
-.. An in depth explanation of the justifier program including the edge cases is given at another place.
+Marked Models and Justification
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. Parts of the flask server
-.. =========================
+Stable models are marked through the api calls ``mark_from_clingo_model``, ``mark_from_string``, or ``mark_from_file``. 
+They are not yet propagated to the server, so that they can be unmarked again, e. g. when a more optimal model is found. 
+Once the ``show`` command is called, they are sent to the server where they reach the ``/control/models`` endpoint.
+
+The stable model represented as facts and the justifier program are loaded in a clingo Control instance. 
+Grounding yields the ``h`` symbolic symbols, which can be queried from the Control object. This process is repeated for every stable model to build the separate branches.
+

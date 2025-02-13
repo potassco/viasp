@@ -90,30 +90,30 @@ def viasp(**kwargs) -> None:
     This function loads the input program, solves it, and visualizes the models.
     Optional settings for the visualization can be provided.
 
-    :param \**kwargs:
-        * *models* (``int``) --
+    Kwargs:
+        *models* (``int``) --
             number of models to compute, defaults to `0` (compute all)
-        * *paths* (``list``) --
+        *paths* (``list``) --
             list of paths to program files
-        * *opt_mode* (``tuple``) --
+        *opt_mode* (``tuple``) --
             optimization mode and bounds for clingo optimization. Tuple must contain one of {opt|enum|optN|ignore} in the first element and a list of strings in the second element. Defaults to `('opt', [])`
-        * *viz_encoding* (``str``) --
+        *viz_encoding* (``str``) --
             path to the clingraph visualization encoding
-        * *engine* (``str``) --
+        *engine* (``str``) --
             clingraph visualization engine, defaults to "dot"
-        * *graphviz_type* (``str``) --
+        *graphviz_type* (``str``) --
             clingraph graph type, default "graph"
-        * *no_relaxer* (``bool``) --
+        *no_relaxer* (``bool``) --
             do not relax constraints of unsatisfiable programs, defaults to `False`
-        * *head_name* (``str``) --
+        *head_name* (``str``) --
             name of head literal in relaxed program, defaults to "unsat"
-        * *no_collect_variables* (``bool``) --
+        *no_collect_variables* (``bool``) --
             do not collect variables from body in relaxed program, defaults to `False`
-        * *host* (``str``) --
+        *host* (``str``) --
             host of the backend, defaults to `localhost`
-        * *port* (``int``) --
+        *port* (``int``) --
             port of the backend, defaults to `5050`
-        * *frontend_port* (``int``) --
+        *frontend_port* (``int``) --
             port of the frontend, defaults to `8050`
     """
     models = kwargs.get("models", 0)
@@ -202,12 +202,14 @@ def load_program_file(path: Union[str, List[str]], **kwargs) -> None:
     r"""
     Load a (non-ground) program file into the viasp backend
 
-    :param path: ``str`` or ``list``
-        path or list of paths to the program file
-    :param \**kwargs:
-        * *viasp_backend_url* (``str``) --
+    Args:
+        path (``str`` or ``list``) --
+            path or list of paths to the program file
+    
+    Kwargs:
+        viasp_backend_url (``str``) --
           url of the viasp backend
-        * *_viasp_client* (``ClingoClient``) --
+        _viasp_client (``ClingoClient``) --
           a viasp client object
 
     See Also
@@ -239,12 +241,14 @@ def load_program_string(program: str, **kwargs) -> None:
     r"""
     Load a (non-ground) program into the viasp backend
 
-    :param program: ``str``
-        the program to load
-    :param \**kwargs:
-        * *viasp_backend_url* (``str``) --
+    Args:
+        program (``str``) --
+            the program to load
+    
+    Kwargs:
+        *viasp_backend_url* (``str``) --
           url of the viasp backend
-        * *_viasp_client* (``ClingoClient``) --
+        *_viasp_client* (``ClingoClient``) --
           a viasp client object
 
     See Also
@@ -283,16 +287,18 @@ def add_program_file(*args, **kwargs):
         def add(self, path: str) -> None:
             return self.add("base", [], path)
 
-    :param name: ``str``
-        The name of program block to add.
-    :param parameters: ``Sequence[str]``
-        The parameters of the program block to add.
-    :param path: ``str`` or ``list``
-        The path or list of paths to the non-ground program.
-    :param \**kwargs:
-        * *viasp_backend_url* (``str``) --
+    Args:
+        name (``str``) --
+            The name of program block to add.
+        parameters (``Sequence[str]``) --
+            The parameters of the program block to add.
+        path (``str`` or ``list``) --
+            The path or list of paths to the non-ground program.
+    
+    Kwargs:
+        *viasp_backend_url* (``str``) --
           url of the viasp backend
-        * *_viasp_client* (``ClingoClient``) --
+        *_viasp_client* (``ClingoClient``) --
           a viasp client object
 
     See Also
@@ -329,13 +335,15 @@ def add_program_string(*args, **kwargs) -> None:
         def add(self, program: str) -> None:
             return self.add("base", [], program)
 
-    :param name: ``str``
-        The name of program block to add.
-    :param parameters: ``Sequence[str]``
-        The parameters of the program block to add.
-    :param program: ``str``
-        The non-ground program in string form.
-    :param \**kwargs:
+    Args:
+        name (``str``) --
+            The name of program block to add.
+        parameters (``Sequence[str]``) --
+            The parameters of the program block to add.
+        program (``str``) --
+            The non-ground program in string form.
+    
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -382,7 +390,7 @@ def show(**kwargs) -> None:
     r"""
     Propagate the marked models to the backend and Generate the graph.
 
-    :param \**kwargs:
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -398,9 +406,11 @@ def mark_from_clingo_model(model: Union[clingo_Model, StableModel], **kwargs) ->
     Mark a model to be visualized. Models can be unmarked and cleared.
     The marked models are propagated to the backend when ``show`` is called.
 
-    :param model: ``clingo.solving.Model`` or ``viasp.model.StableModel``
-        The model to mark.
-    :param \**kwargs:
+    Args:
+        model (``clingo.solving.Model`` or ``viasp.model.StableModel``) --
+            The model to mark.
+    
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -421,9 +431,11 @@ def unmark_from_clingo_model(model: Union[clingo_Model, StableModel],
     r"""
     Unmark a model.
 
-    :param model: ``clingo.solving.Model`` or ``viasp.model.StableModel``
-        The model to unmark.
-    :param \**kwargs:
+    Args:
+        model (``clingo.solving.Model`` or ``viasp.model.StableModel``) --
+            The model to unmark.
+   
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -443,7 +455,7 @@ def clear(**kwargs) -> None:
     r"""
     Clear all marked models.
 
-    :param \**kwargs:
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -458,7 +470,7 @@ def clear_program(**kwargs) -> None:
     r"""
     Clear the program in the backend.
     
-    :param \**kwargs: 
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -474,9 +486,13 @@ def get_relaxed_program(*args, **kwargs) -> Union[str, None]:
     Relax constraints in the marked models. Returns
     the relaxed program as a string.
 
-    :param head_name: (``str``, optional) Name of head literal, defaults to "unsat"
-    :param collect_variables: (``bool``, optional) Collect variables from body as a tuple in the head literal, defaults to True
-    :param \**kwargs:
+    Args:
+        head_name (``str``, optional) --
+            Name of head literal, defaults to "unsat"
+        collect_variables (``bool``, optional) --
+            Collect variables from body as a tuple in the head literal, defaults to True
+    
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -497,9 +513,13 @@ def relax_constraints(*args, **kwargs) -> viaspControl:
     a new viasp.Control object with the relaxed program loaded
     and stable models marked.
 
-    :param head_name: (``str``, optional) Name of head literal. Defaults to "unsat"
-    :param collect_variables: (``bool``, optional) Collect variables from body as a tuple in the head literal. Defaults to True
-    :param \**kwargs:
+    Args:
+        head_name (``str``, optional) --
+            Name of head literal. Defaults to "unsat"
+        collect_variables (``bool``, optional) --
+            Collect variables from body as a tuple in the head literal. Defaults to True
+        
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -518,13 +538,15 @@ def clingraph(viz_encoding, engine="dot", graphviz_type="graph", **kwargs) -> No
     r"""
     Generate the a clingraph from the marked models and the visualization encoding.
 
-    :param viz_encoding: ``str``
-        The path to the visualization encoding.
-    :param engine: ``str``
-        The visualization engine. Defaults to "dot".
-    :param graphviz_type: ``str``
-        The graph type. Defaults to "graph".
-    :param kwargs:
+    Args:
+        viz_encoding (``str``) --
+            The path to the visualization encoding.
+        engine (``str``) --
+            The visualization engine. Defaults to "dot".
+        graphviz_type (``str``) --
+            The graph type. Defaults to "graph".
+    
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -542,15 +564,17 @@ def register_transformer(transformer: Transformer, imports: str = "", path: str 
     Register a transformer to the backend. The program will be transformed
     in the backend before further processing is made.
 
-    :param transformer: ``Transformer``
-        The transformer to register.
-    :param imports: ``str``
-        The imports usued by the transformer.
-        (Can only be clingo imports and standard imports.
-        String lines must be separated by newlines.)
-    :param path: ``str``
-        The path to the transformer.
-    :param kwargs:
+    Args:
+        transformer (``Transformer``) --
+            The transformer to register.
+        imports (``str``) --
+            The imports usued by the transformer.
+            (Can only be clingo imports and standard imports.
+            String lines must be separated by newlines.)
+        path (``str``) --
+            The path to the transformer.
+    
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -563,11 +587,13 @@ def register_constant(name: str, value: str, **kwargs) -> None:
     r"""
     Register a constant to the backend. The constant will be used in the program.
 
-    :param name: ``str``
-        The name of the constant.
-    :param value: ``str``
-        The value of the constant.
-    :param kwargs:
+    Args:
+        name (``str``) --
+            The name of the constant.
+        value (``str``) --
+            The value of the constant.
+    
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -704,9 +730,11 @@ def mark_from_string(model: str, **kwargs) -> None:
     Models can be unmarked and cleared.
     The marked models are propagated to the backend when ``show`` is called.
 
-    :param model: ``str``
-        The facts of the model to mark.
-    :param \**kwargs:
+    Args:
+        model (``str``) --
+            The facts of the model to mark.
+    
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -742,9 +770,11 @@ def mark_from_file(path: Union[str, List[str]], **kwargs) -> None:
     Models can be unmarked and cleared.
     The marked models are propagated to the backend when ``show`` is called.
 
-    :param path: ``str`` or ``list``
-        The path or list of paths to the file containing the facts of the model to mark.
-    :param \**kwargs:
+    Args:
+        path (``str`` or ``list``) --
+            The path or list of paths to the file containing the facts of the model to mark.
+    
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -774,9 +804,11 @@ def unmark_from_string(model: str, **kwargs) -> None:
 
     Changes to marked models are propagated to the backend when ``show`` is called.
 
-    :param model: ``str``
-        The facts of the model to unmark.
-    :param \**kwargs:
+    Args:
+        model (``str``) --
+            The facts of the model to unmark.
+    
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --
@@ -812,9 +844,11 @@ def unmark_from_file(path: str, **kwargs) -> None:
 
     Changes to marked models are propagated to the backend when ``show`` is called.
 
-    :param path: ``str``
-        The path to the file containing the facts of the model to unmark.
-    :param \**kwargs:
+    Args:
+        path (``str``) --
+            The path to the file containing the facts of the model to unmark.
+    
+    Kwargs:
         * *viasp_backend_url* (``str``) --
           url of the viasp backend
         * *_viasp_client* (``ClingoClient``) --

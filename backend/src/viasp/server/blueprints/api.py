@@ -332,11 +332,6 @@ def show_selected_models():
         db_session.add_all(warnings)
         db_session.commit()
 
-        result = db_session.query(Models).where(
-            Models.encoding_id == encoding_id).all()
-        marked_models = [current_app.json.loads(m.model) for m in result]
-        marked_models = wrap_marked_models(
-            marked_models, analyzer.get_conflict_free_showTerm())
         if analyzer.will_work():
             save_recursions(analyzer, encoding_id)
             set_primary_sort(analyzer, encoding_id)

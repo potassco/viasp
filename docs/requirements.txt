@@ -8,3 +8,4 @@ flask>=2.2.0
 retrying
 furo
 sphinx-autobuild
+sphinx-copybutton

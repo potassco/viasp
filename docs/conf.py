@@ -36,7 +36,10 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.autosectionlabel',
-    'sphinx.ext.intersphinx'
+    'sphinx.ext.intersphinx',
+    'sphinx_copybutton',
+    'sphinx.ext.viewcode',
+    'furo.sphinxext',
 ]
 
 napoleon_include_init_with_doc = False
@@ -66,7 +69,9 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 html_theme = 'furo'
 
 html_theme_options = {
-#    'analytics_id': 'UA-XXXXXXX-1',  #  Provided by Google in your dashboard
+    #    'analytics_id': 'UA-XXXXXXX-1',  #  Provided by Google in your dashboard
+    "light_logo": "logo-light-mode.png",
+    "dark_logo": "logo-dark-mode.png",
     "footer_icons": [
         {
             "name": "GitHub",
@@ -87,5 +92,8 @@ html_title = 'viASP'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 html_css_files = [
-    'css/custom.css',
+    'custom.css',
 ]
+
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
+copybutton_prompt_is_regexp = True
