@@ -9,13 +9,12 @@ import {BranchSpace} from './BranchSpace.react';
 import {ColorPaletteContext} from '../contexts/ColorPalette';
 import {DragHandle} from './DragHandle.react';
 import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
-import {useMapShift} from '../contexts/MapShiftContext';
 import {useRecoilState, useRecoilValue, useSetRecoilState, waitForNone} from 'recoil';
 import {proxyTransformationStateFamily} from '../atoms/transformationsState';
 import {nodeUuidsByTransforamtionStateFamily} from '../atoms/nodesState';
 import {reorderTransformationDropIndicesState} from '../atoms/reorderTransformationDropIndices';
 import {transformationMountedStateFamily} from '../atoms/currentGraphState';
-
+import { mapShiftState } from '../atoms/mapShiftState';
 
 const RowSignalContainerDiv = styled.div`
     position: relative;
@@ -147,7 +146,7 @@ export const Row = React.memo(
         const rowbodyRef = useRef(null);
         const headerRef = useRef(null);
         const handleRef = useRef(null);
-        const {mapShiftValue: transform} = useMapShift();
+        const mapShift = useRecoilValue(mapShiftState);
         const tDropIndices = useRecoilValue(
             reorderTransformationDropIndicesState
         );
@@ -173,57 +172,53 @@ export const Row = React.memo(
 
         return (
             <Suspense fallback={<div>Loading Row...</div>}>
-            <RowContainer
-                className={`row_container ${transformation.hash}`}
-                $draggedRowCanBeDroppedHere={draggedRowCanBeDroppedHere}
-            >
-                {transformation.rules.length === 0 ||
-                typeof transformationId === 'undefined' ? null : (
-                    <RowHeader
-                        transformationId={transformationId}
-                        transformationHash={transformation.hash}
-                    />
-                )}
-                {dragHandleProps === null ||
-                transformation.adjacent_sort_indices === null ||
-                transformation.adjacent_sort_indices.lower_bound ===
-                    transformation.adjacent_sort_indices
-                        .upper_bound ? null : (
-                    <DragHandle
-                        ref={handleRef}
-                        dragHandleProps={dragHandleProps}
-                    />
-                )}
-                <div
-                    ref={rowbodyRef}
-                    className="row_row"
-                    style={{
-                        width: `${
-                            nodes.length === 1
-                                ? 100
-                                : transform.scale * 100
-                        }%`,
-                        transform: `translateX(${
-                            nodes.length === 1
-                                ? 0
-                                : transform.translation.x
-                        }px)`,
-                        paddingBottom: `${transformation.is_constraints_only ? '2em': '0'}`,
-                    }}
+                <RowContainer
+                    className={`row_container ${transformation.hash}`}
+                    $draggedRowCanBeDroppedHere={draggedRowCanBeDroppedHere}
                 >
-                    {nodes.map((node) => (
-                        <BranchSpace
-                            key={`branch_space_${node}`}
+                    {transformation.rules.length === 0 ||
+                    typeof transformationId === 'undefined' ? null : (
+                        <RowHeader
+                            transformationId={transformationId}
                             transformationHash={transformation.hash}
-                            transformationId={transformation.id}
-                            nodeUuid={node}
                         />
-                    ))}
-                </div>
-                <OverflowButton
-                    transformationHash={transformation.hash}
-                />
-            </RowContainer>
+                    )}
+                    {dragHandleProps === null ||
+                    transformation.adjacent_sort_indices === null ||
+                    transformation.adjacent_sort_indices.lower_bound ===
+                        transformation.adjacent_sort_indices
+                            .upper_bound ? null : (
+                        <DragHandle
+                            ref={handleRef}
+                            dragHandleProps={dragHandleProps}
+                        />
+                    )}
+                    <div
+                        ref={rowbodyRef}
+                        className="row_row"
+                        style={{
+                            width: `${
+                                nodes.length === 1 ? 100 : mapShift.scale * 100
+                            }%`,
+                            transform: `translateX(${
+                                nodes.length === 1 ? 0 : mapShift.translation.x
+                            }px)`,
+                            paddingBottom: `${
+                                transformation.is_constraints_only ? '2em' : '0'
+                            }`,
+                        }}
+                    >
+                        {nodes.map((node) => (
+                            <BranchSpace
+                                key={`branch_space_${node}`}
+                                transformationHash={transformation.hash}
+                                transformationId={transformation.id}
+                                nodeUuid={node}
+                            />
+                        ))}
+                    </div>
+                    <OverflowButton transformationHash={transformation.hash} />
+                </RowContainer>
             </Suspense>
         );
     },

@@ -11,6 +11,10 @@ import {
 } from './nodesState';
 import {clingraphNodesState} from './clingraphState';
 
+export const contentDivState = atom({
+    key: 'contentDivState',
+    default: null,
+});
 
 export const currentSortState = atom({
     key: 'currentSortState',

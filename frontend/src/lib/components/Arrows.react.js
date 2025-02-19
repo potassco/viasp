@@ -3,12 +3,12 @@ import Xarrow from "react-xarrows";
 import PropTypes from 'prop-types'
 import { v4 as uuidv4 } from 'uuid';
 import { styled } from 'styled-components';
-import {useContentDiv} from '../contexts/ContentDivContext';
 import {Transition} from 'react-transition-group';
 
 import { Constants } from "../constants";
 import {
     isAnimatingState,
+    contentDivState,
 } from '../atoms/currentGraphState';
 import {arrowHighlightsState} from '../atoms/highlightsState';
 import { useRecoilValue } from "recoil";
@@ -34,7 +34,7 @@ const ArrowsContainer = styled.span`
 
 export function Arrows() {
     const arrowHighlights = useRecoilValue(arrowHighlightsState);
-    const contentDiv = useContentDiv();
+    const contentDiv = useRecoilValue(contentDivState);
     const isAnimating = useRecoilValue(
         isAnimatingState
     );

@@ -3,18 +3,19 @@ import {make_atoms_string} from '../utils/index';
 import './symbol.css';
 import PropTypes from 'prop-types';
 import {styled, keyframes, css} from 'styled-components';
-import {useContentDiv} from '../contexts/ContentDivContext';
 import {useMessages, showError} from '../contexts/UserMessages';
 
-import {useRecoilValue, useRecoilCallback} from 'recoil';
+import {useRecoilValue, useRecoilCallback, useSetRecoilState} from 'recoil';
 import {backendUrlState} from '../atoms/settingsState';
-import {currentSortState} from '../atoms/currentGraphState';
+import {contentDivState, currentSortState} from '../atoms/currentGraphState';
 import {symoblsByNodeStateFamily} from '../atoms/symbolsState';
 import {
     symbolHighlightsStateFamily,
     setReasonHighlightsCallback,
     removeSymbolHighlightsCallback,
 } from '../atoms/highlightsState';
+import {mapShiftState, xShiftState} from '../atoms/mapShiftState';
+import {changeXShiftWithinBoundsCallback} from '../hooks/mapShift';
 
 const symbolPulsate = ($pulsatingColor) => keyframes`
     0% {
@@ -63,7 +64,7 @@ async function fetchReasonOf(backendURL, sourceId, nodeId, currentSort) {
     return await r.json();
 }
 
-function scrollParentToChild(parent, child) {
+function scrollParentToChild(parent, child, changexShiftWithinBounds) {
     if (!child || !parent) {
         return;
     }
@@ -74,11 +75,14 @@ function scrollParentToChild(parent, child) {
     };
 
     var childRect = child.getBoundingClientRect();
-    var isViewable =
+    var isChildInVerticalViewport =
         childRect.top >= parentRect.top &&
         childRect.bottom <= parentRect.top + parentViewableArea.height;
+    var isChildInHorizontalViewport =
+        childRect.left >= parentRect.left &&
+        childRect.right <= parentRect.left + parentViewableArea.width;
 
-    if (!isViewable) {
+    if (!isChildInVerticalViewport) {
         parent.scrollTo({
             top:
                 childRect.top -
@@ -87,6 +91,11 @@ function scrollParentToChild(parent, child) {
                 parent.clientHeight / 2,
             behavior: 'smooth',
         });
+    }
+    if (!isChildInHorizontalViewport) {
+        changexShiftWithinBounds(
+            -childRect.left
+        )
     }
 }
 
@@ -123,9 +132,14 @@ export function Symbol(props) {
 
     let atomString = make_atoms_string(recoilSymbol.symbol);
     const suffix = `_${isSubnode ? 'sub' : 'main'}`;
-    const contentDivRef = useContentDiv();
+    const contentDiv = useRecoilValue(contentDivState);
     const isShowingExplanation = useRef(false);
     const [, messageDispatch] = useMessages();
+    const changeXShiftWithinBounds = useRecoilCallback(
+        changeXShiftWithinBoundsCallback,
+        []
+    );
+    
 
     const handleClickOnSymbol = async (e) => {
         e.stopPropagation();
@@ -177,8 +191,9 @@ export function Symbol(props) {
     );
     if (recentQueryHighlights.some((h) => h.recent)) {
         scrollParentToChild(
-            contentDivRef.current,
-            symbolElementRef.current
+            contentDiv.current,
+            symbolElementRef.current,
+            changeXShiftWithinBounds
         );
         isPulsating.current = true;
         pulsatingColor.current = recentQueryHighlights[0].color;

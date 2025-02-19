@@ -4,13 +4,13 @@ import {styled} from 'styled-components';
 import {Constants} from '../constants';
 import { useColorPalette } from '../contexts/ColorPalette';
 import {BranchSpace} from './BranchSpace.react';
-import {useMapShift} from '../contexts/MapShiftContext';
 import {useRecoilValue} from 'recoil';
 import { reorderTransformationDropIndicesState } from '../atoms/reorderTransformationDropIndices';
 import {
     numberOfTransformationsState,
 } from '../atoms/currentGraphState';
 import {clingraphNodesState} from '../atoms/clingraphState';
+import { mapShiftState } from '../atoms/mapShiftState';
 
 const RowContainer = styled.div`
     opacity: ${(props) =>
@@ -22,7 +22,7 @@ const RowContainer = styled.div`
 `;
 
 export function Boxrow() {
-    const {mapShiftValue: transform} = useMapShift();
+    const mapShift = useRecoilValue(mapShiftState);
     const boxrowRef = React.useRef(null);
     const colorPalette = useColorPalette();
     const clingraphGraphics = useRecoilValue(clingraphNodesState);
@@ -54,12 +54,12 @@ export function Boxrow() {
                     width: `${
                         clingraphGraphics.length === 1
                             ? 100
-                            : transform.scale * 100
+                            : mapShift.scale * 100
                     }%`,
                     transform: `translateX(${
                         clingraphGraphics.length === 1
                             ? 0
-                            : transform.translation.x
+                            : mapShift.translation.x
                     }px)`,
                 }}
             >

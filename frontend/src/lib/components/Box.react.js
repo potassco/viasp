@@ -11,7 +11,7 @@ import { useRecoilState, useRecoilValue } from 'recoil';
 import { clingraphAtomByUuidState } from '../atoms/clingraphState';
 import { backendUrlState } from '../atoms/settingsState';
 import { nodeShowMiniByNodeUuidStateFamily } from '../atoms/nodesState';
-import { useContentDiv } from '../contexts/ContentDivContext';
+import { contentDivState } from '../atoms/currentGraphState';
 
 
 const BoxDiv = styled.div`
@@ -40,7 +40,8 @@ export function Box(props) {
     const [showMini, setShowMini] = useRecoilState(
         nodeShowMiniByNodeUuidStateFamily(clingraphUuid)
     );
-    const contentDiv = useContentDiv();
+    const contentDiv = useRecoilValue(contentDivState);
+
     
 
     // get size of image

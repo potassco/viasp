@@ -9,7 +9,6 @@ import {Edges} from '../components/Edges.react';
 import {Arrows} from '../components/Arrows.react';
 import {ShownNodesProvider} from '../contexts/ShownNodes';
 import {ContentDivProvider, useContentDiv} from '../contexts/ContentDivContext';
-import { MapShiftProvider, useMapShift } from '../contexts/MapShiftContext';
 import {ColorPaletteProvider} from '../contexts/ColorPalette';
 import {HighlightedNodeProvider} from '../contexts/HighlightedNode';
 import {SearchUserInputProvider} from '../contexts/SearchUserInput';
@@ -44,6 +43,7 @@ import {
     useRecoilCallback
 } from 'recoil';
 import {
+    contentDivState,
     currentSortState,
     numberOfTransformationsState,
     usingClingraphState,
@@ -60,6 +60,12 @@ import {
     draggableListSelectedItem,
     reorderTransformationDropIndicesState,
 } from '../atoms/reorderTransformationDropIndices';
+import {
+    doKeyZoomScaleCallback,
+    doKeyZoomTranslateCallback,
+    handleExternalMapChangeCallback,
+} from '../hooks/mapShift';
+import {mapShiftState} from '../atoms/mapShiftState';
 import useResizeObserver from '@react-hook/resize-observer';
 
 async function postCurrentSort(backendUrl, currentSort, oldIndex, newIndex) {
@@ -163,19 +169,14 @@ function ZoomInteraction() {
     const [zoomBtnPressed, setZoomBtnPressed] = useRecoilState(
         zoomButtonPressedState
     );
-    const {
-        mapShiftValue,
-        setMapShiftValue,
-        translationBounds,
-        setTranslationBounds,
-        doKeyZoomScale,
-        doKeyZoomTranslate,
-    } = useMapShift();
-    const {setAnimationState} = useAnimationUpdater();
-    const setAnimationStateRef = React.useRef(setAnimationState);
+    const mapShift = useRecoilValue(mapShiftState);
+    const doKeyZoomScale = useRecoilCallback(doKeyZoomScaleCallback, []);
+    const doKeyZoomTranslate = useRecoilCallback(doKeyZoomTranslateCallback, []);
+    const handleMapChange = useRecoilCallback(handleExternalMapChangeCallback, []);
     const setIsCurrentlyZooming = useSetRecoilState(
         isCurrentlyZoomingState
     );
+    
     const timerRef = useRef(null);
     useEffect(() => {
         setIsCurrentlyZooming(true);
@@ -185,43 +186,10 @@ function ZoomInteraction() {
         timerRef.current = setTimeout(() => {
             setIsCurrentlyZooming(false);
         }, Constants.isAnimatingTimeout);
-    }, [mapShiftValue, setIsCurrentlyZooming]);
+    }, [mapShift, setIsCurrentlyZooming]);
 
-    const contentDivRef = useContentDiv();
 
-    React.useEffect(() => {
-        const setAnimationState = setAnimationStateRef.current;
-        setAnimationState((oldValue) => ({
-            ...oldValue,
-            graph_zoom: {
-                translation: {x: 0, y: 0},
-                scale: 1,
-            },
-        }));
-        return () => {
-            setAnimationState((v) => {
-                const {graph_zoom: _, ...rest} = v;
-                return rest;
-            });
-        };
-    }, []);
-
-    const setNewTranslationBounds = React.useCallback(
-        (newScale) => {
-            const contentWidth = contentDivRef.current.clientWidth;
-            const rowWidth = contentWidth * newScale;
-            setTranslationBounds({
-                scale: 1,
-                translation: {
-                    xMax: 0,
-                    xMin: contentWidth - rowWidth,
-                },
-            });
-        },
-        [contentDivRef, setTranslationBounds]
-    );
-
-    React.useEffect(() => {
+    useEffect(() => {
         const handleKeyDown = (event) => {
             if (event.keyCode === Constants.zoomToggleBtn) {
                 setZoomBtnPressed(true);
@@ -257,52 +225,8 @@ function ZoomInteraction() {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [
-        zoomBtnPressed,
-        translationBounds,
-        setNewTranslationBounds,
-        setMapShiftValue,
-        doKeyZoomScale,
-        doKeyZoomTranslate,
-        setZoomBtnPressed
-    ]);
+    }, [doKeyZoomTranslate, doKeyZoomScale, setZoomBtnPressed, zoomBtnPressed]);
 
-    const handleMapChange = ({translation, scale}) => {
-        if (zoomBtnPressed) {
-            const newTranslation = {...translation};
-            let newScale = scale;
-
-            setNewTranslationBounds(newScale);
-
-            setMapShiftValue(() => {
-                if (newTranslation.x < translationBounds.translation.xMin) {
-                    newTranslation.x = translationBounds.translation.xMin;
-                }
-                if (newTranslation.x > translationBounds.translation.xMax) {
-                    newTranslation.x = translationBounds.translation.xMax;
-                }
-                if (newScale < translationBounds.scale) {
-                    newScale = translationBounds.scale;
-                }
-                return {
-                    translation: newTranslation,
-                    scale: newScale,
-                };
-            });
-        }
-    };
-
-    React.useEffect(() => {
-        setAnimationState((oldValue) => ({
-            ...oldValue,
-            graph_zoom: {
-                ...oldValue.graph_zoom,
-                translation: {
-                    x: mapShiftValue.translation.x,
-                },
-            },
-        }));
-    }, [mapShiftValue, setAnimationState]);
 
     return (
         <div
@@ -315,10 +239,10 @@ function ZoomInteraction() {
             }}
         >
             <MapInteraction
-                minScale={translationBounds.scale}
-                value={mapShiftValue}
+                minScale={1}
+                value={mapShift}
                 onChange={({translation, scale}) =>
-                    handleMapChange({translation, scale})
+                    handleMapChange(zoomBtnPressed, {translation, scale})
                 }
             >
                 {() => {
@@ -350,7 +274,8 @@ function MainWindow(props) {
         setBackendURLRecoil(backendUrl);
     }, [backendUrl, setBackendURLRecoil]);
     
-    const contentDivRef = useContentDiv();
+    const contentDivRef = useRef(null);
+    const setContentDiv = useSetRecoilState(contentDivState);
     const setColorPaletteRecoil = useSetRecoilState(colorPaletteState);
     React.useLayoutEffect(() => {
         setColorPaletteRecoil(colorPalette);
@@ -371,6 +296,10 @@ function MainWindow(props) {
             setIsCurrentlyResizing(false);
         }, Constants.isAnimatingTimeout);
     });
+
+    useEffect(() => {
+        setContentDiv(contentDivRef);
+    }, [setContentDiv]);
 
     return (
         <div className="content" id="content" ref={contentDivRef}>
@@ -421,34 +350,32 @@ export default function ViaspDash(props) {
                     <SettingsProvider backendURL={backendURL}>
                         <HighlightedNodeProvider>
                             <ContentDivProvider>
-                                <MapShiftProvider>
-                                    <FilterProvider>
-                                        <AnimationUpdaterProvider>
-                                            <UserMessagesProvider>
-                                                <ShownNodesProvider>
-                                                    <HighlightedSymbolProvider>
-                                                        <SearchUserInputProvider>
-                                                            <div>
-                                                                <UserMessages />
-                                                                <MainWindow
-                                                                    notifyDash={
-                                                                        notifyDash
-                                                                    }
-                                                                    backendUrl={
-                                                                        backendURL
-                                                                    }
-                                                                    colorPalette={
-                                                                        colorPalette
-                                                                    }
-                                                                />
-                                                            </div>
-                                                        </SearchUserInputProvider>
-                                                    </HighlightedSymbolProvider>
-                                                </ShownNodesProvider>
-                                            </UserMessagesProvider>
-                                        </AnimationUpdaterProvider>
-                                    </FilterProvider>
-                                </MapShiftProvider>
+                                <FilterProvider>
+                                    <AnimationUpdaterProvider>
+                                        <UserMessagesProvider>
+                                            <ShownNodesProvider>
+                                                <HighlightedSymbolProvider>
+                                                    <SearchUserInputProvider>
+                                                        <div>
+                                                            <UserMessages />
+                                                            <MainWindow
+                                                                notifyDash={
+                                                                    notifyDash
+                                                                }
+                                                                backendUrl={
+                                                                    backendURL
+                                                                }
+                                                                colorPalette={
+                                                                    colorPalette
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </SearchUserInputProvider>
+                                                </HighlightedSymbolProvider>
+                                            </ShownNodesProvider>
+                                        </UserMessagesProvider>
+                                    </AnimationUpdaterProvider>
+                                </FilterProvider>
                             </ContentDivProvider>
                         </HighlightedNodeProvider>
                     </SettingsProvider>

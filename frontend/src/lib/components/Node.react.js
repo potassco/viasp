@@ -24,10 +24,10 @@ import {
 } from '../atoms/nodesState';
 import {allHighlightedSymbolsState} from '../atoms/highlightsState';
 import {
+    contentDivState,
     shownRecursionState,
     isCurrentlyAnimatingHeightStateFamily,
 } from '../atoms/currentGraphState';
-import { ContentDivProvider, useContentDiv } from '../contexts/ContentDivContext';
 
 function any(iterable) {
     for (let index = 0; index < iterable.length; index++) {
@@ -434,7 +434,8 @@ export function Node(props) {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(debouncedManageShowMini, [branchSpace.current?.offsetWidth]);
-    const contentDiv = useContentDiv();
+    const contentDiv = useRecoilValue(contentDivState);
+    
     useResizeObserver(contentDiv, debouncedManageShowMini);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(debouncedManageShowMini, [longestSymbol]);
