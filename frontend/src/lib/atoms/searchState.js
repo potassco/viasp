@@ -19,9 +19,21 @@ const getSearchResultsFromServer = async (
 ) => {
     abortController.abort();
     abortController = new AbortController();
-    return fetch(`${backendUrl}/query?q=${encodeURIComponent(userInput)}`, {
-        signal: abortController.signal,
-    });
+    try {
+        const response = await fetch(
+            `${backendUrl}/query?q=${encodeURIComponent(userInput)}`,
+            {
+                signal: abortController.signal,
+            }
+        );
+        return response;
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Fetch aborted');
+        } else {
+            throw error;
+        }
+    }
 };
 
 export const queryResultState = selector({
@@ -38,6 +50,9 @@ export const queryResultState = selector({
             currentSort,
             searchInput
         );
+        if (!response) {
+            return [];
+        }
         const data = await response.json();
         return data;
     },
