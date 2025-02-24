@@ -1,4 +1,5 @@
 from enum import Enum
+from turtle import st
 
 VERBOSE = False
 
@@ -9,6 +10,7 @@ class Level(Enum):
     DEBUG = 3
     TRACE = 4
     PLAIN = 5
+    NOLINEWRAP = 6
 
 
 def log(text: str, level=Level.INFO) -> None:
@@ -24,6 +26,8 @@ def log(text: str, level=Level.INFO) -> None:
         print(f"*** ERROR: (viasp): {text}")
     elif level == Level.PLAIN:
         print(text)
+    elif level == Level.NOLINEWRAP:
+        print(text, end="")
     else:
         print(text)
 
@@ -74,3 +78,7 @@ def trace(text: str) -> None:
 @prevent_none_execution
 def plain(text: str) -> None:
     log(text, Level.PLAIN)
+
+@prevent_none_execution
+def plain_nolinewrap(text: str) -> None:
+    log(text, Level.NOLINEWRAP)

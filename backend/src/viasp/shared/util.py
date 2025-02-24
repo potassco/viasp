@@ -180,10 +180,17 @@ def parse_clingo_json(json_str):
             models_prgs.append({"facts": facts_str, "representation": output_str, "number": i+1, "cost": costs})
 
         optimum = []
-        if "Costs" in j["Models"]:
-            optimum = j['Models']['Costs']
+        if 'cost' in models_prgs[-1]:
+            optimum = models_prgs[-1]['cost']
 
-        return {"models": models_prgs, "unsatisfiable": j['Result'] == 'UNSATISFIABLE', "optimum": optimum}
+        return {
+            "Witnesses": models_prgs,
+            "Result": j['Result'],
+            "Models": j['Models'],
+            "Calls": j['Calls'],
+            "Time": j['Time'],
+            "optimum": optimum
+        }
 
     except json.JSONDecodeError as e:
         raise InvalidSyntax('The json can not be read.', str(e)) from None
@@ -275,7 +282,7 @@ class SolveHandle:
         self.data = data
 
     def __iter__(self):
-        return iter(self.data['models'])
+        return iter(self.data['Witnesses'])
 
     def __enter__(self):
         # Set up resources here
@@ -289,4 +296,4 @@ class SolveHandle:
         return self.data["optimum"]
 
     def get(self):
-        return self.Unsat(self.data['unsatisfiable'])
+        return self.Unsat(self.data['Result'])
