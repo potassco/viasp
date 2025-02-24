@@ -5,12 +5,11 @@ How it Works
 Architecture
 ============
 
-viASP is built on a server and client architecture. When using the ``viasp`` cli, the processes are combined, so that only the frontend is visible to the user.
+viASP is built on a server and client architecture. When using the ``viasp`` cli, the processes are combined, so that only the clingo calls and the client is visible to the user.
 
-The server is a Flask backend, which uses Clingo, SQLAlchemy with sqlite database, networkx for graph operations, and waitress for serving the app. A log file ``viasp.log`` is always created in the current working directory.
+The server is a Flask backend, which uses Clingo, SQLAlchemy with SQLite, networkx for graph operations, and waitress for serving the app. A log file ``viasp.log`` is always created in the current working directory.
 
 The client is a React frontend served by Dash. Recoil is used for state management, styled-components for styling.
-
 
 viASP Graph generation
 =======================
@@ -102,3 +101,23 @@ Once the ``show`` command is called, they are sent to the server where they reac
 The stable model represented as facts and the justifier program are loaded in a clingo Control instance. 
 Grounding yields the ``h`` symbolic symbols, which can be queried from the Control object. This process is repeated for every stable model to build the separate branches.
 
+
+Command Line Tool
+=================
+
+The ``viasp`` command line tool is a wrapper around the viASP server and client.
+
+When the ``viasp`` command is called, a python script, located in ``viasp/backend/src/viasp/__main__.py``, uses the viasp python API (:ref:`API Documentation`) to start a visualization. 
+
+First, the ``clingo`` command is called with the input program to get stable models and solver statistics in the shape of clingo's json output. 
+In case a clingo json output was provided as input to viASP, the script simply analyzes the input to get stable models and statistics. 
+Clingo's json is used as a basis for the command line output, which mocks the default clingo output.
+
+The script then starts the viASP server, sends the stable models and the input program to the server, and initiates the server's graph generation.
+If provided, the script also sends the clingraph encoding to the server.
+
+Lastly, the script starts the Dash server, which serves the viASP client. The client is opened in the default browser.
+
+In the case of an unsatisfiable input program, the script suggests using the relaxation mode through the ``--print-relax`` or ``--relax`` options. With these flags, the script either prints the relaxed program retrieved by calling the server's relaxation endpoint, or uses this program to generate a new viASP graph.
+
+A second command is available to start only the viASP server without the client. This is useful when the user wants to interact with the server through the API. The command is ``viasp_server``.
