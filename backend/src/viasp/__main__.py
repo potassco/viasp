@@ -19,7 +19,7 @@ from viasp.shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DE
 from viasp.shared.defaults import _
 from viasp.shared.io import clingo_model_to_stable_model, clingo_symbols_to_stable_model
 import viasp.shared.simple_logging
-from viasp.clingoapp_mock.clingo_solver import MockClingoApplicationCliOutputReturnJSON
+from viasp.shared import clingo_stats
 from viasp.shared.util import get_json, get_lp_files, SolveHandle
 from viasp.shared.simple_logging import error, warn, plain, info
 
@@ -180,6 +180,8 @@ class ViaspArgumentParser:
                            type=int,
                            dest='clingo_help',
                            metavar='<m>',
+                           nargs='?',
+                           const=1,
                            default=0,
                            choices=[0, 1, 2, 3])
         basic.add_argument('--version',
@@ -455,6 +457,8 @@ class ViaspRunner():
                     self.warn_unsat()
             else:
                 plain("SATISFIABLE\n")
+        sys.stdout.write(clingo_stats.Stats().summary(ctl.statistics) + "\n")
+        sys.stdout.write(clingo_stats.Stats().statistics(ctl.statistics) + "\n")
         return models_to_mark
 
     def run_relaxer(self, encoding_files, options, head_name,
@@ -500,14 +504,21 @@ class ViaspRunner():
             ctl_options.extend(["--const", f"{k}={v}"])
         ctl_options.extend(clingo_options)
         enable_python()
+        ctl = clingoControl(ctl_options)
+        for path in encoding_files:
+            if path[1] == "-":
+                ctl.add("base", [], options['stdin'])
+            else:
+                ctl.load(path[1])
+
 
         if model_from_json:
             models = self.filter_models_in_json(model_from_json, relax, select_model)
         else:
-            MockClingoApp = MockClingoApplicationCliOutputReturnJSON(
-                [f[0] for f in encoding_files], ctl_options, options['warn'])
-            model_from_json = MockClingoApp.run()
-            models = self.filter_models_in_json(model_from_json, relax, select_model)
+            models = self.run_with_clingo(ctl, relax,
+                                options['original_max_models'],
+                                options['max_models'],
+                                options['opt_mode'])
 
         return models
 
