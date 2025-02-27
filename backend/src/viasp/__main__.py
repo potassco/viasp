@@ -386,6 +386,7 @@ class ViaspRunner():
 
     def filter_models_in_json(self, model_from_json, relax, select_model):
         models_to_mark = []
+        model_number = 1
 
         if select_model is not None:
             for m in select_model:
@@ -400,6 +401,8 @@ class ViaspRunner():
             if select_model is not None:
                 for model in handle:
                     if model['number'] - 1 in select_model:
+                        plain(f"Answer: {model['number']}\n{model['representation']}")
+                        model_number += 1
                         symbols = viasp.api.parse_fact_string(
                             model['facts'], raise_nonfact=True)
                         stable_model = clingo_symbols_to_stable_model(symbols)
@@ -411,10 +414,19 @@ class ViaspRunner():
                                                           raise_nonfact=True)
                     stable_model = clingo_symbols_to_stable_model(symbols)
                     if len(handle.opt()) == 0:
+                        plain(
+                            f"Answer: {model['number']}\n{model['representation']}"
+                        )
+                        model_number += 1
                         models_to_mark.append(stable_model)
                     if len(handle.opt()) > 0 and model["cost"] == handle.opt():
+                        plain(
+                            f"Answer: {model['number']}\n{model['representation']}"
+                        )
+                        model_number += 1
                         models_to_mark.append(stable_model)
 
+            sys.stdout.write(clingo_stats.Stats().summary_from_json(model_from_json) + "\n")
             if model_from_json['Result'] == "UNSATISFIABLE":
                 if relax:
                     self._should_run_relaxation = True
@@ -449,16 +461,13 @@ class ViaspRunner():
                         and original_max_models == m.number):
                     break
 
+            sys.stdout.write(clingo_stats.Stats().summary(ctl.statistics) + "\n")
+            sys.stdout.write(clingo_stats.Stats().statistics(ctl.statistics) + "\n")
             if handle.get().unsatisfiable:
-                plain("UNSATISFIABLE\n")
                 if relax:
                     self._should_run_relaxation = True
                 else:
                     self.warn_unsat()
-            else:
-                plain("SATISFIABLE\n")
-        sys.stdout.write(clingo_stats.Stats().summary(ctl.statistics) + "\n")
-        sys.stdout.write(clingo_stats.Stats().statistics(ctl.statistics) + "\n")
         return models_to_mark
 
     def run_relaxer(self, encoding_files, options, head_name,

@@ -18,24 +18,37 @@ class Stats:
     # requires the statistics from a Control object initialized with --stats
     def summary(self, statistics, models=True):
         out = ""
+
         summary = statistics['summary']
-        moreStr = "+" if int(summary['exhausted']) == 0 else ""
+        isOpt = len(summary['costs']) > 0 and int(summary['exhausted']) != 0
         numEnum = int(summary['models']['enumerated'])
+        numOpt = int(summary['models']['optimal'])
+        hasCosts = len(summary['costs']) > 0
+        if isOpt:
+            out += "OPTIMUM FOUND\n\n"
+        elif numEnum > 0:
+            out += "SATISFIABLE\n\n"
+        else:
+            out += "UNSATISFIABLE\n\n"
+
+        moreStr = "+" if int(summary['exhausted']) == 0 else ""
         if models:
             out += self.__print_key("Models")
             out += "{}{}\n".format(numEnum, moreStr)
-        if len(summary['costs']) > 0:
+        if hasCosts:
             out += self.__print_key("  Optimum")
-            isOpt = len(summary['costs']) > 0 and int(summary['exhausted']) != 0
             out += "{}\n".format('yes' if isOpt else 'unknown')
 
-            numOpt = int(summary['models']['optimal'])
             if numOpt > 1:
                 out += self.__print_key("  Optimal")
                 out += "{}\n".format(numOpt)
 
             if numOpt > 0:
-                costs = " ".join(["{:.0f}".format(c) for c in summary['costs']])
+                costs = " ".join([
+                    "{:.0f}".format(c)
+                    if c.is_integer() else "{:.2f}".format(c)
+                    for c in summary['costs']
+                ])
                 out += self.__print_key("Optimization")
                 out += "{}\n".format(costs)
 
@@ -58,9 +71,10 @@ class Stats:
 
         concurrency = int(summary['concurrency'])
         if concurrency > 1:
+            winner = int(summary['winner'])
             out += "\n" + self.__print_key_value("Threads",
                                                  "{:<8}".format(concurrency))
-            # when winner info becomes available: " (Winner: {})\n".format(winner)
+            out += " (Winner: {})".format(winner)
 
         return out
 
@@ -304,4 +318,57 @@ class Stats:
             self.__percent(binary, sum), self.__percent(ternary, sum),
             self.__percent(sum - binary - ternary, sum))
 
+        return out
+
+    def summary_from_json(self, clingo_outf_json, models=True) -> str:
+        out = ""
+        out += f"{clingo_outf_json['Result']}\n\n"
+
+        numEnum = int(clingo_outf_json['Models']['Number'])
+        moreStr = "+" if clingo_outf_json['Models']['More'] == "yes" else ""
+        if models:
+            out += self.__print_key("Models")
+            out += "{}{}\n".format(numEnum, moreStr)
+
+        hasCosts = len(clingo_outf_json['optimum']) > 0
+        if hasCosts:
+            isOpt = 'Costs' in clingo_outf_json['Models'].keys()
+            out += self.__print_key("  Optimum")
+            out += "{}\n".format('yes' if isOpt else 'unknown')
+
+            if isOpt:
+                numOpt = clingo_outf_json['Models']['Optimal']
+
+                if numOpt > 1:
+                    out += self.__print_key("  Optimal")
+                    out += "{}\n".format(numOpt)
+
+                if numOpt > 0:
+                    costs = " ".join([
+                        "{}".format(c) for c in clingo_outf_json['Models']['Costs']
+                    ])
+                    out += self.__print_key("Optimization")
+                    out += "{}\n".format(costs)
+
+
+        out += self.__print_key("Calls")
+        out += f"{clingo_outf_json['Calls']}\n"
+        times = clingo_outf_json['Time']
+        out += self.__print_key("Time")
+        totalTime = float(times['Total'])
+        solveTime = float(times['Solve'])
+        satTime = float(times['Model'])
+        unsatTime = float(times['Unsat'])
+        cpuTime = float(times['CPU'])
+        out += "{:.3f}s (Solving: {:.2f}s 1st Model: {:.2f}s Unsat: {:.2f}s)\n".format(
+            totalTime, solveTime, satTime, unsatTime)
+        out += self.__print_key_value("CPU Time", "{:.3f}s\n".format(cpuTime))
+
+        if 'Threads' in clingo_outf_json.keys() and 'Winner' in clingo_outf_json.keys():
+            concurrency = int(clingo_outf_json['Threads'])
+            if concurrency > 1:
+                out += self.__print_key("Threads")
+                winner = clingo_outf_json['Winner']
+                out += "{:<8}".format(concurrency)
+                out += " (Winner: {})".format(winner)
         return out

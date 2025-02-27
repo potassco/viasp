@@ -164,6 +164,8 @@ def parse_clingo_json(json_str):
     Raises:
         :py:class:`InvalidSyntax`: if the json format is invalid or is not a SAT result.
     """
+    
+    ans = {}
     try:
         j = json.loads(json_str.encode())
         validate(instance=j, schema=clingo_json_schema)
@@ -178,19 +180,20 @@ def parse_clingo_json(json_str):
             output_str = " ".join([f"{v}" for v in w["Value"]])
             costs = w.get("Costs", [])
             models_prgs.append({"facts": facts_str, "representation": output_str, "number": i+1, "cost": costs})
+        ans.update({"Witnesses": models_prgs})
 
         optimum = []
         if 'cost' in models_prgs[-1]:
             optimum = models_prgs[-1]['cost']
-
-        return {
-            "Witnesses": models_prgs,
-            "Result": j['Result'],
-            "Models": j['Models'],
-            "Calls": j['Calls'],
-            "Time": j['Time'],
-            "optimum": optimum
-        }
+        ans.update({"optimum": optimum})
+        
+        if 'Threads' in j.keys() and 'Winner' in j.keys():
+            ans.update({"Threads": j['Threads'], "Winner": j['Winner']})
+        ans.update({"Result": j['Result'], 
+                    "Calls": j['Calls'],
+                    "Models": j['Models'],
+                    "Time": j['Time']})
+        return ans
 
     except json.JSONDecodeError as e:
         raise InvalidSyntax('The json can not be read.', str(e)) from None
