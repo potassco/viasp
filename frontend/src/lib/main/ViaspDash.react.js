@@ -55,7 +55,7 @@ import {
 } from '../atoms/currentGraphState';
 import { zoomButtonPressedState } from '../atoms/zoomState';
 import {backendUrlState, colorPaletteState} from '../atoms/settingsState'
-import {clearAllHighlightsCallback} from '../atoms/highlightsState';
+import {clearAllHighlightsCallback} from '../hooks/highlights';
 import {
     draggableListSelectedItem,
     reorderTransformationDropIndicesState,

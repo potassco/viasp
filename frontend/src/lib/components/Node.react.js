@@ -3,17 +3,28 @@ import './node.css';
 import PropTypes from 'prop-types';
 import {Symbol} from './Symbol.react';
 import {useColorPalette} from '../contexts/ColorPalette';
-import {styled} from 'styled-components';
-import {useSettings} from '../contexts/Settings';
+import {
+    NodeDiv,
+    SuperNodeDiv,
+    MiniNodeSpan,
+    SetContainerDiv,
+    SetValueSpan,
+    RecursionButtonDiv,
+    RecursionButtonTextDiv,
+} from './Node.style';
 import {NODE} from '../types/propTypes';
-import {useFilters} from '../contexts/Filters';
 import AnimateHeight from 'react-animate-height';
 import {IconWrapper} from '../LazyLoader';
 import useResizeObserver from '@react-hook/resize-observer';
-import { emToPixel} from '../utils';
+import { emToPixel, scrollParentToChild, any} from '../utils';
 import debounce from 'lodash.debounce';
 import { Constants } from '../constants';
-import {useRecoilState, useRecoilValue, useSetRecoilState} from 'recoil';
+import {
+    useRecoilState,
+    useRecoilValue,
+    useSetRecoilState,
+    useRecoilCallback,
+} from 'recoil';
 import {
     nodeAtomByNodeUuidStateFamily,
     nodeIsExpandableVByNodeUuidStateFamily,
@@ -21,22 +32,23 @@ import {
     nodeShowMiniByNodeUuidStateFamily,
     nodeIsExpandVAllTheWayByNodeUuidStateFamily,
     longestSymbolInNodeByNodeUuidStateFamily,
+    symbolUuidsByNodeUuidStateFamily,
 } from '../atoms/nodesState';
-import {allHighlightedSymbolsState} from '../atoms/highlightsState';
+import {
+    changeXShiftWithinBoundsCallback,
+} from '../hooks/mapShift';
+import {
+    allHighlightedSymbolsState,
+    pulsatingHighlightsStateByNodeUuidStateFamily,
+} from '../atoms/highlightsState';
 import {
     contentDivState,
     shownRecursionState,
     isCurrentlyAnimatingHeightStateFamily,
 } from '../atoms/currentGraphState';
 
-function any(iterable) {
-    for (let index = 0; index < iterable.length; index++) {
-        if (iterable[index]) {
-            return true;
-        }
-    }
-    return false;
-}
+
+
 
 
 function NodeContent(props) {
@@ -48,12 +60,10 @@ function NodeContent(props) {
         transformationHash,
         subnodeIndex,
     } = props;
-    const {state} = useSettings();
     const colorPalette = useColorPalette();
-    const [{activeFilters}] = useFilters();
     const highlightedSymbols = useRecoilValue(allHighlightedSymbolsState);
-    const recoilNode = useRecoilValue(
-        nodeAtomByNodeUuidStateFamily({
+    const contentToShow = useRecoilValue(
+        symbolUuidsByNodeUuidStateFamily({
             transformationHash,
             nodeUuid,
             subnodeIndex,
@@ -72,15 +82,7 @@ function NodeContent(props) {
     const setLongestSymbol = useSetRecoilState(
         longestSymbolInNodeByNodeUuidStateFamily(nodeUuid)
     );
-
     const isSubnode = typeof subnodeIndex !== 'undefined';
-
-    let contentToShow;
-    if (state.show_all) {
-        contentToShow = recoilNode.atom.map((s) => s.uuid);
-    } else {
-        contentToShow = recoilNode.diff.map((s) => s.uuid);
-    }
 
     const isMounted = useRef(false);
     const setContainerRef = useRef(null);
@@ -254,7 +256,6 @@ function NodeContent(props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(symbolLengthManager, []);
 
-    const classNames2 = `set_value`;
     const renderedSymbols = contentToShow.map((s) => {
         return (
             <div key={s} data-uuid={s}>
@@ -270,17 +271,17 @@ function NodeContent(props) {
     });
 
     return (
-        <div
+        <SetContainerDiv
             className={`set_container ${
-                recoilNode.loading === true ? 'hidden' : ''
+                contentToShow.length === 0 ? 'hidden' : ''
             }`}
-            style={{color: colorPalette.dark}}
             ref={setContainerRef}
+            $colorPalette={colorPalette}
         >
-            <span className={classNames2}>
+            <SetValueSpan className={'set_value'}>
                 {renderedSymbols.length > 0 ? renderedSymbols : ''}
-            </span>
-        </div>
+            </SetValueSpan>
+        </SetContainerDiv>
     );
 }
 
@@ -311,6 +312,52 @@ NodeContent.propTypes = {
     subnodeIndex: PropTypes.number,
 };
 
+function MiniNode(props) {
+    const {nodeUuid, transformationHash} = props;
+    const colorPalette = useColorPalette();
+    const contentDiv = useRecoilValue(contentDivState);
+    const miniNodeRef = useRef(null);
+    const changeXShiftWithinBounds = useRecoilCallback(
+        changeXShiftWithinBoundsCallback,
+        []
+    );
+
+    const pulsatingState = useRecoilValue(
+        pulsatingHighlightsStateByNodeUuidStateFamily({
+            transformationHash,
+            nodeUuid
+        })
+    )
+    if (pulsatingState.isPulsating) {
+        scrollParentToChild(
+            contentDiv.current,
+            miniNodeRef.current,
+            changeXShiftWithinBounds
+        );
+    }
+
+    return (
+        <MiniNodeSpan
+            className={`mini ${nodeUuid}`}
+            $colorPalette={colorPalette}
+            $pulsate={pulsatingState.isPulsating}
+            $pulsatingColor={pulsatingState.color}
+            ref={miniNodeRef}
+        />
+    );
+}
+
+MiniNode.propTypes = {
+    /**
+     * The id of the node
+     * */
+    nodeUuid: PropTypes.string,
+    /**
+     * The transformation hash
+     * */
+    transformationHash: PropTypes.string,
+};
+
 function RecursionButton(props) {
     const {node} = props;
     const colorPalette = useColorPalette();
@@ -328,14 +375,14 @@ function RecursionButton(props) {
     }
 
     return (
-        <div className={'recursion_button'} onClick={handleClick}>
+        <RecursionButtonDiv
+            className={'recursion_button'}
+            onClick={handleClick}
+        >
             {node.recursive.length === 0 ? null : (
-                <div
+                <RecursionButtonTextDiv
                     className={'recursion_button_text'}
-                    style={{
-                        backgroundColor: colorPalette.primary,
-                        color: colorPalette.light,
-                    }}
+                    $colorPalette={colorPalette}
                 >
                     <Suspense fallback={<div>R</div>}>
                         <IconWrapper
@@ -344,9 +391,9 @@ function RecursionButton(props) {
                             height="9"
                         />
                     </Suspense>
-                </div>
+                </RecursionButtonTextDiv>
             )}
-        </div>
+        </RecursionButtonDiv>
     );
 }
 
@@ -358,30 +405,6 @@ RecursionButton.propTypes = {
 };
 
 
-const NodeDiv = styled.div`
-    background-color: ${({$colorPalette}) => $colorPalette.light};
-    color: ${({$colorPalette}) => $colorPalette.primary};
-    overflow: hidden;
-
-    border-radius: 0.7em;
-    border: 1pt solid;
-    margin: 12pt 3% 12pt 3%;
-    position: relative;
-    height: max-content;
-    overflow: hidden;
-
-    &:hover {
-        transition: drop-shadow 0.1s;
-        filter: drop-shadow(0 0 0.14em #333);
-    }
-`;
-
-const SuperNodeDiv = styled(NodeDiv)`
-    background-color: transparent;
-    &:hover {
-        filter: none;
-    }
-`;
 
 export function Node(props) {
     const {
@@ -435,7 +458,7 @@ export function Node(props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(debouncedManageShowMini, [branchSpace.current?.offsetWidth]);
     const contentDiv = useRecoilValue(contentDivState);
-    
+
     useResizeObserver(contentDiv, debouncedManageShowMini);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(debouncedManageShowMini, [longestSymbol]);
@@ -461,43 +484,43 @@ export function Node(props) {
     };
 
     return (
-        <NodeDiv
-            id={node.uuid}
-            className={`txt-elem ${node.uuid}`}
-            $colorPalette={colorPalette}
-        >
+        <>
             {showMini ? (
-                <div
-                    style={{
-                        backgroundColor: colorPalette.primary,
-                        color: colorPalette.primary,
-                    }}
-                    className={'mini'}
+                <MiniNode
+                    id={node.uuid}
+                    transformationHash={transformationHash}
+                    nodeUuid={nodeUuid}
                 />
             ) : (
-                <AnimateHeight
-                    id={`${node.uuid}_animate_height`}
-                    duration={500}
-                    height={height}
-                    ref={animateHeightRef}
-                    contentClassName={`set_too_high ${
-                        node.loading === true ? 'loading' : null
-                    }`}
-                    onHeightAnimationStart={startAnimateHeight}
-                    onHeightAnimationEnd={endAnimateHeight}
+                <NodeDiv
+                    id={node.uuid}
+                    className={`txt-elem ${node.uuid}`}
+                    $colorPalette={colorPalette}
                 >
-                    <NodeContent
-                        nodeUuid={nodeUuid}
-                        setHeight={setHeight}
-                        parentRef={animateHeightRef}
-                        transformationId={transformationId}
-                        transformationHash={transformationHash}
-                        subnodeIndex={subnodeIndex}
-                    />
-                    <RecursionButton node={node} />
-                </AnimateHeight>
+                    <AnimateHeight
+                        id={`${node.uuid}_animate_height`}
+                        duration={500}
+                        height={height}
+                        ref={animateHeightRef}
+                        contentClassName={`set_too_high ${
+                            node.loading === true ? 'loading' : null
+                        }`}
+                        onHeightAnimationStart={startAnimateHeight}
+                        onHeightAnimationEnd={endAnimateHeight}
+                    >
+                        <NodeContent
+                            nodeUuid={nodeUuid}
+                            setHeight={setHeight}
+                            parentRef={animateHeightRef}
+                            transformationId={transformationId}
+                            transformationHash={transformationHash}
+                            subnodeIndex={subnodeIndex}
+                        />
+                        <RecursionButton node={node} />
+                    </AnimateHeight>
+                </NodeDiv>
             )}
-        </NodeDiv>
+        </>
     );
 }
 
@@ -571,20 +594,19 @@ export function RecursiveSuperNode(props) {
 
 
     return (
+        <>
+        {showMini ? (
+            <MiniNode
+                id={node.uuid}
+                transformationHash={transformationHash}
+                nodeUuid={nodeUuid}
+            />
+        ) : (
         <SuperNodeDiv
             className={node.uuid}
             id={node.uuid}
             $colorPalette={colorPalette}
         >
-            {showMini ? (
-                <div
-                    style={{
-                        backgroundColor: colorPalette.primary,
-                        color: colorPalette.primary,
-                    }}
-                    className={'mini'}
-                />
-            ) : (
                 <>
                     <RecursionButton node={node} />
                     {node.recursive.map((subnode, i) => {
@@ -600,8 +622,9 @@ export function RecursiveSuperNode(props) {
                         );
                     })}
                 </>
+            </SuperNodeDiv>
             )}
-        </SuperNodeDiv>
+        </>
     );
 }
 

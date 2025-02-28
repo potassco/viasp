@@ -157,3 +157,47 @@ export function setNextHoverColor(newValue, explanationHighlightColors) {
     const nextHoverColor = getNextColor(newValue, explanationHighlightColors);
     document.documentElement.style.setProperty('--hover-color', nextHoverColor);
 }
+
+export function any(iterable) {
+    for (let index = 0; index < iterable.length; index++) {
+        if (iterable[index]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+export function scrollParentToChild(parent, child, changexShiftWithinBounds) {
+    if (!child || !parent) {
+        return;
+    }
+    var parentRect = parent.getBoundingClientRect();
+    var parentViewableArea = {
+        height: parent.clientHeight,
+        width: parent.clientWidth,
+    };
+
+    var childRect = child.getBoundingClientRect();
+    var isChildInVerticalViewport =
+        childRect.top >= parentRect.top &&
+        childRect.bottom <= parentRect.top + parentViewableArea.height;
+    var isChildInHorizontalViewport =
+        childRect.left >= parentRect.left &&
+        childRect.right <= parentRect.left + parentViewableArea.width;
+
+    if (!isChildInVerticalViewport) {
+        parent.scrollTo({
+            top:
+                childRect.top -
+                parentRect.top +
+                parent.scrollTop -
+                parent.clientHeight / 2,
+            behavior: 'smooth',
+        });
+    }
+    if (!isChildInHorizontalViewport) {
+        changexShiftWithinBounds(
+            -childRect.left
+        )
+    }
+}

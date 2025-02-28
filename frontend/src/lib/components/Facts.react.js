@@ -1,6 +1,7 @@
 import './facts.css';
 import React, {useRef, Suspense} from 'react';
 import {styled} from 'styled-components';
+import { RowRowDiv } from './Row.style';
 import { Constants } from "../constants";
 import { useColorPalette} from '../contexts/ColorPalette';
 import {OverflowButton} from './OverflowButton.react';
@@ -23,10 +24,6 @@ const RowContainer = styled.div`
     transition: opacity 0.5s ease-out;
 `;
 
-const RowRowDiv = styled.div`
-    background: ${(props) => props.$background};
-    width: 100%;
-`;
 
 export function Facts() {
     const [nodeUuid] = useRecoilValue(
@@ -52,6 +49,10 @@ export function Facts() {
             <RowRowDiv
                 className="row_row"
                 $background={colorPalette.rowShading[0]}
+                $onlyOneNode={true}
+                $scale={1}
+                $translation={0}
+                $isConstraintsOnly={false}
                 ref={rowbodyRef}
             >
                 <Suspense fallback={<div>Loading...</div>}>

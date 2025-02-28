@@ -72,27 +72,6 @@
     -webkit-transition: opacity .5s ease-in-out;
 }
 
-.row_row {
-    display: flex;
-    justify-content: space-around;
-    align-content: center;
-    background: transparent;
-    overflow: hidden;
-}
-
-.branch_space {
-    display: flex;
-    justify-content: center;
-    overflow: hidden;
-    max-width: 75%;
-}
-
-.row_container {
-    justify-content: space-around;
-    background: transparent;
-    padding-top: 1em;
-    /* overflow-y: hidden; */
-}
 
 .faded {
     opacity: 0.6;

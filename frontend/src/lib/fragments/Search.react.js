@@ -8,10 +8,8 @@ import { pixelToEm } from '../utils';
 import { NavigationArea } from './NavigationArea.react';
 import {SearchResultSuggestionsList} from './SearchResult.react';
 import { useRecoilState, useRecoilValue, useRecoilCallback, useResetRecoilState } from 'recoil';
-import {
-    symbolSearchHighlightsState,
-    handleSearchResultSuggestionsCallback,
-} from '../atoms/highlightsState';
+import {symbolSearchHighlightsState} from '../atoms/highlightsState';
+import {handleSearchResultSuggestionsCallback} from '../hooks/highlights';
 import { colorPaletteState } from '../atoms/settingsState';
 import {
     searchInputState,

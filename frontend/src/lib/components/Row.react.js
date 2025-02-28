@@ -1,26 +1,19 @@
 import React, {Suspense, useRef, useEffect} from 'react';
-import {styled} from 'styled-components';
 import {OverflowButton} from './OverflowButton.react';
 import {Constants} from '../constants';
 import './row.css';
+import {RowSignalContainerDiv, RowContainerDiv, RowRowDiv} from './Row.style';
 import PropTypes from 'prop-types';
 import {RowHeader} from './RowHeader.react';
 import {BranchSpace} from './BranchSpace.react';
 import {ColorPaletteContext} from '../contexts/ColorPalette';
 import {DragHandle} from './DragHandle.react';
-import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
-import {useRecoilState, useRecoilValue, useSetRecoilState, waitForNone} from 'recoil';
+import {useRecoilValue} from 'recoil';
 import {proxyTransformationStateFamily} from '../atoms/transformationsState';
 import {nodeUuidsByTransforamtionStateFamily} from '../atoms/nodesState';
 import {reorderTransformationDropIndicesState} from '../atoms/reorderTransformationDropIndices';
-import {transformationMountedStateFamily} from '../atoms/currentGraphState';
 import { mapShiftState } from '../atoms/mapShiftState';
 
-const RowSignalContainerDiv = styled.div`
-    position: relative;
-    max-height: 100%;
-    opacity: 1;
-`
 
 export class RowTemplate extends React.Component {
     constructor(props) {
@@ -87,13 +80,6 @@ export class RowTemplate extends React.Component {
                             $scale={scale}
                             $shadow={shadow}
                             $background={background}
-                            style={{
-                                "transform": `scale(${scale})`,
-                                "transformOrigin": "left",
-                                "boxShadow": `rgba(0, 0, 0, 0.3) 0px ${shadow}px 
-                                    ${2 * shadow}px 0px`,
-                                "background": background,
-                            }}
                         >
                             <Row
                                 key={transformation.id}
@@ -132,13 +118,6 @@ RowTemplate.propTypes = {
     commonProps: PropTypes.object,
 };
 
-const RowContainer = styled.div`
-    opacity: ${(props) =>
-        props.$draggedRowCanBeDroppedHere
-            ? 1
-            : 1 - Constants.opacityMultiplier};
-    transition: opacity 0.5s ease-out;
-`;
 
 export const Row = React.memo(
     (props) => {
@@ -172,7 +151,7 @@ export const Row = React.memo(
 
         return (
             <Suspense fallback={<div>Loading Row...</div>}>
-                <RowContainer
+                <RowContainerDiv
                     className={`row_container ${transformation.hash}`}
                     $draggedRowCanBeDroppedHere={draggedRowCanBeDroppedHere}
                 >
@@ -193,20 +172,14 @@ export const Row = React.memo(
                             dragHandleProps={dragHandleProps}
                         />
                     )}
-                    <div
+                    <RowRowDiv
                         ref={rowbodyRef}
                         className="row_row"
-                        style={{
-                            width: `${
-                                nodes.length === 1 ? 100 : mapShift.scale * 100
-                            }%`,
-                            transform: `translateX(${
-                                nodes.length === 1 ? 0 : mapShift.translation.x
-                            }px)`,
-                            paddingBottom: `${
-                                transformation.is_constraints_only ? '2em' : '0'
-                            }`,
-                        }}
+                        $onlyOneNode={nodes.length === 1}
+                        $scale = {mapShift.scale}
+                        $translation = {mapShift.translation.x}
+                        $isConstraintsOnly = {transformation.is_constraints_only}
+                        $background = {'transparent'}
                     >
                         {nodes.map((node) => (
                             <BranchSpace
@@ -216,9 +189,9 @@ export const Row = React.memo(
                                 nodeUuid={node}
                             />
                         ))}
-                    </div>
+                    </RowRowDiv>
                     <OverflowButton transformationHash={transformation.hash} />
-                </RowContainer>
+                </RowContainerDiv>
             </Suspense>
         );
     },

@@ -1,13 +1,11 @@
 import {atomFamily, selectorFamily, waitForAll, noWait} from 'recoil';
 import { currentSortState } from './currentGraphState';
-import { backendUrlState } from './settingsState';
+import {backendUrlState, showDiffOnlyState} from './settingsState';
 import {clingraphNodesState} from './clingraphState';
 
 import {make_default_nodes} from '../utils/index';
 
 const getNodesFromServer = async (backendUrl, transformationHash, currentSort) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000)); 
-
     return fetch(`${backendUrl}/graph/children`, {
         method: 'POST',
         headers: {
@@ -100,6 +98,23 @@ export const nodeAtomByNodeUuidStateFamily = atomFamily({
             }
     })
 })
+
+export const symbolUuidsByNodeUuidStateFamily = selectorFamily({
+    key: 'symbolUuidsByNodeUuidState',
+    get:
+        ({transformationHash, nodeUuid, subnodeIndex}) =>
+        ({get}) => {
+            const node = get(nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid, subnodeIndex}));
+            if (node.loading) {
+                return [];
+            }
+            const showDiffOnly = get(showDiffOnlyState);
+            if (showDiffOnly) {
+                return node.diff.map((n) => n.uuid);
+            }
+            return node.atom.map((n) => n.uuid);
+        },
+});
 
 export const nodesByTransformationHash = selectorFamily({
     key: 'nodesByTransformationHash',

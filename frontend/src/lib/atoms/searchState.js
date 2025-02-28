@@ -29,10 +29,9 @@ const getSearchResultsFromServer = async (
         return response;
     } catch (error) {
         if (error.name === 'AbortError') {
-            console.log('Fetch aborted');
-        } else {
-            throw error;
-        }
+            return null;
+        };
+        throw error;
     }
 };
 

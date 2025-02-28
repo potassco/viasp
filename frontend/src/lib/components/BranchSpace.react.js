@@ -1,5 +1,6 @@
 import React, {useRef} from 'react';
 import PropTypes from 'prop-types';
+import {BranchSpaceDiv} from './BranchSpace.style';
 import {Node, RecursiveSuperNode} from './Node.react';
 import {Box} from './Box.react';
 import {useRecoilValue} from 'recoil';
@@ -18,16 +19,14 @@ export function BranchSpace(props) {
     )
     const branchSpaceRef = useRef(null);
 
-    // if (transformationId === '0') {console.log("Rerender BranchSpace")}
     return (
-        <div
+        <BranchSpaceDiv
             className="branch_space"
             key={node.uuid}
-            style={{flex: `0 0 ${node.space_multiplier * 100}%`}}
+            $spaceMultiplier={node.space_multiplier}
             ref={branchSpaceRef}
         >
-            {node.recursive.length > 0 &&
-            shownRecursion.includes(nodeUuid) ? (
+            {node.recursive.length > 0 && shownRecursion.includes(nodeUuid) ? (
                 <RecursiveSuperNode
                     key={node.uuid}
                     transformationHash={transformationHash}
@@ -50,7 +49,7 @@ export function BranchSpace(props) {
                     transformationId={transformationId}
                 />
             )}
-        </div>
+        </BranchSpaceDiv>
     );
 }
 

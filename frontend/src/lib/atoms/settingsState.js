@@ -12,3 +12,8 @@ export const colorPaletteState = atom({
     key: 'colorPalette',
     default: defaultColorPalette
 })
+
+export const showDiffOnlyState = atom({
+    key: 'showDiffOnlyState',
+    default: true,
+});

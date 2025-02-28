@@ -9,9 +9,10 @@ import { Constants } from "../constants";
 import {useRecoilValue, useSetRecoilState, useRecoilCallback} from 'recoil';
 import { colorPaletteState } from '../atoms/settingsState';
 import {
-    allHighlightedSymbolsState,
+    allHighlightedSymbolsState} from '../atoms/highlightsState';
+import {
     clearAllHighlightsCallback,
-} from '../atoms/highlightsState';
+} from '../hooks/highlights';
 import { searchInputState } from '../atoms/searchState';
 
 const ClearMarkedDiv = styled.div`
