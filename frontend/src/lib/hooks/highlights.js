@@ -17,6 +17,9 @@ import {
     selectedSuggestionState,
 } from '../atoms/searchState';
 
+const removeRuleDotHighlightTimeout = {};
+const removeRuleBackgroundHighlightTimeout = {};
+
 
 export const setReasonHighlightsCallback =
     ({snapshot, set}) =>
@@ -86,6 +89,9 @@ export const setReasonHighlightsCallback =
                 shown: true,
             },
         ];
+        if (removeRuleDotHighlightTimeout[symbolUuid]) {
+            clearTimeout(removeRuleDotHighlightTimeout[symbolUuid]);
+        }
         set(
             ruleDotHighlightsStateFamily(transformationHash),
             newRuleDotHighlights
@@ -106,11 +112,14 @@ export const setReasonHighlightsCallback =
             },
             ...ruleBackgroundHighlights,
         ];
+        if (removeRuleBackgroundHighlightTimeout[symbolUuid]) {
+            clearTimeout(removeRuleBackgroundHighlightTimeout[symbolUuid]);
+        }
         set(
             ruleBackgroundHighlightsStateFamily(transformationHash),
             updatedRuleBackgroundHighlights
         );
-        setTimeout(() => {
+        removeRuleBackgroundHighlightTimeout[symbolUuid] = setTimeout(() => {
             set(
                 ruleBackgroundHighlightsStateFamily(transformationHash),
                 (ruleBackgroundHighlights) =>
@@ -118,6 +127,7 @@ export const setReasonHighlightsCallback =
                         (h) => h.symbolUuid !== symbolUuid
                     )
             );
+            removeRuleBackgroundHighlightTimeout[symbolUuid] = null;
         }, Constants.ruleHighlightDuration);
     };
 
@@ -156,7 +166,7 @@ export const removeSymbolHighlightsCallback =
                     return {...h, shown: false};
                 })
         );
-        setTimeout(() => {
+        removeRuleDotHighlightTimeout[symbolUuid] = setTimeout(() => {
             set(
                 ruleDotHighlightsStateFamily(transformationHash),
                 (ruleBackgroundHighlights) =>
@@ -164,6 +174,7 @@ export const removeSymbolHighlightsCallback =
                         (h) => h.symbolUuid !== symbolUuid
                     )
             );
+            removeRuleDotHighlightTimeout[symbolUuid] = null;
         }, Constants.ruleHighlightFadeDuration);
 
         // rule Background Highlights

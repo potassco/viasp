@@ -1,9 +1,9 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import {styled} from 'styled-components';
-import {useColorPalette} from '../contexts/ColorPalette';
 import IconWrapper from './IconWrapper.react';
 import {useRecoilValue, useSetRecoilState} from 'recoil';
+import {colorPaletteState} from '../atoms/settingsState';
 import {
     symbolSearchHighlightsState,
 } from '../atoms/highlightsState';
@@ -22,7 +22,7 @@ const NavigationAreaDiv = styled.div`
 
 export function CloseButton(props) {
     const {onClose} = props;
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
 
     return (
         <IconWrapper
@@ -44,7 +44,7 @@ CloseButton.propTypes = {
 
 function NextButton(props) {
     const {onForward, disabled} = props;
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
 
     return (
         <IconWrapper
@@ -69,7 +69,7 @@ NextButton.propTypes = {
 
 function PrevButton(props) {
     const {onBackward, disabled} = props;
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
 
     return (
         <IconWrapper
@@ -95,9 +95,10 @@ PrevButton.propTypes = {
 
 export function NavigationArea(props) {
     const {visible, searchInputAreaRef} = props;
-    const colorPalette = useColorPalette();
-    const searchResultRecoilHighlights =
-        useRecoilValue(symbolSearchHighlightsState);
+    const colorPalette = useRecoilValue(colorPaletteState);
+    const searchResultRecoilHighlights = useRecoilValue(
+        symbolSearchHighlightsState
+    );
     const setSelectedBranch = useSetRecoilState(selectedBranchState);
 
     if (searchResultRecoilHighlights.length === 0) {

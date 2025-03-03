@@ -6,7 +6,6 @@ import {RowSignalContainerDiv, RowContainerDiv, RowRowDiv} from './Row.style';
 import PropTypes from 'prop-types';
 import {RowHeader} from './RowHeader.react';
 import {BranchSpace} from './BranchSpace.react';
-import {ColorPaletteContext} from '../contexts/ColorPalette';
 import {DragHandle} from './DragHandle.react';
 import {useRecoilValue} from 'recoil';
 import {proxyTransformationStateFamily} from '../atoms/transformationsState';
@@ -57,39 +56,33 @@ export class RowTemplate extends React.Component {
             commonProps,
         } = this.props;
         this.setIsCurrentlyPickedUp = commonProps.setIsCurrentlyPickedUp;
-
+        const rowShading = commonProps.rowShading;
+        
+        const scaleConstant = 0.005;
+        const shadowConstant = 15;
+        const scale = itemSelected * scaleConstant + 1;
+        const shadow =
+            itemSelected * shadowConstant + 0;
+            const background = rowShading[
+                    (transformation.id + 1) %
+                        rowShading.length
+                ];
 
         return (
-            <ColorPaletteContext.Consumer>
-                {({rowShading}) => {
-                    const scaleConstant = 0.005;
-                    const shadowConstant = 15;
-                    const scale = itemSelected * scaleConstant + 1;
-                    const shadow =
-                        itemSelected * shadowConstant + 0;
-                    const background = rowShading[
-                                (transformation.id + 1) %
-                                    rowShading.length
-                            ];
-
-                    return (
-                        <RowSignalContainerDiv
-                            className={`row_signal_container ${transformation.id}`}
-                            ref={this.rowRef}
-                            key={transformation.id}
-                            $scale={scale}
-                            $shadow={shadow}
-                            $background={background}
-                        >
-                            <Row
-                                key={transformation.id}
-                                transformationId={transformation.id}
-                                dragHandleProps={dragHandleProps}
-                            />
-                        </RowSignalContainerDiv>
-                    );
-                }}
-            </ColorPaletteContext.Consumer>
+            <RowSignalContainerDiv
+                className={`row_signal_container ${transformation.id}`}
+                ref={this.rowRef}
+                key={transformation.id}
+                $scale={scale}
+                $shadow={shadow}
+                $background={background}
+            >
+                <Row
+                    key={transformation.id}
+                    transformationId={transformation.id}
+                    dragHandleProps={dragHandleProps}
+                />
+            </RowSignalContainerDiv>
         );
     }
 }

@@ -2,7 +2,6 @@ import React, {Suspense, useEffect, useCallback, useMemo, useRef, useState} from
 import './node.css';
 import PropTypes from 'prop-types';
 import {Symbol} from './Symbol.react';
-import {useColorPalette} from '../contexts/ColorPalette';
 import {
     NodeDiv,
     SuperNodeDiv,
@@ -25,6 +24,7 @@ import {
     useSetRecoilState,
     useRecoilCallback,
 } from 'recoil';
+import {colorPaletteState} from '../atoms/settingsState';
 import {
     nodeAtomByNodeUuidStateFamily,
     nodeIsExpandableVByNodeUuidStateFamily,
@@ -47,10 +47,6 @@ import {
     isCurrentlyAnimatingHeightStateFamily,
 } from '../atoms/currentGraphState';
 
-
-
-
-
 function NodeContent(props) {
     const {
         nodeUuid,
@@ -60,7 +56,7 @@ function NodeContent(props) {
         transformationHash,
         subnodeIndex,
     } = props;
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const highlightedSymbols = useRecoilValue(allHighlightedSymbolsState);
     const contentToShow = useRecoilValue(
         symbolUuidsByNodeUuidStateFamily({
@@ -88,7 +84,7 @@ function NodeContent(props) {
     const setContainerRef = useRef(null);
 
     /*
-     * Y Position of symbols in node
+     * Y     of symbols in node
      */
     const symbolVisibilityManager = useCallback(
         (symbolUuid) => {
@@ -220,6 +216,9 @@ function NodeContent(props) {
         } else {
             isMounted.current = true;
         }
+        return () => {
+            debouncedSetHeightFromContent.cancel();
+        };
     }, [
         debouncedSetHeightFromContent,
         contentToShow,
@@ -314,7 +313,7 @@ NodeContent.propTypes = {
 
 function MiniNode(props) {
     const {nodeUuid, transformationHash} = props;
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const contentDiv = useRecoilValue(contentDivState);
     const miniNodeRef = useRef(null);
     const changeXShiftWithinBounds = useRecoilCallback(
@@ -360,7 +359,7 @@ MiniNode.propTypes = {
 
 function RecursionButton(props) {
     const {node} = props;
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const setShownRecursionState = useSetRecoilState(shownRecursionState);
 
     function handleClick(e) {
@@ -421,8 +420,7 @@ export function Node(props) {
             subnodeIndex,
         })
     );
-
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const [height, setHeight] = useState(
         emToPixel(Constants.minimumNodeHeight)
     );
@@ -440,6 +438,9 @@ export function Node(props) {
     const manageShowMini = useCallback(() => {
         if (longestSymbol > 0 && branchSpace.current) {
             const branchSpaceWidth = branchSpace.current.offsetWidth;
+            if (branchSpaceWidth === 0) {
+                return;
+            }
             if (
                 longestSymbol + emToPixel(Constants.HOverflowThresholdInEm) >
                 branchSpaceWidth
@@ -455,13 +456,23 @@ export function Node(props) {
         return debounce(manageShowMini, Constants.DEBOUNCETIMEOUT);
     }, [manageShowMini]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(debouncedManageShowMini, [branchSpace.current?.offsetWidth]);
+    useEffect(() => {
+        debouncedManageShowMini();
+        return () => {
+            debouncedManageShowMini.cancel();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [branchSpace.current?.offsetWidth]);
     const contentDiv = useRecoilValue(contentDivState);
 
     useResizeObserver(contentDiv, debouncedManageShowMini);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(debouncedManageShowMini, [longestSymbol]);
+    useEffect(() => {
+        debouncedManageShowMini();
+        return () => {
+            debouncedManageShowMini.cancel();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [longestSymbol]);
 
     const timerRef = useRef(null);
     const startAnimateHeight = () => {
@@ -482,6 +493,14 @@ export function Node(props) {
             setIsResizing(false);
         }, Constants.isAnimatingTimeout);
     };
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+            }
+        };
+    }, []);
 
     return (
         <>
@@ -556,7 +575,7 @@ export function RecursiveSuperNode(props) {
     const node = useRecoilValue(
         nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
     );
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const longestSymbol = useRecoilValue(
         longestSymbolInNodeByNodeUuidStateFamily(nodeUuid)
     );
@@ -587,10 +606,14 @@ export function RecursiveSuperNode(props) {
 
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // useEffect(debouncedManageShowMini, [branchSpace.current?.offsetWidth]);
     useResizeObserver(branchSpace, debouncedManageShowMini)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(debouncedManageShowMini, [longestSymbol]);
+    useEffect(() => {
+        debouncedManageShowMini();
+        return () => {
+            debouncedManageShowMini.cancel();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [longestSymbol]);
 
 
     return (

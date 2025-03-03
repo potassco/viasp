@@ -6,13 +6,13 @@ import {
 } from 'recoil';
 import LineTo from 'react-lineto';
 import PropTypes from 'prop-types';
-import {useColorPalette} from '../contexts/ColorPalette';
+import { colorPaletteState } from '../atoms/settingsState';
 import { edgesState } from '../atoms/edgesState';
 import {isAnimatingState} from '../atoms/currentGraphState';
 
 
 export function Edges() {
-    const colorPalete = useColorPalette();
+    const colorPalete = useRecoilValue(colorPaletteState);
     const edgesLoadable = useRecoilValue(noWait(edgesState));
     const isAnimating = useRecoilValue(isAnimatingState);
 

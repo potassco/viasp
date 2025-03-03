@@ -1,7 +1,6 @@
 import React, {useEffect, useState, useMemo, useCallback} from 'react';
 import './box.css';
 import PropTypes from 'prop-types';
-import {useColorPalette} from '../contexts/ColorPalette';
 import {styled} from 'styled-components'
 import {debounce} from 'lodash';
 import useResizeObserver from '@react-hook/resize-observer';
@@ -9,7 +8,7 @@ import { Constants } from "../constants";
 import {emToPixel} from '../utils';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import { clingraphAtomByUuidState } from '../atoms/clingraphState';
-import { backendUrlState } from '../atoms/settingsState';
+import {backendUrlState, colorPaletteState} from '../atoms/settingsState';
 import { nodeShowMiniByNodeUuidStateFamily } from '../atoms/nodesState';
 import { contentDivState } from '../atoms/currentGraphState';
 
@@ -33,7 +32,7 @@ export function Box(props) {
     const clingraphAtom = useRecoilValue(
         clingraphAtomByUuidState(clingraphUuid)
     );
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const backendUrl = useRecoilValue(backendUrlState);
     const clingraphUrl = `${backendUrl}/clingraph/${clingraphUuid}`;
     const [imageSize, setImageSize] = useState({width: 0, height: 0});

@@ -1,6 +1,6 @@
 import {atom} from 'recoil';
 
-const defaultBackendUrlState = 'http://localhost:5050';
+export const defaultBackendUrlState = 'http://localhost:5050';
 const defaultColorPalette = {}
 
 export const backendUrlState = atom({

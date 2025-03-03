@@ -47,7 +47,7 @@
         "required": false,
         "description": "The url to the viasp backend server",
         "defaultValue": {
-          "value": "DEFAULT_BACKEND_URL",
+          "value": "defaultBackendUrlState",
           "computed": true
         }
       },

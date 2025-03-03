@@ -1,11 +1,13 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import {useColorPalette} from '../contexts/ColorPalette';
 import {RiErrorWarningFill} from 'react-icons/ri';
 import {useMessages} from '../contexts/UserMessages';
 
+import {useRecoilValue} from 'recoil';
+import {colorPaletteState} from '../atoms/settingsState';
+
 function useColor(level) {
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     if (level === 'error') {
         return {background: colorPalette.error, color: colorPalette.dark};
     }

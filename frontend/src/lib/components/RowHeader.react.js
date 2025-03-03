@@ -1,10 +1,10 @@
 import React, {Suspense} from 'react';
 import PropTypes from 'prop-types';
 import { Constants } from "../constants";
-import {useColorPalette} from '../contexts/ColorPalette';
 import {Transition} from 'react-transition-group';
-import {styled, keyframes, css} from 'styled-components';
-import { useRecoilValue, waitForAll, waitForNone } from 'recoil';
+import {styled} from 'styled-components';
+import { useRecoilValue, waitForAll } from 'recoil';
+import {colorPaletteState} from '../atoms/settingsState';
 import {
     ruleWrapperByHashStateFamily,
     transformationStateFamily,
@@ -174,7 +174,7 @@ Rule.propTypes = {
 
 export function RowHeader(props) {
     const {transformationId, transformationHash} = props;
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const [recoilTransformation] = useRecoilValue(
         waitForAll([transformationStateFamily(transformationId)])
     );
@@ -198,7 +198,7 @@ export function RowHeader(props) {
                                 transformationId={transformationId}
                                 transformationHash={transformationHash}
                                 ruleHash={rh}
-                                multipleRules={ruleHashes.length > 1}
+                                multipleRules={ruleHashes.length > 0}
                             />
                         );
                     })}

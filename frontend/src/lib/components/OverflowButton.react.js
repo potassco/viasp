@@ -1,11 +1,11 @@
 import React, {Suspense} from 'react';
 import PropTypes from 'prop-types';
-import {useColorPalette} from '../contexts/ColorPalette';
 import {IconWrapper} from '../LazyLoader';
+import { lighten } from 'polished';
+import { styled } from 'styled-components';
 import {Constants} from '../constants';
 import {
     useRecoilValue,
-    useSetRecoilState,
     noWait,
     useRecoilCallback,
 } from 'recoil';
@@ -15,8 +15,7 @@ import {
     nodeIsExpandVAllTheWayByNodeUuidStateFamily,
     nodeIsCollapsibleVByNodeUuidStateFamily,
 } from '../atoms/nodesState';
-import { lighten } from 'polished';
-import { styled } from 'styled-components';
+import { colorPaletteState } from '../atoms/settingsState';
 
 const BauchbindeDiv = styled.div`
     @property --gradPoint {
@@ -58,7 +57,7 @@ const BauchbindeTextDiv = styled.div`
 
 export function OverflowButton(props) {
     const {transformationHash} = props;
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const overflowButtonLoadable = useRecoilValue(
         noWait(overflowButtonState(transformationHash))
     );
@@ -69,11 +68,11 @@ export function OverflowButton(props) {
     const toggleOverflowButton = useRecoilCallback(
         ({snapshot, set}) =>
             async () => {
-                const nodeUuidsByTransforamtion = await snapshot.getPromise(
+                const nodeUuidsByTransformation = await snapshot.getPromise(
                     nodeUuidsByTransforamtionStateFamily(transformationHash)
                 );
                 set(rowHasOverflowButtonState(transformationHash), true);
-                nodeUuidsByTransforamtion.forEach((nodeUuid) => {
+                nodeUuidsByTransformation.forEach((nodeUuid) => {
                     set(
                         nodeIsExpandVAllTheWayByNodeUuidStateFamily(nodeUuid),
                         (oldValue) => !oldValue

@@ -1,58 +1,19 @@
 import React, { Suspense } from 'react';
-import PropTypes from 'prop-types';
 import {CSSTransition} from 'react-transition-group';
-import './settings.css';
-import {darken} from 'polished';
+import {
+    SettingsDiv,
+    ClearMarkedDiv,
+    ClearMarkedSpan,
+    DrawerDiv,
+    DrawerContentDiv,
+} from './Settings.style';
 import {Search} from './Search.react';
-import {styled} from 'styled-components';
-import { Constants } from "../constants";
+
 import {useRecoilValue, useSetRecoilState, useRecoilCallback} from 'recoil';
 import { colorPaletteState } from '../atoms/settingsState';
-import {
-    allHighlightedSymbolsState} from '../atoms/highlightsState';
-import {
-    clearAllHighlightsCallback,
-} from '../hooks/highlights';
+import {allHighlightedSymbolsState} from '../atoms/highlightsState';
+import {clearAllHighlightsCallback} from '../hooks/highlights';
 import { searchInputState } from '../atoms/searchState';
-
-const ClearMarkedDiv = styled.div`
-    display: flex;
-    justify-content: end;
-`;
-
-const ClearMarkedSpan = styled.span`
-    background: ${({$colorPalette}) => $colorPalette.primary};
-    color: ${({$colorPalette}) => $colorPalette.light};
-    padding: 0.7em 0.9em;
-    font-family: monospace;
-    border-radius: 0.7em;
-    z-index: 20;
-    cursor: pointer;
-
-    &:hover {
-        background: ${({$colorPalette}) =>
-            darken(Constants.hoverColorDarkenFactor, $colorPalette.primary)};
-    }
-
-    &:active {
-        background: ${({$colorPalette}) => $colorPalette.infoBackground};
-    }
-
-    &.fade-enter {
-        opacity: 0;
-    }
-    &.fade-enter-active {
-        opacity: 1;
-        transition: opacity 0.8s;
-    }
-    &.fade-exit {
-        opacity: 1;
-    }
-    &.fade-exit-active {
-        opacity: 0;
-        transition: opacity 0.8s;
-    }
-`;
 
 function ClearMarked() {
     const setSearchUserInput = useSetRecoilState(searchInputState);
@@ -86,36 +47,19 @@ function ClearMarked() {
     );
 }
 
-function Header(props) {
-    const {text} = props;
-    return (
-        <tr>
-            <td className="settings_header" align="center" colSpan="3">
-                {text}
-            </td>
-        </tr>
-    );
-}
-Header.propTypes = {
-    /**
-     * The text to be displayed in the header
-     */
-    text: PropTypes.string,
-};
-
 export default function Settings() {
     return (
-        <div className="settings noselect">
-            <div className="drawer">
-                <div className="drawer_content">
+        <SettingsDiv className="settings noselect">
+            <DrawerDiv>
+                <DrawerContentDiv>
                     <Suspense fallback={null}>
                         <Search />
                     </Suspense>
-                </div>
-                <div className="drawer_content">
+                </DrawerContentDiv>
+                <DrawerContentDiv>
                     <ClearMarked />
-                </div>
-            </div>
-        </div>
+                </DrawerContentDiv>
+            </DrawerDiv>
+        </SettingsDiv>
     );
 }

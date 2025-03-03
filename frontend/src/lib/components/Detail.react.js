@@ -3,16 +3,16 @@ import {make_atoms_string} from "../utils/index";
 import './detail.css';
 import PropTypes from "prop-types";
 import {showError, useMessages} from '../contexts/UserMessages';
-import {useColorPalette} from "../contexts/ColorPalette";
 import { useShownDetail } from "../contexts/ShownDetail";
-import {useSettings} from "../contexts/Settings";
 import {SIGNATURE, SYMBOL} from "../types/propTypes";
 import {IoChevronDown, IoChevronForward, IoCloseSharp} from "react-icons/io5";
+import {useRecoilValue} from "recoil";
+import { backendUrlState, colorPaletteState } from '../atoms/settingsState';
 
 
 function DetailSymbolPill(props) {
     const {symbol} = props;
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     return <span className="detail_atom_view_content"
                  style={{
                      backgroundColor: colorPalette.light,
@@ -84,11 +84,11 @@ CloseButton.propTypes =
 export function Detail() {
     const [data, setData] = React.useState(null);
     const [type, setType] = React.useState("Model");
-    const {backendURL} = useSettings();
+    const backendUrl = useRecoilValue(backendUrlState);
     const [, message_dispatch] = useMessages();
-    const backendURLRef = React.useRef(backendURL);
+    const backendURLRef = React.useRef(backendUrl);
     const messageDispatchRef = React.useRef(message_dispatch);
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const { shownDetail: shows, setShownDetail } = useShownDetail();
     const clearDetail = () => setShownDetail(null);
 

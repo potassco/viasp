@@ -1,8 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import PulseLoader from 'react-spinners/PulseLoader';
-import { darken } from 'polished';
-import { styled } from 'styled-components';
+import {
+    SearchDiv,
+    SearchBarDiv,
+    SearchInputContainerDiv,
+    SearchInput,
+} from './Search.style';
 import { Constants } from "../constants";
 import { pixelToEm } from '../utils';
 import { NavigationArea } from './NavigationArea.react';
@@ -15,49 +19,11 @@ import {
     searchInputState,
     filteredSuggestionsState,
     awaitingInputState,
-    isAutocompleteVisibleState,
     activeSuggestionState,
     selectedSuggestionState,
     selectedBranchState,
 } from '../atoms/searchState';
 import { currentSortState } from '../atoms/currentGraphState';
-
-
-const SearchInput = styled.input`
-    color: ${(props) => props.$colorPalette.light};
-    background-color: ${({$colorPalette}) =>
-            $colorPalette.primary};
-
-    width: 100%;
-    border-radius: 0.4em;
-    padding: 0.7em 3em 0.7em 0.8em;
-    border: 0px;
-
-    &:focus {
-        outline: none;
-    }
-
-    &:hover {
-        background-color: ${({$colorPalette}) =>
-            darken(Constants.hoverColorDarkenFactor, $colorPalette.primary)};
-    }
-`;
-
-const SearchInputContainerDiv = styled.div`
-    justify-content: end;
-    align-items: center;
-    display: flex;
-`;
-
-const SearchBarDiv = styled.div`
-    width: ${(props) => props.$inputWidth}em;
-    position: relative;
-`;
-
-const SearchDiv = styled.div`
-    display: flex;
-    justify-content: end;
-`;
 
 function calculateTextWidth(text) {
     const span = document.createElement('span');

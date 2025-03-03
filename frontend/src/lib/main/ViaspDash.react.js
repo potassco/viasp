@@ -7,30 +7,11 @@ import '../components/main.css';
 import {Facts} from '../components/Facts.react';
 import {Edges} from '../components/Edges.react';
 import {Arrows} from '../components/Arrows.react';
-import {ShownNodesProvider} from '../contexts/ShownNodes';
-import {ContentDivProvider, useContentDiv} from '../contexts/ContentDivContext';
-import {ColorPaletteProvider} from '../contexts/ColorPalette';
-import {HighlightedNodeProvider} from '../contexts/HighlightedNode';
-import {SearchUserInputProvider} from '../contexts/SearchUserInput';
 import {
     UserMessagesProvider,
 } from '../contexts/UserMessages';
 import {Settings} from '../LazyLoader';
 import {UserMessages} from '../components/messages';
-import {
-    DEFAULT_BACKEND_URL,
-    SettingsProvider,
-    useSettings,
-} from '../contexts/Settings';
-import {FilterProvider} from '../contexts/Filters';
-import {
-    HighlightedSymbolProvider,
-    useHighlightedSymbol,
-} from '../contexts/HighlightedSymbol';
-import {
-    useAnimationUpdater,
-    AnimationUpdaterProvider,
-} from '../contexts/AnimationUpdater';
 import DraggableList from 'react-draggable-list';
 import {MapInteraction} from 'react-map-interaction';
 import {Constants} from '../constants';
@@ -54,7 +35,11 @@ import {
     isCurrentlyBeingReorderedState,
 } from '../atoms/currentGraphState';
 import { zoomButtonPressedState } from '../atoms/zoomState';
-import {backendUrlState, colorPaletteState} from '../atoms/settingsState'
+import {
+    backendUrlState,
+    colorPaletteState,
+    defaultBackendUrlState,
+} from '../atoms/settingsState';
 import {clearAllHighlightsCallback} from '../hooks/highlights';
 import {
     draggableListSelectedItem,
@@ -91,9 +76,9 @@ async function postCurrentSort(backendUrl, currentSort, oldIndex, newIndex) {
 function GraphContainer(props) {
     const {notifyDash, scrollContainer} = props;
     const draggableListRef = React.useRef(null);
-    // const {clearHighlightedSymbol} = useHighlightedSymbol();
     const clingraphUsed = useRecoilValue(usingClingraphState);
     const backendUrl = useRecoilValue(backendUrlState);
+    const colorPalette = useRecoilValue(colorPaletteState);
     const setDraggableSelectedItem = useSetRecoilState(draggableListSelectedItem)
     const [currentSort, setCurrentSort] = useRecoilState(currentSortState)
     const tDropIndices = useRecoilValue(reorderTransformationDropIndicesState);
@@ -144,7 +129,7 @@ function GraphContainer(props) {
                 autoScrollRegionSize={200}
                 padding={0}
                 unsetZIndex={true}
-                commonProps={{setIsCurrentlyPickedUp}}
+                commonProps={{setIsCurrentlyPickedUp, rowShading: colorPalette.rowShading}}
             />
             {clingraphUsed ? <Boxrow /> : null}
             <Arrows />
@@ -346,40 +331,16 @@ export default function ViaspDash(props) {
     return (
         <div id={id}>
             <RecoilRoot>
-                <ColorPaletteProvider colorPalette={colorPalette}>
-                    <SettingsProvider backendURL={backendURL}>
-                        <HighlightedNodeProvider>
-                            <ContentDivProvider>
-                                <FilterProvider>
-                                    <AnimationUpdaterProvider>
-                                        <UserMessagesProvider>
-                                            <ShownNodesProvider>
-                                                <HighlightedSymbolProvider>
-                                                    <SearchUserInputProvider>
-                                                        <div>
-                                                            <UserMessages />
-                                                            <MainWindow
-                                                                notifyDash={
-                                                                    notifyDash
-                                                                }
-                                                                backendUrl={
-                                                                    backendURL
-                                                                }
-                                                                colorPalette={
-                                                                    colorPalette
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </SearchUserInputProvider>
-                                                </HighlightedSymbolProvider>
-                                            </ShownNodesProvider>
-                                        </UserMessagesProvider>
-                                    </AnimationUpdaterProvider>
-                                </FilterProvider>
-                            </ContentDivProvider>
-                        </HighlightedNodeProvider>
-                    </SettingsProvider>
-                </ColorPaletteProvider>
+                <UserMessagesProvider>
+                    <>
+                        <UserMessages />
+                        <MainWindow
+                            notifyDash={notifyDash}
+                            backendUrl={backendURL}
+                            colorPalette={colorPalette}
+                        />
+                    </>
+                </UserMessagesProvider>
             </RecoilRoot>
         </div>
     );
@@ -418,5 +379,5 @@ ViaspDash.propTypes = {
 ViaspDash.defaultProps = {
     colorPalette: {},
     clickedOn: {},
-    backendURL: DEFAULT_BACKEND_URL,
+    backendURL: defaultBackendUrlState,
 };

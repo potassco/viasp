@@ -12,7 +12,7 @@ Keyword arguments:
 - id (string; optional):
     The ID used to identify this component in Dash callbacks.
 
-- backendURL (string; default DEFAULT_BACKEND_URL):
+- backendURL (string; default defaultBackendUrlState):
     The url to the viasp backend server.
 
 - clickedOn (dict; optional):

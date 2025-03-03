@@ -7,7 +7,6 @@ import {
     TRANSFORMATION,
     SYMBOLHIGHLIGHTS_RECOIL,
 } from '../types/propTypes';
-import {useColorPalette} from '../contexts/ColorPalette';
 import {darken, lighten} from 'polished';
 import { Constants } from "../constants";
 import {NavigationArea} from './NavigationArea.react';
@@ -191,7 +190,7 @@ export function Suggestion(props) {
         isAutocompleteSuggestion,
         isSelectedResult,
     } = props;
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const activeSuggestion = useRecoilValue(activeSuggestionState);
     const SearchRowRef = React.useRef(null);
 

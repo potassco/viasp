@@ -1,30 +1,20 @@
 import React, {useEffect} from 'react';
 import './boxrow.css';
 import {styled} from 'styled-components';
+import { RowContainerDiv } from './Row.style';
 import {Constants} from '../constants';
-import { useColorPalette } from '../contexts/ColorPalette';
 import {BranchSpace} from './BranchSpace.react';
 import {useRecoilValue} from 'recoil';
 import { reorderTransformationDropIndicesState } from '../atoms/reorderTransformationDropIndices';
-import {
-    numberOfTransformationsState,
-} from '../atoms/currentGraphState';
+import { colorPaletteState} from '../atoms/settingsState';
+import {numberOfTransformationsState} from '../atoms/currentGraphState';
 import {clingraphNodesState} from '../atoms/clingraphState';
 import { mapShiftState } from '../atoms/mapShiftState';
-
-const RowContainer = styled.div`
-    opacity: ${(props) =>
-        props.$draggedRowCanBeDroppedHere
-            ? 1
-            : 1 - Constants.opacityMultiplier};
-    background: ${(props) => props.$background};
-    transition: opacity 0.5s ease-out;
-`;
 
 export function Boxrow() {
     const mapShift = useRecoilValue(mapShiftState);
     const boxrowRef = React.useRef(null);
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const clingraphGraphics = useRecoilValue(clingraphNodesState);
     const tDropIndices = useRecoilValue(reorderTransformationDropIndicesState);
     const numberOfTransformations = useRecoilValue(numberOfTransformationsState)
@@ -37,7 +27,7 @@ export function Boxrow() {
     }, [clingraphGraphics]);
 
     return (
-        <RowContainer
+        <RowContainerDiv
             className="row_container boxrow_container"
             $draggedRowCanBeDroppedHere={tDropIndices === null}
             $background={
@@ -72,7 +62,7 @@ export function Boxrow() {
                     />
                 ))}
             </div>
-        </RowContainer>
+        </RowContainerDiv>
     );
 }
 

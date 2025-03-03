@@ -1,29 +1,16 @@
 import './facts.css';
 import React, {useRef, Suspense} from 'react';
-import {styled} from 'styled-components';
-import { RowRowDiv } from './Row.style';
-import { Constants } from "../constants";
-import { useColorPalette} from '../contexts/ColorPalette';
+import { RowRowDiv, RowContainerDiv } from './Row.style';
 import {OverflowButton} from './OverflowButton.react';
-import {useDebouncedAnimateResize} from '../hooks/useDebouncedAnimateResize';
 
 import { useRecoilValue } from 'recoil';
 import {
     nodeUuidsByTransforamtionStateFamily,
     nodeAtomByNodeUuidStateFamily,
-} from '../atoms/nodesState';    
+} from '../atoms/nodesState';
+import { colorPaletteState } from '../atoms/settingsState';
 import { reorderTransformationDropIndicesState } from '../atoms/reorderTransformationDropIndices';
 import { BranchSpace } from './BranchSpace.react';
-
-
-const RowContainer = styled.div`
-    opacity: ${(props) =>
-        props.$draggedRowCanBeDroppedHere
-            ? 1
-            : 1 - Constants.opacityMultiplier};
-    transition: opacity 0.5s ease-out;
-`;
-
 
 export function Facts() {
     const [nodeUuid] = useRecoilValue(
@@ -32,17 +19,15 @@ export function Facts() {
     const fact = useRecoilValue(nodeAtomByNodeUuidStateFamily({transformationHash: "-1", nodeUuid}));
     const tDropIndices = useRecoilValue(reorderTransformationDropIndicesState);
 
-    const colorPalette = useColorPalette();
+    const colorPalette = useRecoilValue(colorPaletteState);
     const rowbodyRef = useRef(null);
-    const transformationIdRef = useRef('-1');
 
-    useDebouncedAnimateResize(rowbodyRef, transformationIdRef);
 
     if (fact === null) {
         return <div className="row_container"></div>;
     }
     return (
-        <RowContainer
+        <RowContainerDiv
             className="row_container facts_banner"
             $draggedRowCanBeDroppedHere={tDropIndices === null}
         >
@@ -64,10 +49,8 @@ export function Facts() {
                     />
                 </Suspense>
             </RowRowDiv>
-            <OverflowButton
-                transformationHash={'-1'}
-            />
-        </RowContainer>
+            <OverflowButton transformationHash={'-1'} />
+        </RowContainerDiv>
     );
 }
 

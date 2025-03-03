@@ -1,6 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import {useSettings} from './Settings';
+
+import {useRecoilValue} from 'recoil';
+import {backendUrlState} from '../atoms/settingsState';
 
 export const initialState = {activeMessages: []};
 export const ERROR = 'APP/MESSAGES/ERROR';
@@ -30,7 +32,7 @@ export const messageReducer = (state = initialState, action) => {
 };
 
 function fetchWarnings(backendURL) {
-    return fetch(`${backendURL('control/warnings')}`).then((r) => {
+    return fetch(`${backendURL}/control/warnings`).then((r) => {
         if (r.ok) {
             return r.json();
         }
@@ -61,8 +63,8 @@ const UserMessagesContext = React.createContext([]);
 export const useMessages = () => React.useContext(UserMessagesContext);
 export const UserMessagesProvider = ({children}) => {
     const [state, dispatch] = React.useReducer(messageReducer, initialState);
-    const {backendURL} = useSettings();
-    const backendUrlRef = React.useRef(backendURL);
+    const backendUrl = useRecoilValue(backendUrlState);
+    const backendUrlRef = React.useRef(backendUrl);
     React.useEffect(() => {
         let mounted = true;
         fetchWarnings(backendUrlRef.current)
