@@ -37,7 +37,7 @@ def test_argparse_n_models():
 
 def test_clingo_args_passed_through():
     test_args = [
-        '--warn=none',
+        '--text',
         '--rewrite-minimize'
     ]
     clingo_options = parse(test_args)[1]

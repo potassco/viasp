@@ -53,8 +53,8 @@ def test_conflict_variables_are_resolved():
     analyzer.add_program([program])
     assertProgramEqual(
         transform(program,
-                  h=analyzer.get_conflict_free_h(),
-                  model=analyzer.get_conflict_free_model()),
+                  h_str=analyzer.get_conflict_free_h(),
+                  model_str=analyzer.get_conflict_free_model()),
         parse_program_to_ast(expected))
 
 
