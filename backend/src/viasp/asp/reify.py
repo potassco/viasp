@@ -14,7 +14,7 @@ from clingo.ast import (
 )
 from viasp.shared.util import RuleType, hash_transformation_rules, hash_string
 
-from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, topological_sort
+from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, move_constraints_only_transformations_to_end, topological_sort
 from ..asp.utils import merge_cycles, remove_loops
 from viasp.asp.ast_types import (
     SUPPORTED_TYPES,
@@ -204,8 +204,11 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
     Receives a ASP program and finds it's dependencies within, can sort a program by it's dependencies.
     """
 
-    def __init__(self, dependants: Optional[Dict[Tuple[str, int], Set[RuleType]]] = None,
-                    conditions: Optional[Dict[Tuple[str, int], Set[RuleType]]] = None,
+    def __init__(self,
+                 dependants: Optional[Dict[Tuple[str, int],
+                                           Set[RuleType]]] = None,
+                 conditions: Optional[Dict[Tuple[str, int],
+                                           Set[RuleType]]] = None,
                  dependency_graph: Optional[nx.DiGraph] = None,
                  names: Optional[Set[str]] = None,
                  facts: Optional[Set[str]] = None,
@@ -216,11 +219,12 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
                               Set[RuleContainer]] = defaultdict(set)
         self.conditions: Dict[Tuple[str, int],
                               Set[RuleContainer]] = defaultdict(set)
-        self.positive_conditions: Dict[Tuple[
-            str, int], Set[RuleContainer]] = defaultdict(set)
+        self.positive_conditions: Dict[Tuple[str, int],
+                                       Set[RuleContainer]] = defaultdict(set)
         self.rule2signatures = defaultdict(set)
         self.facts: Set[str] = facts if facts is not None else set()
-        self.constants: Set[str] = constants if constants is not None else set()
+        self.constants: Set[str] = constants if constants is not None else set(
+        )
         self.constraints: Set[Rule] = set()  # type: ignore
         self.pass_through: Set[AST] = set()
         self.rules: List[RuleType] = []  # type: ignore
@@ -407,7 +411,8 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
             **self.visit_children(theory_guard_definition, **kwargs))
 
     def get_facts(self, other_constant_tuples: Dict[str, str]):
-        return extract_symbols(self.facts, self.constants, other_constant_tuples)
+        return extract_symbols(self.facts, self.constants,
+                               other_constant_tuples)
 
     def get_constants(self):
         return list(self.constants)
@@ -424,12 +429,12 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
                 self.conditions[c_sig].add(rule_container)
 
     def register_rule_dependencies(
-        self,
-        rule: RuleType,
-        deps: Dict[
-            ast.Literal,  # type: ignore
-            List[ast.Literal]] , # type: ignore
-        program_str: str) -> None:  # type: ignore
+            self,
+            rule: RuleType,
+            deps: Dict[
+                ast.Literal,  # type: ignore
+                List[ast.Literal]],  # type: ignore
+            program_str: str) -> None:  # type: ignore
         rule_container = rule_container_from_ast(rule, program_str)
         for (cond, pos_cond) in deps.values():
             for c in filter(filter_body_arithmetic, cond):
@@ -440,7 +445,6 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
                 c_sig = make_signature(c)
                 if c_sig is not None:
                     self.positive_conditions[c_sig].add(rule_container)
-
 
         for v in deps.keys():
             if v.ast_type == ASTType.Literal and v.atom.ast_type != ASTType.BooleanConstant:
@@ -475,7 +479,8 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         if is_fact(rule, deps):
             self.facts.add(str(rule.head))
 
-    def visit_ShowTerm(self, showTerm: ast.ShowTerm, program_str: str):  # type: ignore
+    def visit_ShowTerm(self, showTerm: ast.ShowTerm,
+                       program_str: str):  # type: ignore
         deps = defaultdict(tuple)
         _ = self.visit(showTerm.term, deps=deps, in_head=True)
         head_literal = ast.Literal(showTerm.location, ast.Sign.NoSign,
@@ -483,7 +488,8 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         self.process_body(head_literal, showTerm.body, deps)
         self.register_dependencies_and_append_rule(showTerm, deps, program_str)
 
-    def visit_Minimize(self, minimize: ast.Minimize, program_str: str):  # type: ignore
+    def visit_Minimize(self, minimize: ast.Minimize,
+                       program_str: str):  # type: ignore
         deps = defaultdict(tuple)
         true_head_literal = ast.Literal(minimize.location, ast.Sign.NoSign,
                                         ast.BooleanConstant(1))
@@ -518,19 +524,19 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         else:
             for program in encodings:
                 try:
-                    parse_string(program,
-                         lambda statement: self.visit(statement, program_str=program) and None)
+                    parse_string(
+                        program, lambda statement: self.visit(
+                            statement, program_str=program) and None)
                 except Exception:
                     # pass over syntax errors
                     pass
 
     def sort_program(self, program) -> List[Transformation]:
-        parse_string(program, lambda rule: self.visit(rule, program_str=program) and None)
+        parse_string(
+            program,
+            lambda rule: self.visit(rule, program_str=program) and None)
         sorted_program = self.primary_sort_program_by_dependencies()
-        return [
-            Transformation(i, prg)
-            for i, prg in enumerate(sorted_program)
-        ]
+        return [Transformation(i, prg) for i, prg in enumerate(sorted_program)]
 
     def get_sort_program_and_graph(
             self, program: str) -> Tuple[List[RuleContainer], nx.DiGraph]:
@@ -544,25 +550,27 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         return self.make_transformations_from_sorted_program(sorted_program)
 
     def make_transformations_from_sorted_program(
-        self, sorted_program: List[RuleContainer]  # type: ignore
+        self,
+        sorted_program: List[RuleContainer]  # type: ignore
     ) -> List[Transformation]:
         adjacency_index_mapping = self.get_index_mapping_for_adjacent_topological_sorts(
             sorted_program)
-        is_constraints_only = [all([is_constraint(rule) for rule in rules.ast]) for rules in sorted_program]
+        is_constraints_only = [
+            all([is_constraint(rule) for rule in rules.ast])
+            for rules in sorted_program
+        ]
         transformations = [
-            Transformation(i, 
-                           rules, 
-                           adjacency_index_mapping[i],
+            Transformation(i, rules, adjacency_index_mapping[i],
                            is_constraints_only[i])
             for i, rules in enumerate(sorted_program)
         ]
         transformations.sort(key=lambda t: t.id)
         return transformations
 
-    def make_dependency_graph(self, head_dependencies: Dict[Tuple[str, int],
-                                                            Set[RuleContainer]],
-                              body_dependencies: Dict[Tuple[str, int],
-                                                      Set[RuleContainer]]) -> nx.DiGraph:
+    def make_dependency_graph(
+        self, head_dependencies: Dict[Tuple[str, int], Set[RuleContainer]],
+        body_dependencies: Dict[Tuple[str, int], Set[RuleContainer]]
+    ) -> nx.DiGraph:
         """
         We draw a dependency graph based on which rule head contains which literals.
         That way we know, that in order to have a rule r with a body containing literal l, all rules that have l in their
@@ -588,20 +596,19 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
 
         return g
 
-    def primary_sort_program_by_dependencies(
-            self) -> List[RuleContainer]:
+    def primary_sort_program_by_dependencies(self) -> List[RuleContainer]:
         graph = self.make_dependency_graph(self.dependants, self.conditions)
         graph = merge_constraints(graph)
         graph, _ = merge_cycles(graph)
         graph, _ = remove_loops(graph)
         self.dependency_graph = cast(nx.DiGraph, graph.copy())
         sorted_program = topological_sort(graph, self.rules)
+        move_constraints_only_transformations_to_end(sorted_program)
         return sorted_program
 
     def get_index_mapping_for_adjacent_topological_sorts(
-        self,
-        sorted_program: List[RuleContainer]
-    ) -> Dict[int, Dict[str, int]]:
+            self,
+            sorted_program: List[RuleContainer]) -> Dict[int, Dict[str, int]]:
         if self.dependency_graph is None:
             raise ValueError(
                 "Dependency graph has not been created yet. Call primary_sort_program_by_dependencies first."
@@ -613,7 +620,8 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         positive_dependency_graph = self.make_dependency_graph(
             self.dependants, self.positive_conditions)
 
-        positive_dependency_graph = merge_constraints(positive_dependency_graph)
+        positive_dependency_graph = merge_constraints(
+            positive_dependency_graph)
         positive_dependency_graph_withput_cycles, where1 = merge_cycles(
             positive_dependency_graph)
         _, where2 = remove_loops(positive_dependency_graph_withput_cycles)

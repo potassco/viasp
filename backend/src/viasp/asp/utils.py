@@ -61,6 +61,15 @@ def remove_loops(g: nx.DiGraph) -> Tuple[nx.DiGraph, FrozenSet[RuleContainer]]:
         g.remove_edge(*edge)
     return g, frozenset(where_recursion_happens)
 
+def move_constraints_only_transformations_to_end(sorted_program: List[RuleContainer]) -> None:
+    constraints_only_rules = set()
+    for rc in sorted_program:
+        if all(is_constraint(r) for r in rc.ast):
+            sorted_program.remove(rc)
+            constraints_only_rules.add(rc)
+    for constraint_rule in constraints_only_rules:
+        sorted_program.append(constraint_rule)
+
 
 def insert_atoms_into_nodes(path: List[Node]) -> None:
     if not path:

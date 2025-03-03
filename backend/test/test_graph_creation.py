@@ -192,7 +192,6 @@ def test_atoms_are_propagated_correctly_through_diffs(app_context):
         assert len(src.atoms) == len(tgt.atoms) - len(tgt.diff)
 
 
-
 def test_multiple_sortings_yield_primary_sort(load_analyzer):
     program= """
     e. f. g.
@@ -206,3 +205,14 @@ def test_multiple_sortings_yield_primary_sort(load_analyzer):
     # assert first sorting is closest to the original program
     assert sorted_program[1] == Transformation(1, RuleContainer(str_=("c :- b.",)))
     assert sorted_program[2] == Transformation(2, RuleContainer(str_=("c :- a.",)))
+
+
+def test_constraints_come_last_in_primary_sort(load_analyzer):
+    program = """
+    :- c.
+    c :- a.
+    d :- c.
+    """
+    analyzer = load_analyzer(program)
+    sorted_program = list(analyzer.get_sorted_program())
+    assert sorted_program[2] == Transformation(2, RuleContainer(str_=(":- c.",)))

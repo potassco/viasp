@@ -194,7 +194,6 @@ def build_graph(wrapped_stable_models: List[List[str]],
         new_path = make_reason_path_from_facts_to_stable_model(
             mapping, fact_node, h_symbols, recursion_transformations_hashes,
             conflict_free_h, analyzer)
-        print(f"asdfasdfasdf", flush=True)
         paths.append(new_path)
 
     result_graph = nx.DiGraph()
