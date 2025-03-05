@@ -381,7 +381,7 @@ def get_facts():
     return jsonify(facts)
 
 
-@bp.route("/graph/sorted_progam", methods=["GET"])
+@bp.route("/graph/sorted_program", methods=["GET"])
 @ensure_encoding_id
 def get_sorted_program():
     result = get_current_sort(session['encoding_id'])

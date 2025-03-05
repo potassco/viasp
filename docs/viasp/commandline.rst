@@ -2,7 +2,7 @@
 Command line functionality
 ==========================
 
-viASP provides command line functionality to create visualizations. It acts as a proxy to the clingo command meaning that it is usually sufficient to replace `clingo` with `viasp`:
+viASP provides command-line functionality to create visualizations. It acts as a proxy to the clingo command, meaning that it is usually sufficient to replace `clingo` with `viasp`:
 
 .. code-block:: bash
 
@@ -12,15 +12,13 @@ viASP provides command line functionality to create visualizations. It acts as a
 
     $ viasp encoding.lp -n0
 
-You can now inspect the visualization at http://localhost:8050/. To stop the server, press ``CTRL+C``.
-
+You can now inspect the visualization at `http://localhost:8050/ <http://localhost:8050/>`. To stop the server, press ``CTRL+C``.
 
 The basic command line usage is described below. All options can be found by running
 
 .. code-block:: bash
 
     $ viasp --help
-
 
 Loading Programs
 ----------------
@@ -43,13 +41,11 @@ Consider the file `hamiltonian.lp <https://github.com/potassco/viasp/blob/main/e
     :- hc(V,U), hc(V,W), U!=W.
     :- hc(U,V), hc(W,V), U!=W.
 
-
 To load the program, pass the path to the file as an argument.
 
 .. code-block:: bash
 
     $ viasp hamiltonian.lp
-
 
 For programs split into multiple files, all of them can be loaded at once.
 
@@ -57,7 +53,7 @@ For programs split into multiple files, all of them can be loaded at once.
 
     $ viasp hamiltonian.lp model1.lp
 
-The output looks like the familiar clingo output, plus information about the viasp url
+The output looks like the familiar clingo output, extended by some information about the viASP status.
 
 .. code-block:: bash
     
@@ -81,7 +77,7 @@ Programs can be loaded from stdin
 
     $ cat hamiltonian.lp | viasp
 
-Run clingo to obtain answer sets formatted as json with option ``--outf=2``.
+Run clingo to obtain answer sets formatted as JSON with option ``--outf=2``.
 
 .. code-block:: bash
 
@@ -89,19 +85,18 @@ Run clingo to obtain answer sets formatted as json with option ``--outf=2``.
 
 Note that the file is also passed as an argument to viasp, because it needs information about the input program to build the graph.
 
-Load a json file retrieved through clingo's ``--outf=2`` directly in viASP. This avoids rerunning clingo to solve for potentionally expensive answer sets. One or multiple answer sets from the file may be selected using the its index.
+Load a JSON file retrieved through clingo’s ``--outf=2`` directly in viASP. This avoids rerunning clingo to solve for potentially expensive answer sets. One or multiple answer sets from the file may be selected using its index.
 
 .. code-block:: bash
 
     $ viasp hamiltonian.json hamiltonian.lp --select-model=0
-
 
 Optimization
 ------------
 
 The viASP command line passes on any optimization settings to clingo, so that the optimization is performed as usual.
 
-Not all models listed by clingo are visualized. Depending on the optimization mode, different models are marked marked for visualization: 
+To avoid the visualization of non-optimal answer sets, not all answers listed by clingo are marked for viASP. Depending on the optimization mode, different answer sets are marked for visualization:
 
 - ``opt``: Only the last (optimal) model is marked
 - ``optN``: All optimal models are marked
@@ -111,7 +106,7 @@ Not all models listed by clingo are visualized. Depending on the optimization mo
 Clingraph
 ---------
 
-viASP can integrate clingraph visualizations. To do so, pass the path to a separte visualization program as an argument.
+viASP can integrate clingraph visualizations. To do so, pass the path to a separate visualization encoding as an argument.
 
 .. code-block:: bash
 
@@ -123,11 +118,10 @@ To pass additional arguments to clingraph, use the ``--engine`` and ``--graphviz
 
     $ viasp encoding.lp --viz-encoding viz_encoding.lp --engine neato --graphviz-type digraph
 
-
 Relaxation
 ----------
 
-Unsatisfiable programs can not be visualized by viASP. When such a program is encountered, viASP suggests using the relaxation mode through the ``--print-relax`` or ``--relax`` options. 
+Unsatisfiable programs can not be visualized by viASP. When such a program is encountered, viASP suggests using the relaxation mode through the ``--print-relax`` or ``--relax`` options.
 
 Relaxation transforms all integrity constraints of the input program into a relaxed version. Its answer sets can be used to investigate which integrity constraint leads to unsatisfiability.
 
@@ -218,12 +212,11 @@ To specify the head name of the weak constraint, use the ``--head-name`` option.
 
     $ viasp encoding.lp --head-name _unsat
 
-The relaxer mode only shows one optimal answer set of the transformed program. To change the optimization mode, use the ``--relaxer-opt-mode`` option. The optimization mode is one of clingo's opt mode options. 
+The relaxer mode only shows one optimal answer set of the transformed program. To change the optimization mode, use the ``--relaxer-opt-mode`` option. The optimization mode is one of clingo’s opt mode options. 
 
 .. code-block:: bash
 
     $ viasp encoding.lp --relaxer-opt-mode=optN
-
 
 Other options
 -------------

@@ -49,7 +49,6 @@ The configuration of constants used for sizing and animating the viASP graph is 
         "KEY_ENTER": 13
     }
 
-
 String output and Localization
 ------------------------------
 

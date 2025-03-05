@@ -4,7 +4,7 @@ viASP: An interactive ASP visualizer
 
 viASP generates interactive explanations of ASP programs and their stable models. A step-by-step break-down shows how the atoms of the stable models are derived.
 
-viASP can be used via the command line or its Python API.
+viASP offers a command line interface and a python API.
 
 ..
    comment viASP uses the clingo python API, a Flask server and a Dash frontend to generate the visualizations.
