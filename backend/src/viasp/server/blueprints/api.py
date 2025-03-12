@@ -3,7 +3,8 @@ from typing import Tuple, Any, Dict, Iterable, List
 from flask import current_app, request, Blueprint, jsonify, abort, Response, session
 from uuid import uuid4
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql import select
+from sqlalchemy.sql import select, delete
+from sqlalchemy import func
 
 from clingo import Control
 from clingraph.orm import Factbase
@@ -30,7 +31,7 @@ def handle_call_received(call: ClingoMethodCall, encoding_id: str) -> None:
         prg = call.kwargs["program"]
 
         db_encoding = db_session.query(Encodings).filter_by(
-            id=encoding_id, filename=path).first()
+            encoding_id=encoding_id, filename=path).first()
         if db_encoding is not None:
             db_encoding.program += prg
         else:
@@ -420,3 +421,42 @@ def clingraph_generate():
             db_session.delete(r)
         db_session.commit()
     return "ok", 200
+
+@bp.route("/control/deregister_session", methods=["POST"])
+@ensure_encoding_id
+def deregister_session():
+    if request.method == "POST":
+        encoding_id = session['encoding_id']
+        queries = [
+            delete(Encodings).where(Encodings.encoding_id == encoding_id),
+            delete(Models).where(Models.encoding_id == encoding_id),
+            delete(Graphs).where(Graphs.encoding_id == encoding_id),
+            delete(CurrentGraphs).where(
+                CurrentGraphs.encoding_id == encoding_id),
+            delete(GraphSymbols).where(
+                GraphSymbols.node.in_(
+                    db_session.query(GraphNodes.node_uuid).filter(
+                        GraphNodes.encoding_id == encoding_id))),
+            delete(GraphNodes).where(GraphNodes.encoding_id == encoding_id),
+            delete(GraphEdges).where(GraphEdges.encoding_id == encoding_id),
+            delete(DependencyGraphs).where(
+                DependencyGraphs.encoding_id == encoding_id),
+            delete(Recursions).where(Recursions.encoding_id == encoding_id),
+            delete(Clingraphs).where(Clingraphs.encoding_id == encoding_id),
+            delete(Transformers).where(
+                Transformers.encoding_id == encoding_id),
+            delete(Constants).where(Constants.encoding_id == encoding_id),
+            delete(Warnings).where(Warnings.encoding_id == encoding_id),
+            delete(AnalyzerNames).where(
+                AnalyzerNames.encoding_id == encoding_id),
+            delete(AnalyzerFacts).where(
+                AnalyzerFacts.encoding_id == encoding_id),
+            delete(AnalyzerConstants).where(
+                AnalyzerConstants.encoding_id == encoding_id),
+        ]
+        for q in queries:
+            db_session.execute(q)
+        db_session.commit()
+    number_of_active_sessions = db_session.execute(
+        select(func.count()).select_from(Encodings)).scalar()
+    return jsonify(number_of_active_sessions)

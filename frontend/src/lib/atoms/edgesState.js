@@ -5,7 +5,7 @@ import {
     shownRecursionState,
     usingClingraphState,
 } from './currentGraphState';
-import { backendUrlState } from './settingsState';
+import { backendUrlState, tokenState } from './settingsState';
 import { proxyTransformationStateFamily } from './transformationsState';
 import {nodeUuidsByTransforamtionStateFamily} from './nodesState';
 
@@ -13,12 +13,14 @@ const getEdgesFromServer = async (
     backendUrl,
     currentSort,
     shownRecursion,
-    usingClingraph
+    usingClingraph,
+    token
 ) => {
     return fetch(`${backendUrl}/graph/edges`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({currentSort, shownRecursion, usingClingraph}),
     });
@@ -31,11 +33,13 @@ export const edgesFromApiState = selector({
         const backendURL = get(backendUrlState);
         const shownRecursion = get(shownRecursionState);
         const usingClingraph = get(usingClingraphState);
+        const token = get(tokenState);
         const response = await getEdgesFromServer(
             backendURL,
             currentSort,
             shownRecursion,
-            usingClingraph
+            usingClingraph,
+            token
         );
 
         if (!response.ok) {

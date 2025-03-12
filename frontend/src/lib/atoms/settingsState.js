@@ -17,3 +17,8 @@ export const showDiffOnlyState = atom({
     key: 'showDiffOnlyState',
     default: true,
 });
+
+export const tokenState = atom({
+    key: 'tokenState',
+    default: '0'
+})

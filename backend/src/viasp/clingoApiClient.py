@@ -3,7 +3,7 @@ from typing import Collection
 
 import requests
 
-from .shared.defaults import DEFAULT_BACKEND_URL, _
+from .shared.defaults import DEFAULT_BACKEND_URL, DEFAULT_FRONTEND_URL, _
 from .shared.io import DataclassJSONEncoder
 from .shared.model import ClingoMethodCall, StableModel, TransformerTransport
 from .shared.interfaces import ViaspClient
@@ -17,6 +17,13 @@ def backend_is_running(url=DEFAULT_BACKEND_URL):
     except requests.exceptions.ConnectionError:
         return False
 
+
+def frontend_is_running(url=DEFAULT_FRONTEND_URL):
+    try:
+        r = requests.get(f"{url}/healthcheck")
+        return r.status_code == 200
+    except requests.exceptions.ConnectionError:
+        return False
 
 def dict_factory_that_supports_uuid(kv_pairs):
     return {k: v for k, v in kv_pairs}
@@ -152,4 +159,21 @@ class ClingoClient(ViaspClient):
             info(_("REGISTER_WARNING_SUCCESS"))
         else:
             error(_("REGISTER_WARNING_FAILED").format(r.status_code, r.reason))
-    
+
+    def get_session_id(self):
+        r = self.session.get(f"{self.backend_url}/get_session")
+        if r.ok:
+            info(_("GET_SESSION_ID_SUCCESS"))
+            return r.json()
+        else:
+            error(_("GET_SESSION_ID_FAILED").format(r.status_code, r.reason))
+            return None
+
+    def deregister_session(self):
+        r = self.session.post(f"{self.backend_url}/control/deregister_session")
+        if r.ok:
+            info(_("DEREGISTER_SESSION_SUCCESS"))
+            return r.json()
+        else:
+            error(_("DEREGISTER_SESSION_FAILED").format(r.status_code, r.reason))
+            return 0

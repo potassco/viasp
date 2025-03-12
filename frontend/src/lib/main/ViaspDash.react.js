@@ -39,6 +39,7 @@ import {
     backendUrlState,
     colorPaletteState,
     defaultBackendUrlState,
+    tokenState
 } from '../atoms/settingsState';
 import {clearAllHighlightsCallback} from '../hooks/highlights';
 import {
@@ -53,11 +54,12 @@ import {
 import {mapShiftState} from '../atoms/mapShiftState';
 import useResizeObserver from '@react-hook/resize-observer';
 
-async function postCurrentSort(backendUrl, currentSort, oldIndex, newIndex) {
+async function postCurrentSort(backendUrl, currentSort, oldIndex, newIndex, token) {
     const r = await fetch(`${backendUrl}/graph/sorts`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
             current_sort: currentSort,
@@ -79,6 +81,7 @@ function GraphContainer(props) {
     const clingraphUsed = useRecoilValue(usingClingraphState);
     const backendUrl = useRecoilValue(backendUrlState);
     const colorPalette = useRecoilValue(colorPaletteState);
+    const token = useRecoilValue(tokenState);
     const setDraggableSelectedItem = useSetRecoilState(draggableListSelectedItem)
     const [currentSort, setCurrentSort] = useRecoilState(currentSortState)
     const tDropIndices = useRecoilValue(reorderTransformationDropIndicesState);
@@ -99,7 +102,7 @@ function GraphContainer(props) {
             resetShownRecursion();
             clearHighlights();
             // setTransformationsList([]);
-            postCurrentSort(backendUrl, currentSort, oldIndex, newIndex).then(
+            postCurrentSort(backendUrl, currentSort, oldIndex, newIndex, token).then(
                 (data) => {
                     setCurrentSort(data.hash);
                 }
@@ -110,6 +113,7 @@ function GraphContainer(props) {
 
     const graphContainerRef = React.useRef(null);
     return (
+        currentSort === "ERROR" ? <div>No graph found. Invalid token?</div> :
         <div className="graph_container" ref={graphContainerRef}>
             <Facts />
             <Settings />
@@ -252,7 +256,7 @@ function ZoomInteraction() {
 }
 
 function MainWindow(props) {
-    const {notifyDash, backendUrl, colorPalette} = props;
+    const {notifyDash, backendUrl, colorPalette, token} = props;
     
     const setBackendURLRecoil = useSetRecoilState(backendUrlState);
     React.useLayoutEffect(() => {
@@ -261,6 +265,11 @@ function MainWindow(props) {
     
     const contentDivRef = useRef(null);
     const setContentDiv = useSetRecoilState(contentDivState);
+    const setToken = useSetRecoilState(tokenState);
+    React.useLayoutEffect(() => {
+        setToken(token);
+    }, [token, setToken]);
+
     const setColorPaletteRecoil = useSetRecoilState(colorPaletteState);
     React.useLayoutEffect(() => {
         setColorPaletteRecoil(colorPalette);
@@ -312,6 +321,10 @@ MainWindow.propTypes = {
      * Colors to be used in the application.
      */
     colorPalette: PropTypes.object,
+    /**
+     * The token for the encoding
+     */
+    token: PropTypes.string,
 };
 
 /**
@@ -319,14 +332,20 @@ MainWindow.propTypes = {
  */
 export default function ViaspDash(props) {
     const {id, backendURL, setProps, colorPalette, config} = props;
-
     function notifyDash(clickedOn) {
         setProps({clickedOn: clickedOn});
     }
+    const [encodingId, setEncodingId] = React.useState(null);
 
     React.useEffect(() => {
         Object.assign(Constants, config);
     }, [config]);
+
+    React.useLayoutEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || '0';
+        setEncodingId(token);
+    }, []);
 
     return (
         <div id={id}>
@@ -338,6 +357,7 @@ export default function ViaspDash(props) {
                             notifyDash={notifyDash}
                             backendUrl={backendURL}
                             colorPalette={colorPalette}
+                            token={encodingId}
                         />
                     </>
                 </UserMessagesProvider>

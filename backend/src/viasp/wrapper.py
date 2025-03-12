@@ -120,6 +120,12 @@ class ShowConnector:
     def register_constant(self, name, value):
         self._database._register_constant(name, value)
 
+    def get_session_id(self):
+        return self._database.get_session_id()
+    
+    def deregister_session(self):
+        return self._database.deregister_session()
+
 
 class Control:
 

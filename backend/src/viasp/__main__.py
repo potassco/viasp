@@ -2,20 +2,18 @@ import argparse
 import sys
 import re
 import os
-import webbrowser
-import logging
+import shutil
 import subprocess
 import atexit
+import signal
 
 import importlib.metadata
 from contextlib import redirect_stdout
 from clingo.script import enable_python
 from clingo import Control as clingoControl
 
-import viasp.api
 from viasp.server import startup
-import viasp.shared
-from viasp.shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_FRONTEND_PORT, DEFAULT_BACKEND_PROTOCOL, DEFAULT_COLOR
+from viasp.shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_FRONTEND_PORT, DEFAULT_FRONTEND_HOST, DEFAULT_BACKEND_PROTOCOL, DEFAULT_COLOR, CLINGRAPH_PATH, GRAPH_PATH, PROGRAM_STORAGE_PATH, STDIN_TMP_STORAGE_PATH, SERVER_PID_FILE_PATH, FRONTEND_PID_FILE_PATH
 from viasp.shared.defaults import _
 from viasp.shared.io import clingo_model_to_stable_model, clingo_symbols_to_stable_model
 import viasp.shared.simple_logging
@@ -192,7 +190,7 @@ class ViaspArgumentParser:
         basic.add_argument('--host',
                            metavar='<host>',
                            type=str,
-                           help=_("VIASP_HOST_HELP"),
+                           help=_("VIASP_BACKEND_HOST_HELP"),
                            default=DEFAULT_BACKEND_HOST)
         basic.add_argument('-p',
                            '--port',
@@ -200,8 +198,12 @@ class ViaspArgumentParser:
                            type=int,
                            help=_("VIASP_PORT_BACKEND_HELP"),
                            default=DEFAULT_BACKEND_PORT)
-        basic.add_argument('-f',
-                           '--frontend-port',
+        basic.add_argument('--frontend-host',
+                            metavar='<host>',
+                            type=str,
+                            help=_("VIASP_FRONTEND_HOST_HELP"),
+                            default=DEFAULT_FRONTEND_HOST)
+        basic.add_argument('--frontend-port',
                            metavar='<port>',
                            type=int,
                            help=_("VIASP_PORT_FRONTEND_HELP"),
@@ -364,6 +366,11 @@ class ViaspRunner():
     def __init__(self):
         self._should_run_relaxation: bool = False
         self.backend_url: str = ""
+        signal.signal(signal.SIGINT, self.signal_handler)
+
+    def signal_handler(self, sig, frame):
+        self.deregister_session()
+        sys.exit(0)
 
     def run(self, args):
         # try:
@@ -539,8 +546,10 @@ class ViaspRunner():
             else:
                 viasp.api.load_program_file(path[1],
                                             viasp_backend_url=self.backend_url)
-        for c,v in options['constants'].items():
-            viasp.api.register_constant(c, v, viasp_backend_url=self.backend_url)
+        for c, v in options['constants'].items():
+            viasp.api.register_constant(c,
+                                        v,
+                                        viasp_backend_url=self.backend_url)
         for m in models:
             viasp.api.mark_from_clingo_model(
                 m, viasp_backend_url=self.backend_url)
@@ -549,7 +558,8 @@ class ViaspRunner():
             for v in options['clingraph_files']:
                 viasp.api.clingraph(viz_encoding=v[-1],
                                     engine=options['engine'],
-                                    graphviz_type=options['graphviz_type'])
+                                    graphviz_type=options['graphviz_type'],
+                                    viasp_backend_url=self.backend_url)
 
     def relax_program(self, encoding_files, stdin, head_name,
                       no_collect_variables, constants):
@@ -561,13 +571,15 @@ class ViaspRunner():
             else:
                 viasp.api.load_program_file(path[1],
                                             viasp_backend_url=self.backend_url)
-        for c,v in constants.items():
-            viasp.api.register_constant(c, v, viasp_backend_url=self.backend_url)
+        for c, v in constants.items():
+            viasp.api.register_constant(c,
+                                        v,
+                                        viasp_backend_url=self.backend_url)
         relaxed_program = viasp.api.get_relaxed_program(
             head_name,
             not no_collect_variables,
             viasp_backend_url=self.backend_url) or ""
-        viasp.api.clear_program()
+        viasp.api.clear_program(viasp_backend_url=self.backend_url)
         return relaxed_program
 
     def relax_program_quietly(self, encoding_files, stdin, head_name,
@@ -580,6 +592,37 @@ class ViaspRunner():
                                                      constants)
                 atexit._run_exitfuncs()
         return relaxed_program
+
+    def deregister_session(self):
+        remaining_sessions = viasp.api.deregister_session(
+            viasp_backend_url=self.backend_url)
+        if remaining_sessions == 0:
+            self.shutdown_server()
+            self.shutdown_frontend_server()
+
+    def shutdown_server(self):
+        from viasp.server.startup import LOG_FILE
+
+        if os.path.exists(SERVER_PID_FILE_PATH):
+            with open(SERVER_PID_FILE_PATH, "r") as pid_file:
+                pid = int(pid_file.read().strip())
+                os.kill(pid, signal.SIGTERM)
+            os.remove(SERVER_PID_FILE_PATH)
+        if LOG_FILE is not None and not LOG_FILE.closed:
+            LOG_FILE.close()
+
+        if os.path.exists(CLINGRAPH_PATH):
+            shutil.rmtree(CLINGRAPH_PATH)
+        for file in [GRAPH_PATH, PROGRAM_STORAGE_PATH, STDIN_TMP_STORAGE_PATH]:
+            if os.path.exists(file):
+                os.remove(file)
+
+    def shutdown_frontend_server(self):
+        if os.path.exists(FRONTEND_PID_FILE_PATH):
+            with open(FRONTEND_PID_FILE_PATH, "r") as pid_file:
+                pid = int(pid_file.read().strip())
+                os.kill(pid, signal.SIGTERM)
+            os.remove(FRONTEND_PID_FILE_PATH)
 
     def run_wild(self, args):
         vap = ViaspArgumentParser()
@@ -603,6 +646,7 @@ class ViaspRunner():
         relax = options.get("relax", False)
         host = options.get("host", DEFAULT_BACKEND_HOST)
         port = options.get("port", DEFAULT_BACKEND_PORT)
+        frontend_host = options.get("frontend_host", DEFAULT_FRONTEND_HOST)
         frontend_port = options.get("frontend_port", DEFAULT_FRONTEND_PORT)
         self.backend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
 
@@ -644,12 +688,7 @@ class ViaspRunner():
         else:
             self.run_viasp(encoding_files, models, options)
 
-        frontend_url = f"http://{host}:{frontend_port}"
-        plain(_("VIASP_RUNNING_INFO").format(frontend_url))
-        plain(_("VIASP_HALT_HELP"))
-        if not _is_running_in_notebook():
-            webbrowser.open(frontend_url)
+        session_id = viasp.api.get_session_id(
+            viasp_backend_url=self.backend_url)
 
-        log = logging.getLogger('werkzeug')
-        log.setLevel(logging.ERROR)
-        app.run(host=host, port=frontend_port, use_reloader=False, debug=False)
+        app.run(session_id, host=frontend_host, port=frontend_port)

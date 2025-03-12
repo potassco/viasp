@@ -1,17 +1,15 @@
-import {atomFamily,selectorFamily, waitForAll} from 'recoil';
+import { selectorFamily, waitForAll } from 'recoil';
 import { currentSortState } from './currentGraphState';
-import { backendUrlState } from './settingsState';
-import { switchTransformationFromIndexState,
-     switchTransformationToIndexState 
-    } from './reorderTransformationDropIndices';
+import { backendUrlState, tokenState } from './settingsState';
 
-const getTransformationFromServer = async (backendURL, id, currentSort) => {
+const getTransformationFromServer = async (backendURL, id, currentSort, token) => {
     return fetch(
         `${backendURL}/graph/transformations`, 
         {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
             },
             body: JSON.stringify({id, currentSort})
         }
@@ -26,7 +24,8 @@ export const transformationStateFamily = selectorFamily({
         async ({get}) => {
             const currentSort = get(currentSortState);
             const backendURL = get(backendUrlState);
-            const response = await getTransformationFromServer(backendURL, id, currentSort);
+            const token = get(tokenState);
+            const response = await getTransformationFromServer(backendURL, id, currentSort, token);
             if (!response.ok) {
                 throw new Error(response.statusText);
             }

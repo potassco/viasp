@@ -8,7 +8,7 @@ import networkx as nx
 import numpy as np
 from flask import Blueprint, current_app, session, request, jsonify, abort, Response, send_file
 from clingo.ast import AST
-from sqlalchemy.exc import MultipleResultsFound
+from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from sqlalchemy import select, delete, update
 
 from ...asp.reify import ProgramAnalyzer, reify_list
@@ -38,10 +38,8 @@ def nx_to_igraph(nx_graph: nx.DiGraph):
                                    > 0).tolist())
 
 def get_current_graph_hash(encoding_id: str) -> Optional[str]:
-    current_graph = db_session.query(CurrentGraphs).filter_by(encoding_id=encoding_id).one_or_none()
-    if current_graph is None:
-        return None
-    return current_graph.hash
+    query = select(CurrentGraphs.hash).filter_by(encoding_id=encoding_id)
+    return db_session.execute(query).scalars().one()
 
 def _get_graph(encoding_id: str):
     current_graph_hash = get_current_graph_hash(encoding_id)
@@ -342,7 +340,7 @@ def get_transformation_by_id_and_current_sort():
         if "id" not in request.json:
             return jsonify({'error': 'Missing id in request'}), 400
         if "currentSort" not in request.json:
-            return jsonify({'error': 'Missing current_sort in request'}), 400.
+            return jsonify({'error': 'Missing current_sort in request'}), 400
         id = request.json["id"]
         current_hash = request.json["currentSort"]
 
@@ -391,7 +389,10 @@ def get_sorted_program():
 @ensure_encoding_id
 def number_of_transformations():
     encoding_id = session['encoding_id']
-    current_graph_hash = get_current_graph_hash(encoding_id)
+    try:
+        current_graph_hash = get_current_graph_hash(encoding_id)
+    except MultipleResultsFound and NoResultFound as e:
+        return f"Database error: {e}", 500
     db_graph = db_session.query(Graphs).filter_by(encoding_id=encoding_id, hash=current_graph_hash).one_or_none()
     if db_graph is None:
         return jsonify(0)
@@ -406,7 +407,7 @@ def current_graph():
     if request.method == "GET":
         try:
             current_hash = get_current_graph_hash(encoding_id)
-        except MultipleResultsFound as e:
+        except MultipleResultsFound and NoResultFound as e:
             return f"Database error: {e}", 500
         return jsonify(current_hash)
     if request.method == "POST":
@@ -717,8 +718,8 @@ def search_ground_term_in_symbols(query, db_graph_symbols, is_autocomplete=False
         if symbol.symbol not in symbols_results:
             symbols_results.append(
                 SearchResultSymbolWrapper(
-                    repr=symbol.symbol, 
-                    includes=[symbol.symbol_uuid], 
+                    repr=symbol.symbol,
+                    includes=[symbol.symbol_uuid],
                     is_autocomplete=is_autocomplete
                 ))
         else:

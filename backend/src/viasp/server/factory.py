@@ -2,6 +2,7 @@ from flask import Flask
 from werkzeug.utils import find_modules, import_string
 from flask_cors import CORS
 import secrets
+import os
 
 from ..shared.io import DataclassJSONProvider
 from .database import init_db, db_session
@@ -22,9 +23,14 @@ def create_app():
 
     init_db()
     register_blueprints(app)
-    CORS(app, resources={r"/*": {"origins": "*"}}, max_age=3600)
+    CORS(app, supports_credentials=True, max_age=3600)
     app.config['SECRET_KEY'] = secrets.token_hex(16)
     app.config['SESSION_TYPE'] = 'filesystem'
+
+    session_dir = os.path.join(os.getcwd(), 'flask_session')
+    if not os.path.exists(session_dir):
+        os.makedirs(session_dir)
+    app.config['SESSION_FILE_DIR'] = session_dir
 
 
     @app.teardown_appcontext

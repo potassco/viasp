@@ -11,24 +11,27 @@
 """
 import sys
 import os
-import atexit
-import shutil
-import logging
-from subprocess import Popen
-import json
+import time
+import webbrowser
+from subprocess import Popen, DEVNULL
 from retrying import retry
 
-import viasp_dash
 from dash import Dash, jupyter_dash
 from dash._jupyter import _jupyter_config
 
 from viasp import clingoApiClient
-from viasp.shared.defaults import (CONFIG_PATH, DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT,
-                                   DEFAULT_BACKEND_PROTOCOL, CLINGRAPH_PATH,
-                                   GRAPH_PATH, PROGRAM_STORAGE_PATH,
-                                   STDIN_TMP_STORAGE_PATH, COLOR_PALETTE_PATH, DEFAULT_COLOR)
+from viasp.shared.simple_logging import error, warn, plain, info
+from viasp.shared.defaults import DEFAULT_BACKEND_URL, _
+from viasp.shared.defaults import (DEFAULT_BACKEND_HOST,
+                                   DEFAULT_BACKEND_PORT,
+                                   DEFAULT_BACKEND_PROTOCOL,
+                                   DEFAULT_FRONTEND_HOST,
+                                   DEFAULT_FRONTEND_PORT,
+                                   SERVER_PID_FILE_PATH,
+                                   FRONTEND_PID_FILE_PATH,
+                                   DEFAULT_COLOR)
 
-
+LOG_FILE = None
 
 def run(host=DEFAULT_BACKEND_HOST,
         port=DEFAULT_BACKEND_PORT,
@@ -54,6 +57,11 @@ def run(host=DEFAULT_BACKEND_HOST,
     else:
         backend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
 
+    if clingoApiClient.backend_is_running(backend_url):
+        return ViaspDash(
+            backend_url=backend_url,
+            primary_color=primary_color)
+
     env = os.getenv("ENV", "production")
     if env == "production":
         command = ["waitress-serve", "--host", host, "--port", str(port), "--call", "viasp.server.factory:create_app"]
@@ -63,21 +71,18 @@ def run(host=DEFAULT_BACKEND_HOST,
     #     display_refresh_button()
 
     # print(f"Starting backend at {backend_url}")
-    log = open('viasp.log', 'w', encoding="utf-8")
-    viasp_backend = Popen(command, stdout=log, stderr=log)
+    global LOG_FILE
+    LOG_FILE = open('viasp.log', 'w', encoding="utf-8")
+    server_process = Popen(command,
+                                  preexec_fn=os.setsid,
+                                  stdout=LOG_FILE, stderr=LOG_FILE)
+    with open(SERVER_PID_FILE_PATH, "w") as pid_file:
+        pid_file.write(str(server_process.pid))
 
-    color_palette = json.load(open(COLOR_PALETTE_PATH,
-                                   "r")).pop("colorThemes").pop(primary_color)
-    config_constants = json.load(open(CONFIG_PATH, "r"))
-    app = Dash(__name__)
-    app.layout = viasp_dash.ViaspDash(id="myID",
-                                      backendURL=backend_url,
-                                      colorPalette=color_palette,
-                                      config=config_constants)
-    app.title = "viASP"
-    dash_logger = logging.getLogger('dash.dash')
-    dash_logger.setLevel(logging.ERROR)
-
+    app = ViaspDash(
+        backend_url=backend_url,
+        primary_color=primary_color)
+    app.start_serving_frontend_files()
     # suppress dash's flask server banner
     cli = sys.modules['flask.cli']
     cli.show_server_banner = lambda *x: None  # type: ignore
@@ -98,34 +103,74 @@ def run(host=DEFAULT_BACKEND_HOST,
         wait_for_backend()
     except Exception as final_error:
         print(f"Error: {final_error}")
-        viasp_backend.terminate()
+        server_process.terminate()
         raise final_error
 
-    def terminate_process(process):
-        """ kill the backend on keyboard interruptions"""
-        try:
-            process.terminate()
-        except OSError:
-            print("Could not terminate viasp")
-
-    def close_file(file):
-        """ close the log file"""
-        file.close()
-
-    def shutdown():
-        """ when quitting app, remove all files in 
-                the static/clingraph folder
-                and auxiliary program files
-        """
-        if os.path.exists(CLINGRAPH_PATH):
-            shutil.rmtree(CLINGRAPH_PATH)
-        for file in [GRAPH_PATH, PROGRAM_STORAGE_PATH, STDIN_TMP_STORAGE_PATH]:
-            if os.path.exists(file):
-                os.remove(file)
-
-    # kill the backend on keyboard interruptions
-    atexit.register(terminate_process, viasp_backend)
-    atexit.register(close_file, log)
-    atexit.register(shutdown)
-
     return app
+
+
+def _is_running_in_notebook():
+    try:
+        shell = get_ipython().__class__.__name__  # type: ignore
+        if shell == 'ZMQInteractiveShell':
+            return True  # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False  # Probably standard Python interpreter
+
+class ViaspDash(Dash):
+
+    def __init__(self,
+                 backend_url=DEFAULT_BACKEND_URL,
+                 primary_color=DEFAULT_COLOR):
+        self.backend_url = backend_url
+        self.primary_color = primary_color
+
+    def start_serving_frontend_files(self,
+                     host=DEFAULT_FRONTEND_HOST,
+                     port=DEFAULT_FRONTEND_PORT):
+        if not clingoApiClient.frontend_is_running(f"http://{host}:{port}"):
+            env = os.getenv("ENV", "production")
+            if env == "production":
+                os.environ['BACKEND_URL'] = self.backend_url
+                os.environ['VIASP_PRIMARY_COLOR'] = self.primary_color
+                command = [
+                    "waitress-serve", "--host", host, "--port",
+                    str(port), "--call", "viasp_dash.react_server:create_app"
+                ]
+            else:
+                command = [
+                    "viasp_frontend", "--host", host, "--port",
+                    str(port), "--backend-url", self.backend_url, "--color",
+                    self.primary_color
+                ]
+
+            server_process = Popen(command,
+                                   preexec_fn=os.setsid,
+                                   stdout=DEVNULL,
+                                   stderr=DEVNULL)
+            with open(FRONTEND_PID_FILE_PATH, "w") as pid_file:
+                pid_file.write(str(server_process.pid))
+
+    def run(self,
+            session_id,
+            host=DEFAULT_FRONTEND_HOST,
+            port=DEFAULT_FRONTEND_PORT):
+        frontend_url_with_session_id = f"http://{host}:{port}?token={session_id}"
+        plain(_("VIASP_RUNNING_INFO").format(frontend_url_with_session_id))
+        plain(_("VIASP_HALT_HELP"))
+
+        if not _is_running_in_notebook():
+            while True:
+                if clingoApiClient.frontend_is_running(f"http://{host}:{port}"):
+                    break
+                time.sleep(0.01)
+            webbrowser.open(frontend_url_with_session_id)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            sys.exit(0)

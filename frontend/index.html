@@ -1,10 +1,19 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
+
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>viASP</title>
 </head>
+
 <body>
-<div id='root'></div>
-<script src="/output.js"></script>
+    <div id="root"></div>
+    <script>
+        window.colorTheme = window.colorTheme || {{ color_theme | safe }};
+        window.config = window.config || {{ config | safe }};
+        window.backendURL = window.backendURL || "{{ backend_url }}";
+    </script>
 </body>
+
 </html>

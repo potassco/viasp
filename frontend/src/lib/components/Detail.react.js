@@ -6,8 +6,8 @@ import {showError, useMessages} from '../contexts/UserMessages';
 import { useShownDetail } from "../contexts/ShownDetail";
 import {SIGNATURE, SYMBOL} from "../types/propTypes";
 import {IoChevronDown, IoChevronForward, IoCloseSharp} from "react-icons/io5";
-import {useRecoilValue} from "recoil";
-import { backendUrlState, colorPaletteState } from '../atoms/settingsState';
+import { useRecoilValue } from "recoil";
+import { backendUrlState, colorPaletteState, tokenState } from '../atoms/settingsState';
 
 
 function DetailSymbolPill(props) {
@@ -56,8 +56,12 @@ DetailForSignature.propTypes =
         symbols: PropTypes.arrayOf(SYMBOL)
     }
 
-function loadDataForDetail(backendURL, uuid) {
-    return fetch(`${backendURL('detail')}/${uuid}`)
+function loadDataForDetail(backendURL, uuid, token) {
+    return fetch(`${backendURL('detail')}/${uuid}`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
         .then((r) => {
             if (!r.ok) {
                 throw new Error(
@@ -91,11 +95,12 @@ export function Detail() {
     const colorPalette = useRecoilValue(colorPaletteState);
     const { shownDetail: shows, setShownDetail } = useShownDetail();
     const clearDetail = () => setShownDetail(null);
+    const {token} = tokenState;
 
     React.useEffect(() => {
         let mounted = true;
         if (shows !== null) {
-            loadDataForDetail(backendURLRef.current, shows)
+            loadDataForDetail(backendURLRef.current, shows, token)
                 .then(items => {
                     if (mounted) {
                         setData(items[1])

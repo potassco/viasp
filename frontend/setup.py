@@ -16,8 +16,13 @@ setup(
     description=package.get('description', package_name),
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    install_requires=["dash>=2"],
+    install_requires=[],
     classifiers=[
-        'Framework :: Dash',
+        'Framework :: React',
     ],
+    entry_points={
+        'console_scripts': [
+            'viasp_frontend=viasp_dash.react_server:run',
+        ],
+    },
 )

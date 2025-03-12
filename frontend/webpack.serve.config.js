@@ -1,12 +1,36 @@
-const config = require('./webpack.config.js');
 const path = require('path');
+const webpack = require('webpack');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const commonConfig = require('./webpack.config.js');
+const colorPalette = require('./src/colorPalette.json');
+const frontend_config = require('./src/config.json');
 
-config.entry = {main: './src/demo/index.js'};
-config.output = {
-    filename: './output.js',
-    path: path.resolve(__dirname),
+module.exports = (env, argv) => {
+    const config = commonConfig(env, argv);
+
+    config.mode = 'development';
+    config.devtool = 'inline-source-map';
+    config.devServer = {
+        static: {
+            directory: path.join(__dirname, '/'),
+        },
+        hot: true,
+        open: true,
+        port: 8050,
+    };
+
+    config.plugins = [
+        ...config.plugins,
+        new HtmlWebpackPlugin({
+            template: './index.html',
+            filename: 'index.html',
+        }),
+        new webpack.DefinePlugin({
+            'window.colorTheme': JSON.stringify(colorPalette.colorThemes.blue),
+            'window.config': JSON.stringify(frontend_config),
+            'window.backendURL': JSON.stringify('http://127.0.0.1:5050'),
+        }),
+    ];
+
+    return config;
 };
-config.mode = 'development';
-config.externals = undefined; // eslint-disable-line
-config.devtool = 'inline-source-map';
-module.exports = config;

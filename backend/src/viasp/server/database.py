@@ -1,12 +1,11 @@
 from functools import wraps
-from flask import session
+import uuid
+from flask import session, request
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
-from ..shared.event import Event, subscribe
-from ..shared.model import ClingoMethodCall
 from ..shared.defaults import GRAPH_PATH
 
 try:
@@ -35,12 +34,25 @@ def init_db():
     import viasp.server.models
     Base.metadata.create_all(bind=engine)
 
-def ensure_encoding_id(f):
-    @wraps(f)
+encodings_counter = 0
+
+def ensure_encoding_id(func):
+    @wraps(func)
     def decorated_function(*args, **kwargs):
-        if 'encoding_id' not in session:
-            session['encoding_id'] = "0"
-        return f(*args, **kwargs)
+        encoding_id = request.cookies.get('encoding_id')
+        auth_header = request.headers.get('Authorization')
+
+        if encoding_id is not None:
+            session['encoding_id'] = encoding_id
+        elif auth_header is not None:
+            token = auth_header.split(" ")[1]
+            session['encoding_id'] = token
+        elif 'encoding_id' not in session:
+            global encodings_counter
+
+            session['encoding_id'] = str(encodings_counter)
+            encodings_counter += 1
+        return func(*args, **kwargs)
     return decorated_function
 
 def get_or_create_encoding_id():

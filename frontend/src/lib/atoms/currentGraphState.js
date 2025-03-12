@@ -1,6 +1,6 @@
 import {atom, selector, atomFamily, selectorFamily, waitForAll} from 'recoil';
 
-import {backendUrlState} from './settingsState';
+import {backendUrlState, tokenState} from './settingsState';
 import {proxyTransformationStateFamily} from './transformationsState';
 import {
     nodeUuidsByTransforamtionStateFamily,
@@ -22,11 +22,17 @@ export const currentSortState = atom({
         key: 'currentSortState/Default',
         get: async ({get}) => {
             const backendURL = get(backendUrlState);
-            const response = await fetch(`${backendURL}/graph/current`);
+            const token = get(tokenState);
+            const response = await fetch(`${backendURL}/graph/current`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                }
+            });
             if (!response.ok) {
-                throw new Error(response.statusText);
+                return 'ERROR';
             }
-            return response.json();
+            return await response.json();
         }
     }),
 });
@@ -37,11 +43,15 @@ export const numberOfTransformationsFromApiState = selector({
     get: async ({get}) => {
         const currentSort = get(currentSortState);
         const backendURL = get(backendUrlState);
-        const response = await fetch(
-            `${backendURL}/transformations/current`
-        );
+        const token = get(tokenState);
+        const response = await fetch(`${backendURL}/transformations/current`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+        });
         if (!response.ok) {
-            throw new Error(response.statusText);
+            return 'ERROR';
         }
         const numberOfTransformations = await response.json();
         return Array.from({length: numberOfTransformations}, (_, i) => ({

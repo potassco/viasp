@@ -1,12 +1,9 @@
 const path = require('path');
-const webpack = require('webpack');
-const WebpackDashDynamicImport = require('@plotly/webpack-dash-dynamic-import');
 const packagejson = require('./package.json');
 
 const dashLibraryName = packagejson.name.replace(/-/g, '_');
 
 module.exports = (env, argv) => {
-
     let mode;
 
     const overrides = module.exports || {};
@@ -32,38 +29,26 @@ module.exports = (env, argv) => {
         filename = `${dashLibraryName}.${modeSuffix}.js`;
     }
 
-    const entry = overrides.entry || { main: './src/lib/index.js' };
+    const entry = overrides.entry || {main: './src/lib/index.js'};
 
     const devtool = overrides.devtool || 'source-map';
-
-    const externals = ('externals' in overrides) ? overrides.externals : ({
-        react: 'React',
-        'react-dom': 'ReactDOM',
-        'plotly.js': 'Plotly',
-        'prop-types': 'PropTypes',
-    });
 
     return {
         mode,
         entry,
         output: {
-            path: path.resolve(__dirname, dashLibraryName),
+            path: path.resolve(__dirname, 'viasp_dash'),
             chunkFilename: '[name].js',
             filename,
             library: dashLibraryName,
             libraryTarget: 'window',
         },
         devtool,
-        devServer: {
-            static: {
-                directory: path.join(__dirname, '/')
-            }
-        },
-        externals,
         performance: {
             maxEntrypointSize: 512000,
-            maxAssetSize: 512000
+            maxAssetSize: 512000,
         },
+        plugins: [],
         module: {
             rules: [
                 {
@@ -95,23 +80,16 @@ module.exports = (env, argv) => {
                         minSize: 0,
                         name(module, chunks, cacheGroupKey) {
                             return `${cacheGroupKey}-${chunks[0].name}`;
-                        }
+                        },
                     },
                     shared: {
                         chunks: 'all',
                         minSize: 0,
                         minChunks: 2,
-                        name: 'viasp_dash-shared'
-                    }
-                }
-            }
+                        name: 'viasp_dash-shared',
+                    },
+                },
+            },
         },
-        plugins: [
-            new WebpackDashDynamicImport(),
-            new webpack.SourceMapDevToolPlugin({
-                filename: '[file].map',
-                exclude: ['async-plotlyjs']
-            })
-        ]
-    }
+    };
 };

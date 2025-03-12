@@ -1,15 +1,16 @@
 import {atomFamily, selectorFamily, waitForAll, noWait} from 'recoil';
 import { currentSortState } from './currentGraphState';
-import {backendUrlState, showDiffOnlyState} from './settingsState';
+import {backendUrlState, showDiffOnlyState, tokenState} from './settingsState';
 import {clingraphNodesState} from './clingraphState';
 
 import {make_default_nodes} from '../utils/index';
 
-const getNodesFromServer = async (backendUrl, transformationHash, currentSort) => {
+const getNodesFromServer = async (backendUrl, transformationHash, currentSort, token) => {
     return fetch(`${backendUrl}/graph/children`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({transformationHash, currentSort}),
     });
@@ -20,7 +21,13 @@ export const nodesByTransforamtionStateFamily = selectorFamily({
     get: (transformationHash) => async ({get}) => {
         const currentSort = get(currentSortState);
         const backendURL = get(backendUrlState);
-        const response = await getNodesFromServer(backendURL, transformationHash, currentSort)
+        const token = get(tokenState);
+        const response = await getNodesFromServer(
+            backendURL,
+            transformationHash,
+            currentSort,
+            token
+        );
 
         if (!response.ok) {
             throw new Error(response.statusText);

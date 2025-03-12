@@ -1,4 +1,4 @@
-from flask import Blueprint, session
+from flask import Blueprint, session, jsonify
 
 bp = Blueprint("app", __name__, template_folder='../templates', static_folder='../static/', static_url_path='/static')
 
@@ -15,4 +15,4 @@ def set_session():
 @bp.route('/get_session')
 def get_session():
     encoding_id = session.get('encoding_id', 'Not set')
-    return f'Encoding ID: {encoding_id}'
+    return jsonify(encoding_id)

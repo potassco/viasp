@@ -1,23 +1,22 @@
 /* eslint no-magic-numbers: 0 */
-import React from 'react';
-import colorPaletteData from '../../../backend/src/viasp/server/colorPalette.json';
-import config from '../../../backend/src/viasp/server/config.json';
+import React, {StrictMode} from 'react';
+import colorPaletteData from '../colorPalette.json';
+import config from '../config.json';
+import ViaspDash from '../lib/main/ViaspDash.react';
 
-import { ViaspDash } from '../lib';
 
 const App = () => {
     const backend_url = "http://localhost:5050";
-    const [clickedOn, setClickedOn] = React.useState(null);
     return (
-        <div>
+        <StrictMode>
             <ViaspDash
-                id="myID"
+                id="viasp-react"
                 backendURL={backend_url}
-                setProps={setClickedOn}
+                setProps={() => {}}
                 colorPalette={colorPaletteData.colorThemes.blue}
                 config={config}
             />
-        </div>
+        </StrictMode>
     );
 };
 

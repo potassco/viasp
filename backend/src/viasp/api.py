@@ -22,6 +22,7 @@ import clingo.ast
 from clingo.symbol import Symbol
 from clingo.script import enable_python
 import clingo.util
+from flask import session
 
 from .shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_FRONTEND_PORT, STDIN_TMP_STORAGE_PATH, DEFAULT_BACKEND_PROTOCOL
 from .shared.io import clingo_symbols_to_stable_model, clingo_model_to_stable_model
@@ -862,3 +863,33 @@ def unmark_from_file(path: str, **kwargs) -> None:
     ``unmark_from_string``
     """
     unmark_from_string(_get_program_string(path), **kwargs)
+
+def get_session_id(**kwargs) -> str:
+    r"""
+    Get the session id.
+
+    Kwargs:
+        * *viasp_backend_url* (``str``) --
+          url of the viasp backend
+        * *_viasp_client* (``ClingoClient``) --
+          a viasp client object
+    """
+    connector = _get_connector(**kwargs)
+    session_id = connector.get_session_id()
+    if session_id == None:
+        return ""
+    return session_id
+
+def deregister_session(**kwargs) -> int:
+    r"""
+    Deregister the session id.
+
+    Kwargs:
+        * *viasp_backend_url* (``str``) --
+          url of the viasp backend
+        * *_viasp_client* (``ClingoClient``) --
+          a viasp client object
+    """
+    connector = _get_connector(**kwargs)
+    active_sessions = connector.deregister_session()
+    return active_sessions

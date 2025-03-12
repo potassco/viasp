@@ -5,7 +5,7 @@ Configuration
 Graph Interaction
 -----------------
 
-The configuration of constants used for sizing and animating the viASP graph is defined in the file `/backend/src/viasp/server/config.json`.
+The configuration of constants used for sizing and animating the viASP graph is defined in the file `/frontend/src/config.json`.
 
 .. code-block:: JSON
 
@@ -15,6 +15,7 @@ The configuration of constants used for sizing and animating the viASP graph is 
         // but will cause performance loss
         "DEBOUNCETIMEOUT": 150, 
         "SMALLERDEBOUNCETIMEOUT": 50,
+        "isAnimatingTimeout": 500,
         "rowAnimationIntervalInMs": 30,
         "rowAnimationPickupThreshold": 0.01, // arbitrary units
         "awaitingInputSpinnerSpeed": 0.3,
@@ -23,16 +24,21 @@ The configuration of constants used for sizing and animating the viASP graph is 
         "hoverColorDarkenFactor": 0.08,
         "hoverColorLightenFactor": 0.15,
         "opacityMultiplier": 0.8,
+        "overflowButtonColorLightenFactor": 0.58,
         "ruleHighlightDuration": 3000,
         "ruleHighlightFadeDuration": 1000,
         "searchResultHighlightDuration": 4500,
+        "arrowsAppearTimeout": 500,
 
         // graph sizing constants (in em)
         "minimumNodeHeight": 2.5,
         "standardNodeHeight": 6.5,
+        "foldNodeThreshold": 0.7,
         "minSearchInputWidthInEm": 15,
         "maxSearchInputWidthInEm": 40,
         "zoomBtnTranlsaltionDiff": 1,
+        "HOverflowThresholdInEm": 0.3,
+        "HOverflowThresholdForRecursiveNodesInEm": 0.6, 
 
         // graph resizing / zooming constants
         "overflowThreshold": 0.1,
@@ -40,8 +46,8 @@ The configuration of constants used for sizing and animating the viASP graph is 
 
         // keys
         "zoomToggleBtn": 16,
-        "zoomInBtns": "+*",
-        "zoomOutBtns": "-_",
+        "zoomInBtns": "+",
+        "zoomOutBtns": "-",
         "KEY_DOWN": 40,
         "KEY_UP": 38,
         "KEY_LEFT": 37,
@@ -59,7 +65,7 @@ To permanently change viASP's the output, edit the file at the site packages dir
 Color Palette
 -------------
 
-The color Palette of viASP's frontend is defined by the file `/server/colorPalette.json`.
+The color Palette of viASP's frontend is defined by the file `/frontend/src/colorPalette.json`.
 
 The default file contains the following JSON object, which defines the colors for all color themes:
 
