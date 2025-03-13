@@ -198,7 +198,7 @@ export function RowHeader(props) {
                                 transformationId={transformationId}
                                 transformationHash={transformationHash}
                                 ruleHash={rh}
-                                multipleRules={ruleHashes.length > 0}
+                                multipleRules={ruleHashes.length > 1}
                             />
                         );
                     })}

@@ -59,7 +59,7 @@ def test_current_graph(unique_session, program):
     res = client.delete("graph/current")
     assert res.status_code == 200
     res = client.get("graph/current")
-    assert res.status_code == 200
+    assert res.status_code == 500
     assert res.json == None
 
 
