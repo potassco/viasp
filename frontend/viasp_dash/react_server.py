@@ -72,8 +72,11 @@ def run():
                         type=str,
                         help=_("VIASP_BACKEND_URL_HELP"),
                         default=DEFAULT_BACKEND_URL)
+    parser.add_argument('--show-all-derived',
+                        action='store_true',
+                        help=_("VIASP_SHOW_ALL_DERIVED_HELP"))
 
-    app = create_app()
+
     use_reloader = False
     debug = False
     args = parser.parse_args()
@@ -83,5 +86,6 @@ def run():
     backend_url = args.backend_url
     os.environ['BACKEND_URL'] = backend_url
     os.environ['VIASP_PRIMARY_COLOR'] = color
+    app = create_app()
 
     app.run(host=host, port=port, use_reloader=use_reloader, debug=debug)

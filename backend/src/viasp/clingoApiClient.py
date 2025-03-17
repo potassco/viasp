@@ -177,3 +177,10 @@ class ClingoClient(ViaspClient):
         else:
             error(_("DEREGISTER_SESSION_FAILED").format(r.status_code, r.reason))
             return 0
+
+    def show_all_derived(self):
+        r = self.session.post(f"{self.backend_url}/control/show_all_derived")
+        if r.ok:
+            info(_("SHOW_ALL_DERIVED_SUCCESS"))
+        else:
+            error(_("SHOW_ALL_DERIVED_FAILED").format(r.status_code, r.reason))

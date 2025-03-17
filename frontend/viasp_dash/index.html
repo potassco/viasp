@@ -1,3 +1,20 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>viASP</title><script defer="defer" src="viasp_dash.min.js"></script></head><body><div id="root"></div><script>window.colorTheme = {{ color_theme | safe }};
-        window.config = {{ config | safe }};
-        window.backendURL = "{{ backend_url }}";</script></body></html>
+<!doctype html>
+<html lang="en">
+
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>viASP</title>
+        <script defer="defer" src="viasp_dash.min.js"></script>
+</head>
+
+<body>
+        <div id="root"></div>
+        <script>
+                window.colorTheme = {{ color_theme | safe }};
+                window.config = {{ config | safe }};
+                window.backendURL = "{{ backend_url }}";
+        </script>
+</body>
+
+</html>

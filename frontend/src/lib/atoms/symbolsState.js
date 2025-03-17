@@ -12,7 +12,7 @@ export const symoblsByNodeStateFamily = atomFamily({
                     bufferedNodesByTransformationStateFamily(transformationHash)
                 )
                 const [node] = nodes.filter(n => n.uuid === nodeUuid);
-                const [symbol] = !node?.diff ? [{}] : node.diff.filter(s => s.uuid === symbolUuid);
+                const [symbol] = !node?.atoms ? [{}] : node.atoms.filter(s => s.uuid === symbolUuid);
                 return {
                     ...symbol,
                     highlights: [],

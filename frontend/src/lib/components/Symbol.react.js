@@ -81,8 +81,6 @@ export function Symbol(props) {
     let atomString = make_atoms_string(recoilSymbol.symbol);
     atomString = atomString.length === 0 ? '' : atomString;
 
-    
-
     const handleClickOnSymbol = async (e) => {
         e.stopPropagation();
         if (!recoilSymbol.has_reason) {

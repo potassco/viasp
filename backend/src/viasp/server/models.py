@@ -4,6 +4,13 @@ from sqlalchemy.schema import UniqueConstraint
 from dataclasses import dataclass
 from viasp.server.database import Base
 
+class SessionInfo(Base):
+    __tablename__ = "sessions_table"
+
+    encoding_id: Mapped[str] = mapped_column(primary_key=True)
+    show_all_derived: Mapped[bool]
+
+
 class Encodings(Base):
     __tablename__ = "encodings_table"
 

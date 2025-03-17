@@ -16,6 +16,19 @@ export const contentDivState = atom({
     default: null,
 });
 
+async function fetchCurrentSortHash(backendURL, token) {
+    const response = await fetch(`${backendURL}/graph/current`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+        }
+    });
+    if (!response.ok) {
+        return 'ERROR';
+    }
+    return await response.json();
+}
+
 export const currentSortState = atom({
     key: 'currentSortState',
     default: selector({
@@ -23,16 +36,7 @@ export const currentSortState = atom({
         get: async ({get}) => {
             const backendURL = get(backendUrlState);
             const token = get(tokenState);
-            const response = await fetch(`${backendURL}/graph/current`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                }
-            });
-            if (!response.ok) {
-                return 'ERROR';
-            }
-            return await response.json();
+            return fetchCurrentSortHash(backendURL, token);
         }
     }),
 });

@@ -115,11 +115,7 @@ export const symbolUuidsByNodeUuidStateFamily = selectorFamily({
             if (node.loading) {
                 return [];
             }
-            const showDiffOnly = get(showDiffOnlyState);
-            if (showDiffOnly) {
-                return node.diff.map((n) => n.uuid);
-            }
-            return node.atom.map((n) => n.uuid);
+            return node.atoms.map((n) => n.uuid);
         },
 });
 

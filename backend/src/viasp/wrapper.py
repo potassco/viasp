@@ -125,6 +125,9 @@ class ShowConnector:
     
     def deregister_session(self):
         return self._database.deregister_session()
+    
+    def show_all_derived(self):
+        self._database.show_all_derived()
 
 
 class Control:

@@ -460,3 +460,16 @@ def deregister_session():
     number_of_active_sessions = db_session.execute(
         select(func.count()).select_from(Encodings)).scalar()
     return jsonify(number_of_active_sessions)
+
+
+@bp.route("/control/show_all_derived", methods=["POST"])
+@ensure_encoding_id
+def set_show_all_derived():
+    if request.method == "POST":
+        db_session.add(
+            SessionInfo(
+                encoding_id = session['encoding_id'],
+                show_all_derived = True
+            ))
+        db_session.commit()
+    return "ok", 200

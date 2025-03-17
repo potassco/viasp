@@ -217,6 +217,9 @@ class ViaspArgumentParser:
         basic.add_argument('--verbose',
                            action='store_true',
                            help=_("VIASP_VERBOSE_LOGGING_HELP"))
+        basic.add_argument('--show-all-derived',
+                           action='store_true',
+                           help=_("VIASP_SHOW_ALL_DERIVED_HELP"))
 
         # Solving Options
         solving = cmd_parser.add_argument_group(_("CLINGO_SOLVING_OPTION"))
@@ -681,6 +684,8 @@ class ViaspRunner():
                                                   select_model)
         primary_color = options.get("color", DEFAULT_COLOR)
         app = startup.run(host=host, port=port, primary_color=primary_color)
+        if options.get("show_all_derived", False):
+            viasp.api.show_all_derived(viasp_backend_url=self.backend_url)
         if self._should_run_relaxation:
             self.run_relaxer(encoding_files, options, head_name,
                              no_collect_variables, relax_opt_mode_str,

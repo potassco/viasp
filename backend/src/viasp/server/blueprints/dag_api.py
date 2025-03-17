@@ -87,7 +87,7 @@ def handle_request_for_children(
 def handle_request_for_children_with_sortHash(
         transformation_hash: str,
         current_hash: str,
-        encoding_id: str) -> Collection[Union[Node, uuid.UUID]]:
+        encoding_id: str) -> Collection[Node]:
     result = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_hash, transformation_hash=transformation_hash, recursive_supernode_uuid = None).order_by(GraphNodes.branch_position).all()
     ordered_children = [current_app.json.loads(n.node) for n in result]
     return ordered_children
@@ -144,6 +144,13 @@ def get_children_of_transformation_hash_and_current_Sort():
 
         to_be_returned = handle_request_for_children_with_sortHash(
             transformation_hash, current_hash, session['encoding_id'])
+        
+        show_all_derived = db_session.execute(
+            select(SessionInfo.show_all_derived).filter_by(
+                encoding_id=session['encoding_id'])).scalar() or False
+        for node in to_be_returned:
+            if not show_all_derived:
+                node.atoms = node.diff
         return jsonify(to_be_returned)
     raise NotImplementedError
 

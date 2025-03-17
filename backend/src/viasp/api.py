@@ -893,3 +893,16 @@ def deregister_session(**kwargs) -> int:
     connector = _get_connector(**kwargs)
     active_sessions = connector.deregister_session()
     return active_sessions
+
+def show_all_derived(**kwargs):
+    r"""
+    Get the value of the show_all_derived flag.
+
+    Kwargs:
+        * *viasp_backend_url* (``str``) --
+          url of the viasp backend
+        * *_viasp_client* (``ClingoClient``) --
+          a viasp client object
+    """
+    connector = _get_connector(**kwargs)
+    connector.show_all_derived()

@@ -121,7 +121,7 @@ def _is_running_in_notebook():
     except NameError:
         return False  # Probably standard Python interpreter
 
-class ViaspDash(Dash):
+class ViaspDash():
 
     def __init__(self,
                  backend_url=DEFAULT_BACKEND_URL,
