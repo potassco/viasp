@@ -8,7 +8,8 @@ class SessionInfo(Base):
     __tablename__ = "sessions_table"
 
     encoding_id: Mapped[str] = mapped_column(primary_key=True)
-    show_all_derived: Mapped[bool]
+    show: Mapped[str]
+    color_theme: Mapped[str]
 
 
 class Encodings(Base):

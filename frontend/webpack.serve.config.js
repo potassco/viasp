@@ -26,7 +26,7 @@ module.exports = (env, argv) => {
             filename: 'index.html',
         }),
         new webpack.DefinePlugin({
-            'window.colorTheme': JSON.stringify(colorPalette.colorThemes.blue),
+            'window.colorTheme': JSON.stringify(colorPalette.colorThemes),
             'window.config': JSON.stringify(frontend_config),
             'window.backendURL': JSON.stringify('http://127.0.0.1:5050'),
         }),

@@ -682,10 +682,11 @@ class ViaspRunner():
                                                   encoding_files,
                                                   model_from_json, relax,
                                                   select_model)
-        primary_color = options.get("color", DEFAULT_COLOR)
-        app = startup.run(host=host, port=port, primary_color=primary_color)
-        if options.get("show_all_derived", False):
-            viasp.api.show_all_derived(viasp_backend_url=self.backend_url)
+        app = startup.run(host=host, port=port)
+        viasp.api.set_config(
+            show_all_derived = options.get("show_all_derived", False),
+            color_theme = options.get("color", DEFAULT_COLOR),
+            viasp_backend_url=self.backend_url)
         if self._should_run_relaxation:
             self.run_relaxer(encoding_files, options, head_name,
                              no_collect_variables, relax_opt_mode_str,

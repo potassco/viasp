@@ -24,7 +24,7 @@ from clingo.script import enable_python
 import clingo.util
 from flask import session
 
-from .shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_FRONTEND_PORT, STDIN_TMP_STORAGE_PATH, DEFAULT_BACKEND_PROTOCOL
+from .shared.defaults import DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_COLOR, DEFAULT_FRONTEND_PORT, DEFAULT_BACKEND_PROTOCOL
 from .shared.io import clingo_symbols_to_stable_model, clingo_model_to_stable_model
 from .shared.model import StableModel
 from .wrapper import ShowConnector, Control as viaspControl
@@ -894,7 +894,10 @@ def deregister_session(**kwargs) -> int:
     active_sessions = connector.deregister_session()
     return active_sessions
 
-def show_all_derived(**kwargs):
+
+def set_config(show_all_derived=False,
+               color_theme=DEFAULT_COLOR,
+               **kwargs):
     r"""
     Get the value of the show_all_derived flag.
 
@@ -905,4 +908,7 @@ def show_all_derived(**kwargs):
           a viasp client object
     """
     connector = _get_connector(**kwargs)
-    connector.show_all_derived()
+    show = "diff"
+    if show_all_derived:
+        show = "atoms"
+    connector.show_all_derived(show, color_theme)

@@ -144,12 +144,12 @@ def get_children_of_transformation_hash_and_current_Sort():
 
         to_be_returned = handle_request_for_children_with_sortHash(
             transformation_hash, current_hash, session['encoding_id'])
-        
-        show_all_derived = db_session.execute(
-            select(SessionInfo.show_all_derived).filter_by(
-                encoding_id=session['encoding_id'])).scalar() or False
+
+        content_to_show = db_session.execute(
+            select(SessionInfo.show).where(
+                SessionInfo.encoding_id == session['encoding_id'])).scalar() or "diff"
         for node in to_be_returned:
-            if not show_all_derived:
+            if content_to_show == "diff":
                 node.atoms = node.diff
         return jsonify(to_be_returned)
     raise NotImplementedError
@@ -951,3 +951,16 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
     save_graph(g, encoding_id, sorted_program)
 
     return g
+
+@bp.route("/graph/color_theme", methods=["GET"])
+@ensure_encoding_id
+def get_color_theme():
+    if request.method == "GET":
+        encoding_id = session['encoding_id']
+        db_primary_color = db_session.execute(
+            select(SessionInfo.color_theme).where(
+                SessionInfo.encoding_id == encoding_id)).scalar()
+        if db_primary_color is None:
+            db_primary_color = "blue"
+        return jsonify(db_primary_color)
+    raise NotImplementedError

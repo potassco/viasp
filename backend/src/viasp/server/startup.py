@@ -28,14 +28,12 @@ from viasp.shared.defaults import (DEFAULT_BACKEND_HOST,
                                    DEFAULT_FRONTEND_HOST,
                                    DEFAULT_FRONTEND_PORT,
                                    SERVER_PID_FILE_PATH,
-                                   FRONTEND_PID_FILE_PATH,
-                                   DEFAULT_COLOR)
+                                   FRONTEND_PID_FILE_PATH)
 
 LOG_FILE = None
 
 def run(host=DEFAULT_BACKEND_HOST,
-        port=DEFAULT_BACKEND_PORT,
-        primary_color=DEFAULT_COLOR):
+        port=DEFAULT_BACKEND_PORT):
     """ create the dash app, set layout and start the backend on host:port """
 
     # if running in binder, get proxy information
@@ -58,9 +56,7 @@ def run(host=DEFAULT_BACKEND_HOST,
         backend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
 
     if clingoApiClient.backend_is_running(backend_url):
-        return ViaspDash(
-            backend_url=backend_url,
-            primary_color=primary_color)
+        return ViaspDash(backend_url=backend_url)
 
     env = os.getenv("ENV", "production")
     if env == "production":
@@ -80,8 +76,7 @@ def run(host=DEFAULT_BACKEND_HOST,
         pid_file.write(str(server_process.pid))
 
     app = ViaspDash(
-        backend_url=backend_url,
-        primary_color=primary_color)
+        backend_url=backend_url)
     app.start_serving_frontend_files()
     # suppress dash's flask server banner
     cli = sys.modules['flask.cli']
@@ -124,10 +119,8 @@ def _is_running_in_notebook():
 class ViaspDash():
 
     def __init__(self,
-                 backend_url=DEFAULT_BACKEND_URL,
-                 primary_color=DEFAULT_COLOR):
+                 backend_url=DEFAULT_BACKEND_URL):
         self.backend_url = backend_url
-        self.primary_color = primary_color
 
     def start_serving_frontend_files(self,
                      host=DEFAULT_FRONTEND_HOST,
@@ -136,7 +129,6 @@ class ViaspDash():
             env = os.getenv("ENV", "production")
             if env == "production":
                 os.environ['BACKEND_URL'] = self.backend_url
-                os.environ['VIASP_PRIMARY_COLOR'] = self.primary_color
                 command = [
                     "waitress-serve", "--host", host, "--port",
                     str(port), "--call", "viasp_dash.react_server:create_app"
@@ -144,8 +136,7 @@ class ViaspDash():
             else:
                 command = [
                     "viasp_frontend", "--host", host, "--port",
-                    str(port), "--backend-url", self.backend_url, "--color",
-                    self.primary_color
+                    str(port), "--backend-url", self.backend_url
                 ]
 
             server_process = Popen(command,

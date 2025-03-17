@@ -83,5 +83,5 @@
     "DEREGISTER_SESSION_SUCCESS": "",
     "DEREGISTER_SESSION_FAILED": "Failed to deregister session [{}] ({})\nThis may have prevented proper shutdown of the server. Shutdown:\n    Linux: fuser -k 5050/tcp\n    Windows: taskkill /PID 5050 /F\n    MacOS: lsof -ti TCP:5050 | xargs kill -9",
     "SHOW_ALL_DERIVED_SUCCESS": "",
-    "SHOW_ALL_DERIVED_FAILED": "Failed to set show all derived [{}] ({})"
+    "SHOW_ALL_DERIVED_FAILED": "Failed to set graph config [{}] ({})"
 }

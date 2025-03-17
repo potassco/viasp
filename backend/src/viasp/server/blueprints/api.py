@@ -462,14 +462,17 @@ def deregister_session():
     return jsonify(number_of_active_sessions)
 
 
-@bp.route("/control/show_all_derived", methods=["POST"])
+@bp.route("/control/config", methods=["POST"])
 @ensure_encoding_id
 def set_show_all_derived():
     if request.method == "POST":
+        if request.json is None:
+            return "Invalid request", 400
+        show = request.json["show"] if "show" in request.json else "diff"
+        color_theme = request.json["color_theme"] if "color_theme" in request.json else "blue"
         db_session.add(
-            SessionInfo(
-                encoding_id = session['encoding_id'],
-                show_all_derived = True
-            ))
+            SessionInfo(encoding_id=session['encoding_id'],
+                        show=show,
+                        color_theme=color_theme))
         db_session.commit()
     return "ok", 200

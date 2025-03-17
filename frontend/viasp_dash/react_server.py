@@ -22,10 +22,9 @@ def create_app():
 
     backend_url = os.getenv('BACKEND_URL',
                             f'{DEFAULT_BACKEND_PROTOCOL}://{DEFAULT_BACKEND_HOST}:{DEFAULT_BACKEND_PORT}')
-    primary_color = os.getenv('VIASP_PRIMARY_COLOR', DEFAULT_COLOR)
     with open(os.path.join(os.path.dirname(__file__),
                            COLOR_PALETTE_PATH)) as f:
-        color_theme = json.load(f).pop("colorThemes").pop(primary_color)
+        color_theme = json.load(f).pop("colorThemes")
 
     with open(os.path.join(os.path.dirname(__file__), CONFIG_PATH)) as f:
         config = json.load(f)
@@ -62,11 +61,6 @@ def run():
                         type=int,
                         help=_("VIASP_PORT_FRONTEND_HELP"),
                         default=DEFAULT_FRONTEND_PORT)
-    parser.add_argument('--color',
-                        metavar='<color>',
-                        type=str,
-                        help=_("VIASP_PRIMARY_COLOR_HELP"),
-                        default=DEFAULT_COLOR)
     parser.add_argument('--backend-url',
                         metavar='<backend_url>',
                         type=str,
@@ -82,10 +76,8 @@ def run():
     args = parser.parse_args()
     host = args.host
     port = args.port
-    color= args.color
     backend_url = args.backend_url
     os.environ['BACKEND_URL'] = backend_url
-    os.environ['VIASP_PRIMARY_COLOR'] = color
     app = create_app()
 
     app.run(host=host, port=port, use_reloader=use_reloader, debug=debug)

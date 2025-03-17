@@ -39,7 +39,8 @@ import {
     backendUrlState,
     colorPaletteState,
     defaultBackendUrlState,
-    tokenState
+    tokenState,
+    availableColorThemesState,
 } from '../atoms/settingsState';
 import {clearAllHighlightsCallback} from '../hooks/highlights';
 import {
@@ -270,14 +271,10 @@ function MainWindow(props) {
         setToken(token);
     }, [token, setToken]);
 
-    const setColorPaletteRecoil = useSetRecoilState(colorPaletteState);
+    const setAvailableColorThemes = useSetRecoilState(availableColorThemesState);
     React.useLayoutEffect(() => {
-        setColorPaletteRecoil(colorPalette);
-        document.documentElement.style.setProperty(
-            '--hover-color',
-            colorPalette.explanationHighlights[0]
-        );
-    }, [colorPalette, setColorPaletteRecoil]);
+        setAvailableColorThemes(colorPalette);
+    }, [colorPalette, setAvailableColorThemes]);
 
     const setIsCurrentlyResizing = useSetRecoilState(isCurrentlyResizedState);
     const timerRef = useRef(null);

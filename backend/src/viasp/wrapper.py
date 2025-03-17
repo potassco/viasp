@@ -49,7 +49,7 @@ class ShowConnector:
 
     def clear(self):
         self._marked.clear()
-    
+
     def clear_program(self):
         self._database.clear_program()
 
@@ -116,18 +116,18 @@ class ShowConnector:
 
     def register_transformer(self, transformer, imports="", path=""):
         self._database._register_transformer(transformer, imports, path)
-    
+
     def register_constant(self, name, value):
         self._database._register_constant(name, value)
 
     def get_session_id(self):
         return self._database.get_session_id()
-    
+
     def deregister_session(self):
         return self._database.deregister_session()
-    
-    def show_all_derived(self):
-        self._database.show_all_derived()
+
+    def show_all_derived(self, show, color_theme):
+        self._database.show_all_derived(show, color_theme)
 
 
 class Control:
