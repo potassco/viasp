@@ -115,8 +115,6 @@ export function SearchResultSuggestionsList(props) {
     const showSuggestions = useRecoilValue(showSuggestionsState);
     const setActiveSuggestion = useSetRecoilState(activeSuggestionState);
     const selectedSuggestion = useRecoilValue(selectedSuggestionState);
-        
-
 
     if (!filteredSuggestions.length) {
         return (

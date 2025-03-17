@@ -873,6 +873,25 @@ def get_reasons_of():
         })
     raise NotImplementedError
 
+@bp.route("/graph/ground", methods=["POST"])
+@ensure_encoding_id
+def get_expanded_explanation_of():
+    if request.method == "POST":
+        if request.json is None:
+            return jsonify({'error': 'Missing JSON in request'}), 400
+        if "sourceid" not in request.json or "nodeid" not in request.json:
+            return jsonify({'error':
+                            'Missing sourceid or nodeid in request'}), 400
+        source_uuid = uuid.UUID(request.json["sourceid"])
+        node_uuid = uuid.UUID(request.json["nodeid"])
+        encoding_id = session['encoding_id']
+        import time
+        time.sleep(3)
+        return jsonify({
+            "result": "received."
+        })
+    raise NotImplementedError
+
 
 def wrap_marked_models(
         marked_models: Iterable[StableModel],

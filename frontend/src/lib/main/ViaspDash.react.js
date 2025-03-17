@@ -7,6 +7,7 @@ import '../components/main.css';
 import {Facts} from '../components/Facts.react';
 import {Edges} from '../components/Edges.react';
 import {Arrows} from '../components/Arrows.react';
+import {Modal} from '../components/Modal.react';
 import {
     UserMessagesProvider,
 } from '../contexts/UserMessages';
@@ -138,6 +139,7 @@ function GraphContainer(props) {
             {clingraphUsed ? <Boxrow /> : null}
             <Arrows />
             {transformationsList.length === 0 ? null : <Edges />}
+            <Modal />
         </div>
     );
 }

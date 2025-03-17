@@ -20,28 +20,6 @@ const NavigationAreaDiv = styled.div`
     display: ${(props) => (props.$visible ? 'flex' : 'none')};
 `;
 
-export function CloseButton(props) {
-    const {onClose} = props;
-    const colorPalette = useRecoilValue(colorPaletteState);
-
-    return (
-        <IconWrapper
-            icon="close"
-            height="25px"
-            color={colorPalette.light}
-            className="close"
-            onClick={onClose}
-        />
-    );
-}
-
-CloseButton.propTypes = {
-    /**
-     * The function to call when the close button is clicked.
-     */
-    onClose: PropTypes.func,
-};
-
 function NextButton(props) {
     const {onForward, disabled} = props;
     const colorPalette = useRecoilValue(colorPaletteState);

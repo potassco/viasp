@@ -44,6 +44,9 @@ module.exports = (env, argv) => {
             libraryTarget: 'window',
         },
         devtool,
+        watchOptions: {
+            ignored: '**/node_modules',
+        },
         performance: {
             maxEntrypointSize: 512000,
             maxAssetSize: 512000,

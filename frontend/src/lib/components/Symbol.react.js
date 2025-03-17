@@ -3,9 +3,10 @@ import {make_atoms_string, scrollParentToChild} from '../utils';
 import './symbol.css';
 import PropTypes from 'prop-types';
 import {useMessages, showError} from '../contexts/UserMessages';
+import {Modal} from './Modal.react';
 import {SymbolElementSpan} from './Symbol.style';
 
-import {useRecoilValue, useRecoilCallback} from 'recoil';
+import {useRecoilValue, useRecoilCallback, useSetRecoilState} from 'recoil';
 import {backendUrlState, tokenState} from '../atoms/settingsState';
 import {contentDivState, currentSortState} from '../atoms/currentGraphState';
 import {symoblsByNodeStateFamily} from '../atoms/symbolsState';
@@ -18,6 +19,7 @@ import {
     removeSymbolHighlightsCallback,
 } from '../hooks/highlights';
 import {changeXShiftWithinBoundsCallback} from '../hooks/mapShift';
+import { modalForSymbolState, modalPositionState } from '../atoms/modalState';
 
 async function fetchReasonOf(backendURL, sourceId, nodeId, currentSort, token) {
     const r = await fetch(`${backendURL}/graph/reason`, {
@@ -77,6 +79,8 @@ export function Symbol(props) {
         changeXShiftWithinBoundsCallback,
         []
     );
+    const setModalForSymbol = useSetRecoilState(modalForSymbolState);
+    const setModalPosition = useSetRecoilState(modalPositionState);
     
     let atomString = make_atoms_string(recoilSymbol.symbol);
     atomString = atomString.length === 0 ? '' : atomString;
@@ -111,6 +115,25 @@ export function Symbol(props) {
         }
     };
 
+    const handleDoubleClickOnSymbol = async (e) => {
+        e.stopPropagation();
+        const rect = symbolElementRef.current.getBoundingClientRect();
+        setModalPosition({top: rect.top, left: rect.left + rect.width});
+        setModalForSymbol({sourceId: symbolUuid, nodeId: nodeUuid});
+    }
+
+    const doubleClickTimer = useRef()
+    const onClickHandler = (e) => {
+        e.persist();
+        clearTimeout(doubleClickTimer.current);
+
+        if (e.detail === 1) {
+            doubleClickTimer.current = setTimeout(() => handleClickOnSymbol(e), 200)
+        } else if (e.detail === 2) {
+            handleDoubleClickOnSymbol(e);
+        }
+    }
+
     if (pulsatingState.isPulsating) {
         scrollParentToChild(
             contentDiv.current,
@@ -121,17 +144,19 @@ export function Symbol(props) {
 
 
     return (
+    <>
         <SymbolElementSpan
             id={symbolUuid + suffix}
             $pulsate={pulsatingState.isPulsating}
             $pulsatingColor={pulsatingState.color}
             $backgroundColor={backgroundColor}
             $hasReason={recoilSymbol.has_reason}
-            onClick={handleClickOnSymbol}
+            onClick={onClickHandler}
             ref={symbolElementRef}
-        >
+            >
             {atomString}
         </SymbolElementSpan>
+    </>
     );
 }
 
