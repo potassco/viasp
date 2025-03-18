@@ -356,15 +356,8 @@ class ViaspArgumentParser:
             self.__add_file(options['clingraph_files'],
                             options.pop('viz_encoding'))
 
-        # handle opt mode and set max_models accordingly
-        options['original_max_models'] = options['max_models']
         opt_mode, bounds = options.get("opt_mode") or ('opt', [])
         options['opt_mode'] = opt_mode
-        if opt_mode == "optN":
-            options['max_models'] = 0
-        if opt_mode == "opt":
-            if options['max_models'] == None:
-                options['max_models'] = 0
 
         options['opt_mode_str'] = f"--opt-mode={opt_mode}" + (
             f",{','.join(bounds)}" if len(bounds) > 0 else "")
@@ -465,7 +458,7 @@ class ViaspRunner():
                     self.warn_unsat()
         return models_to_mark
 
-    def run_with_clingo(self, ctl, relax, original_max_models, max_models,
+    def run_with_clingo(self, ctl, relax, max_models,
                         opt_mode):
         models_to_mark = []
         ctl.ground([("base", [])])
@@ -486,10 +479,10 @@ class ViaspRunner():
                 else:
                     models_to_mark.append(clingo_model_to_stable_model(m))
 
-                if len(m.cost) == 0 and original_max_models == None:
+                if len(m.cost) == 0 and max_models == None:
                     break
-                if (len(m.cost) == 0 and original_max_models != None
-                        and original_max_models == m.number):
+                if (len(m.cost) == 0 and max_models != None
+                        and max_models == m.number):
                     break
 
             sys.stdout.write(clingo_stats.Stats().summary(ctl.statistics) + "\n")
@@ -521,7 +514,6 @@ class ViaspRunner():
 
         plain("Solving...")
         models = self.run_with_clingo(ctl, True,
-                                      options['original_max_models'],
                                       options['max_models'], relaxer_opt_mode)
         viasp.api.add_program_string(relaxed_program,
                                      viasp_backend_url=self.backend_url)
@@ -556,7 +548,6 @@ class ViaspRunner():
             models = self.filter_models_in_json(model_from_json, relax, select_model)
         else:
             models = self.run_with_clingo(ctl, relax,
-                                options['original_max_models'],
                                 options['max_models'],
                                 options['opt_mode'])
 
@@ -700,12 +691,11 @@ class ViaspRunner():
         for i in file_warnings:
             warn(_("WARNING_INCLUDED_FILE").format(i))
 
+        app = startup.run(host=host, port=port, front_host=frontend_host, front_port=frontend_port)
         models = self.print_and_get_stable_models(clingo_options, options,
                                                   encoding_files,
                                                   model_from_json, relax,
                                                   select_model)
-        app = startup.run(host=host, port=port, front_host=frontend_host,
-                          front_port=frontend_port)
         viasp.api.set_config(
             show_all_derived = options.get("show_all_derived", False),
             color_theme = options.get("color", DEFAULT_COLOR),
