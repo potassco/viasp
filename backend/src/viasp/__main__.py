@@ -82,11 +82,12 @@ def server():
                       port=port,
                       front_host=front_host,
                       front_port=front_port)
+    app.wait_for_backend_server_running()
     viasp.api.load_program_string("a.", viasp_backend_url=backend_url)
     # use ViaspRunner to manage shutdown
     runner = ViaspRunner()
     runner.backend_url = backend_url
-    app.run("", host=front_host, port=front_port, open_browser=False)
+    app.run("", open_browser=False)
 
 def start():
     ViaspRunner().run(sys.argv[1:])
@@ -461,6 +462,7 @@ class ViaspRunner():
     def run_with_clingo(self, ctl, relax, max_models,
                         opt_mode):
         models_to_mark = []
+        sat_flag = None
         ctl.ground([("base", [])])
         with ctl.solve(yield_=True) as handle:
             for m in handle:
@@ -485,13 +487,15 @@ class ViaspRunner():
                         and max_models == m.number):
                     break
 
-            sys.stdout.write(clingo_stats.Stats().summary(ctl.statistics) + "\n")
-            sys.stdout.write(clingo_stats.Stats().statistics(ctl.statistics) + "\n")
-            if handle.get().unsatisfiable:
-                if relax:
-                    self._should_run_relaxation = True
-                else:
-                    self.warn_unsat()
+            sat_flag = handle.get().unsatisfiable
+
+        sys.stdout.write(clingo_stats.Stats().summary(ctl.statistics) + "\n")
+        sys.stdout.write(clingo_stats.Stats().statistics(ctl.statistics) + "\n")
+        if sat_flag:
+            if relax:
+                self._should_run_relaxation = True
+            else:
+                self.warn_unsat()
         return models_to_mark
 
     def run_relaxer(self, encoding_files, options, head_name,
@@ -696,6 +700,7 @@ class ViaspRunner():
                                                   encoding_files,
                                                   model_from_json, relax,
                                                   select_model)
+        app.wait_for_backend_server_running()
         viasp.api.set_config(
             show_all_derived = options.get("show_all_derived", False),
             color_theme = options.get("color", DEFAULT_COLOR),
@@ -709,5 +714,4 @@ class ViaspRunner():
 
         session_id = viasp.api.get_session_id(
             viasp_backend_url=self.backend_url)
-
-        app.run(session_id, host=frontend_host, port=frontend_port)
+        app.run(session_id)

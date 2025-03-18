@@ -56,80 +56,92 @@ def run(host=DEFAULT_BACKEND_HOST,
     else:
         backend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
 
-    start_backend_server(backend_url, host, port)
-    app = ViaspDash(backend_url)
-    app.start_serving_frontend_files(front_host, front_port)
+    app = ViaspServerLauncher(backend_url, host, port, front_host, front_port)
+    app.start_backend_server()
+    app.start_serving_frontend_files()
     return app
 
 
-def start_backend_server(backend_url, host, port):
-    if not clingoApiClient.server_is_running(backend_url):
-        env = os.getenv("ENV", "production")
-        if env == "production":
-            command = ["waitress-serve", "--host", host, "--port", str(port), "--call", "viasp.server.factory:create_app"]
-        else:
-            command = ["viasp_backend", "--host", host, "--port", str(port)]
-        global LOG_FILE
-        LOG_FILE = open('viasp.log', 'w', encoding="utf-8")
-        server_process = Popen(command,
-                                    preexec_fn=os.setsid,
-                                    stdout=LOG_FILE, stderr=LOG_FILE)
-        with open(SERVER_PID_FILE_PATH, "w") as pid_file:
-            pid_file.write(str(server_process.pid))
-
-        try:
-            wait_for_server(backend_url)
-        except Exception as final_error:
-            print(f"Error: {final_error}")
-            server_process.terminate()
-            raise final_error
-
-
-class ViaspDash():
+class ViaspServerLauncher:
 
     def __init__(self,
-                 backend_url=DEFAULT_BACKEND_URL):
+                 backend_url=DEFAULT_BACKEND_URL,
+                 back_host=DEFAULT_BACKEND_HOST,
+                 back_port=DEFAULT_BACKEND_PORT,
+                 front_host=DEFAULT_FRONTEND_HOST,
+                 front_port=DEFAULT_FRONTEND_PORT):
         self.backend_url = backend_url
+        self.backend_host = back_host
+        self.backend_port = back_port
+        self.frontend_host = front_host
+        self.frontend_port = front_port
+        self.frontend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{front_host}:{front_port}"
+        self.backend_server_process = None
+        self.frontend_server_process = None
 
-    def start_serving_frontend_files(self,
-                     host=DEFAULT_FRONTEND_HOST,
-                     port=DEFAULT_FRONTEND_PORT):
-        if not clingoApiClient.server_is_running(f"http://{host}:{port}"):
+    def start_backend_server(self):
+        if not clingoApiClient.server_is_running(self.backend_url):
+            env = os.getenv("ENV", "production")
+            if env == "production":
+                command = [
+                    "waitress-serve", "--host", self.backend_host, "--port",
+                    str(self.backend_port), "--call", "viasp.server.factory:create_app"
+                ]
+            else:
+                command = [
+                    "viasp_backend", "--host", self.backend_host, "--port",
+                    str(self.backend_port)
+                ]
+            global LOG_FILE
+            LOG_FILE = open('viasp.log', 'w', encoding="utf-8")
+            self.backend_server_process = Popen(command,
+                                        preexec_fn=os.setsid,
+                                        stdout=LOG_FILE,
+                                        stderr=LOG_FILE)
+            with open(SERVER_PID_FILE_PATH, "w") as pid_file:
+                pid_file.write(str(self.backend_server_process.pid))
+
+    def wait_for_backend_server_running(self):
+        try:
+            wait_for_server(self.backend_url)
+        except Exception as final_error:
+            print(f"Error: {final_error}")
+            if self.backend_server_process:
+                self.backend_server_process.kill()
+            raise final_error
+
+    def start_serving_frontend_files(self):
+        if not clingoApiClient.server_is_running(self.frontend_url):
             env = os.getenv("ENV", "production")
             if env == "production":
                 os.environ['BACKEND_URL'] = self.backend_url
                 command = [
-                    "waitress-serve", "--host", host, "--port",
-                    str(port), "--call", "viasp_dash.react_server:create_app"
+                    "waitress-serve", "--host", self.frontend_host, "--port",
+                    str(self.frontend_port), "--call", "viasp_dash.react_server:create_app"
                 ]
             else:
                 command = [
-                    "viasp_frontend", "--host", host, "--port",
-                    str(port), "--backend-url", self.backend_url
+                    "viasp_frontend", "--host", self.frontend_host, "--port",
+                    str(self.frontend_port), "--backend-url", self.backend_url
                 ]
 
-            server_process = Popen(command,
-                                   preexec_fn=os.setsid,
-                                   stdout=DEVNULL,
-                                   stderr=DEVNULL)
+            self.frontend_server_process = Popen(command,
+                                                 preexec_fn=os.setsid,
+                                                 stdout=DEVNULL,
+                                                 stderr=DEVNULL)
             with open(FRONTEND_PID_FILE_PATH, "w") as pid_file:
-                pid_file.write(str(server_process.pid))
+                pid_file.write(str(self.frontend_server_process.pid))
 
-    def run(self,
-            session_id,
-            host=DEFAULT_FRONTEND_HOST,
-            port=DEFAULT_FRONTEND_PORT,
-            open_browser=True):
-        frontend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
+    def run(self, session_id, open_browser=True):
         if session_id == "":
-            frontend_url_with_session_id = frontend_url
+            frontend_url_with_session_id = self.frontend_url
         else:
-            frontend_url_with_session_id = frontend_url + f"?session={session_id}"
+            frontend_url_with_session_id = self.frontend_url + f"?session={session_id}"
         plain(_("VIASP_RUNNING_INFO").format(frontend_url_with_session_id))
         plain(_("VIASP_HALT_HELP"))
 
         if not _is_running_in_notebook() and open_browser:
-            wait_for_server(frontend_url)
+            wait_for_server(self.frontend_url)
             webbrowser.open(frontend_url_with_session_id)
         try:
             while True:
