@@ -1,7 +1,7 @@
 import {atom, selector, noWait} from 'recoil';
 
 import {currentSortState} from './currentGraphState';
-import {backendUrlState, tokenState} from './settingsState';
+import {backendUrlState, sessionState} from './settingsState';
 
 const defaultSearchInputState = "";
 
@@ -16,7 +16,7 @@ const getSearchResultsFromServer = async (
     backendUrl,
     currentSort,
     userInput,
-    token
+    session
 ) => {
     abortController.abort();
     abortController = new AbortController();
@@ -27,7 +27,7 @@ const getSearchResultsFromServer = async (
                 signal: abortController.signal,
                 method: 'GET',
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${session}`,
                 },
             }
         );
@@ -49,12 +49,12 @@ export const queryResultState = selector({
         }
         const currentSort = get(currentSortState);
         const backendURL = get(backendUrlState);
-        const token = get(tokenState);
+        const session = get(sessionState);
         const response = await getSearchResultsFromServer(
             backendURL,
             currentSort,
             searchInput,
-            token
+            session
         );
         if (!response) {
             return [];

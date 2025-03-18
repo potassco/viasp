@@ -10,20 +10,13 @@ from .shared.interfaces import ViaspClient
 from .shared.simple_logging import info, error
 
 
-def backend_is_running(url=DEFAULT_BACKEND_URL):
+def server_is_running(url=DEFAULT_BACKEND_URL):
     try:
         r = requests.get(f"{url}/healthcheck")
         return r.status_code == 200
     except requests.exceptions.ConnectionError:
         return False
 
-
-def frontend_is_running(url=DEFAULT_FRONTEND_URL):
-    try:
-        r = requests.get(f"{url}/healthcheck")
-        return r.status_code == 200
-    except requests.exceptions.ConnectionError:
-        return False
 
 def dict_factory_that_supports_uuid(kv_pairs):
     return {k: v for k, v in kv_pairs}
@@ -37,18 +30,18 @@ class ClingoClient(ViaspClient):
             self.backend_url = kwargs["viasp_backend_url"]
         else:
             self.backend_url = DEFAULT_BACKEND_URL
-        if not backend_is_running(self.backend_url):
+        if not server_is_running(self.backend_url):
             error(_("BACKEND_UNAVAILABLE").format(self.backend_url))
 
     def is_available(self):
-        return backend_is_running(self.backend_url)
+        return server_is_running(self.backend_url)
 
     def register_function_call(self, name, sig, args, kwargs):
         serializable_call = ClingoMethodCall.merge(name, sig, args, kwargs)
         self._register_function_call(serializable_call)
 
     def _register_function_call(self, call: ClingoMethodCall):
-        if backend_is_running(self.backend_url):
+        if server_is_running(self.backend_url):
             serialized = json.dumps(call, cls=DataclassJSONEncoder)
             r = self.session.post(f"{self.backend_url}/control/add_call",
                               data=serialized,

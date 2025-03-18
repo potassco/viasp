@@ -6,7 +6,7 @@ import {useMessages, showError} from '../contexts/UserMessages';
 import {SymbolElementSpan} from './Symbol.style';
 
 import {useRecoilValue, useRecoilCallback} from 'recoil';
-import {backendUrlState, tokenState} from '../atoms/settingsState';
+import {backendUrlState, sessionState} from '../atoms/settingsState';
 import {contentDivState, currentSortState} from '../atoms/currentGraphState';
 import {symoblsByNodeStateFamily} from '../atoms/symbolsState';
 import {
@@ -19,12 +19,12 @@ import {
 } from '../hooks/highlights';
 import {changeXShiftWithinBoundsCallback} from '../hooks/mapShift';
 
-async function fetchReasonOf(backendURL, sourceId, nodeId, currentSort, token) {
+async function fetchReasonOf(backendURL, sourceId, nodeId, currentSort, session) {
     const r = await fetch(`${backendURL}/graph/reason`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${session}`,
         },
         body: JSON.stringify({
             sourceid: sourceId,
@@ -61,7 +61,7 @@ export function Symbol(props) {
     const pulsatingState = useRecoilValue(
         pulsatingHighlightsState(symbolUuid)
     );
-    const token = useRecoilValue(tokenState);
+    const session = useRecoilValue(sessionState);
     const backendUrl = useRecoilValue(backendUrlState);
     const currentSort = useRecoilValue(currentSortState);
     const symbolElementRef = useRef(null);
@@ -92,7 +92,7 @@ export function Symbol(props) {
                 symbolUuid,
                 nodeUuid,
                 currentSort,
-                token
+                session
             );
             if (data.symbols.some((tgt) => tgt === null)) {
                 return;

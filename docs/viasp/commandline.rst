@@ -12,13 +12,16 @@ viASP provides command-line functionality to create visualizations. It acts as a
 
     $ viasp encoding.lp -n0
 
-You can now inspect the visualization at `http://localhost:8050/ <http://localhost:8050/>`. To stop the server, press ``CTRL+C``.
+You can now inspect the visualization at `http://localhost:8050/ <http://localhost:8050/>`__. To stop the server, press ``CTRL+C``.
 
 The basic command line usage is described below. All options can be found by running
 
 .. code-block:: bash
 
     $ viasp --help
+
+.. tip::
+    To speed up viasp's startup time, run the ``viasp_server`` command in the background. This way, subsequent calls to ``viasp`` will be faster as the startup process is already completed. For proper shutdown, ensure to terminate the process when done.
 
 Loading Programs
 ----------------

@@ -33,9 +33,10 @@ from viasp.shared.defaults import (DEFAULT_BACKEND_HOST,
 LOG_FILE = None
 
 def run(host=DEFAULT_BACKEND_HOST,
-        port=DEFAULT_BACKEND_PORT):
+        port=DEFAULT_BACKEND_PORT,
+        front_host=DEFAULT_FRONTEND_HOST,
+        front_port=DEFAULT_FRONTEND_PORT):
     """ create the dash app, set layout and start the backend on host:port """
-
     # if running in binder, get proxy information
     # and set the backend URL, which will be used
     # by the frontend
@@ -55,66 +56,34 @@ def run(host=DEFAULT_BACKEND_HOST,
     else:
         backend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
 
-    if clingoApiClient.backend_is_running(backend_url):
-        return ViaspDash(backend_url=backend_url)
-
-    env = os.getenv("ENV", "production")
-    if env == "production":
-        command = ["waitress-serve", "--host", host, "--port", str(port), "--call", "viasp.server.factory:create_app"]
-    else:
-        command = ["viasp_server", "--host", host, "--port", str(port)]
-    # if 'ipykernel_launcher.py' in sys.argv[0]:
-    #     display_refresh_button()
-
-    # print(f"Starting backend at {backend_url}")
-    global LOG_FILE
-    LOG_FILE = open('viasp.log', 'w', encoding="utf-8")
-    server_process = Popen(command,
-                                  preexec_fn=os.setsid,
-                                  stdout=LOG_FILE, stderr=LOG_FILE)
-    with open(SERVER_PID_FILE_PATH, "w") as pid_file:
-        pid_file.write(str(server_process.pid))
-
-    app = ViaspDash(
-        backend_url=backend_url)
-    app.start_serving_frontend_files()
-    # suppress dash's flask server banner
-    cli = sys.modules['flask.cli']
-    cli.show_server_banner = lambda *x: None  # type: ignore
-
-    # make sure the backend is up, before continuing with other modules
-    @retry(
-        wait_exponential_multiplier=100,
-        wait_exponential_max=2000,
-        stop_max_delay=20000,
-    )
-    def wait_for_backend():
-        try:
-            assert clingoApiClient.backend_is_running(backend_url)
-        except Exception as e:
-            raise Exception("Backend did not start in time.") from e
-
-    try:
-        wait_for_backend()
-    except Exception as final_error:
-        print(f"Error: {final_error}")
-        server_process.terminate()
-        raise final_error
-
+    start_backend_server(backend_url, host, port)
+    app = ViaspDash(backend_url)
+    app.start_serving_frontend_files(front_host, front_port)
     return app
 
 
-def _is_running_in_notebook():
-    try:
-        shell = get_ipython().__class__.__name__  # type: ignore
-        if shell == 'ZMQInteractiveShell':
-            return True  # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
-            return False  # Terminal running IPython
+def start_backend_server(backend_url, host, port):
+    if not clingoApiClient.server_is_running(backend_url):
+        env = os.getenv("ENV", "production")
+        if env == "production":
+            command = ["waitress-serve", "--host", host, "--port", str(port), "--call", "viasp.server.factory:create_app"]
         else:
-            return False  # Other type (?)
-    except NameError:
-        return False  # Probably standard Python interpreter
+            command = ["viasp_backend", "--host", host, "--port", str(port)]
+        global LOG_FILE
+        LOG_FILE = open('viasp.log', 'w', encoding="utf-8")
+        server_process = Popen(command,
+                                    preexec_fn=os.setsid,
+                                    stdout=LOG_FILE, stderr=LOG_FILE)
+        with open(SERVER_PID_FILE_PATH, "w") as pid_file:
+            pid_file.write(str(server_process.pid))
+
+        try:
+            wait_for_server(backend_url)
+        except Exception as final_error:
+            print(f"Error: {final_error}")
+            server_process.terminate()
+            raise final_error
+
 
 class ViaspDash():
 
@@ -125,7 +94,7 @@ class ViaspDash():
     def start_serving_frontend_files(self,
                      host=DEFAULT_FRONTEND_HOST,
                      port=DEFAULT_FRONTEND_PORT):
-        if not clingoApiClient.frontend_is_running(f"http://{host}:{port}"):
+        if not clingoApiClient.server_is_running(f"http://{host}:{port}"):
             env = os.getenv("ENV", "production")
             if env == "production":
                 os.environ['BACKEND_URL'] = self.backend_url
@@ -149,19 +118,46 @@ class ViaspDash():
     def run(self,
             session_id,
             host=DEFAULT_FRONTEND_HOST,
-            port=DEFAULT_FRONTEND_PORT):
-        frontend_url_with_session_id = f"http://{host}:{port}?token={session_id}"
+            port=DEFAULT_FRONTEND_PORT,
+            open_browser=True):
+        frontend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
+        if session_id == "":
+            frontend_url_with_session_id = frontend_url
+        else:
+            frontend_url_with_session_id = frontend_url + f"?session={session_id}"
         plain(_("VIASP_RUNNING_INFO").format(frontend_url_with_session_id))
         plain(_("VIASP_HALT_HELP"))
 
-        if not _is_running_in_notebook():
-            while True:
-                if clingoApiClient.frontend_is_running(f"http://{host}:{port}"):
-                    break
-                time.sleep(0.01)
+        if not _is_running_in_notebook() and open_browser:
+            wait_for_server(frontend_url)
             webbrowser.open(frontend_url_with_session_id)
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
             sys.exit(0)
+
+
+def _is_running_in_notebook():
+    try:
+        shell = get_ipython().__class__.__name__  # type: ignore
+        if shell == 'ZMQInteractiveShell':
+            return True  # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False  # Probably standard Python interpreter
+
+
+@retry(
+    wait_exponential_multiplier=100,
+    wait_exponential_max=2000,
+    stop_max_delay=20000,
+)
+def wait_for_server(server_url):
+    try:
+        assert clingoApiClient.server_is_running(server_url)
+    except Exception as e:
+        raise Exception("Server did not start in time.") from e

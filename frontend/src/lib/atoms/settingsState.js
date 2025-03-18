@@ -12,8 +12,8 @@ export const showDiffOnlyState = atom({
     default: true,
 });
 
-export const tokenState = atom({
-    key: 'tokenState',
+export const sessionState = atom({
+    key: 'sessionState',
     default: null
 })
 
@@ -22,11 +22,11 @@ export const availableColorThemesState = atom({
     default: null,
 });
 
-async function fetchColorTheme(backendURL, token) {
+async function fetchColorTheme(backendURL, session) {
     const response = await fetch(`${backendURL}/graph/color_theme`, {
         method: 'GET',
         headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${session}`,
         },
     });
     if (!response.ok) {
@@ -41,11 +41,11 @@ export const primaryColorState = atom({
         key: 'primaryColorState/Default',
         get: async ({get}) => {
             const backendURL = get(backendUrlState);
-            const token = get(tokenState);
-            if (backendURL === null || token === null) {
+            const session = get(sessionState);
+            if (backendURL === null || session === null) {
                 return null;
             }
-            return fetchColorTheme(backendURL, token);
+            return fetchColorTheme(backendURL, session);
         },
     }),
 });

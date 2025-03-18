@@ -45,8 +45,8 @@ def ensure_encoding_id(func):
         if encoding_id is not None:
             session['encoding_id'] = encoding_id
         elif auth_header is not None:
-            token = auth_header.split(" ")[1]
-            session['encoding_id'] = token
+            session_id = auth_header.split(" ")[1]
+            session['encoding_id'] = session_id
         elif 'encoding_id' not in session:
             global encodings_counter
 

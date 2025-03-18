@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 
 import {useRecoilValue} from 'recoil';
-import {backendUrlState, tokenState} from '../atoms/settingsState';
+import {backendUrlState, sessionState} from '../atoms/settingsState';
 
 export const initialState = {activeMessages: []};
 export const ERROR = 'APP/MESSAGES/ERROR';
@@ -31,10 +31,10 @@ export const messageReducer = (state = initialState, action) => {
     return {...state};
 };
 
-function fetchWarnings(backendURL, token) {
+function fetchWarnings(backendURL, session) {
     return fetch(`${backendURL}/control/warnings`, {
         headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${session}`,
         },
     }).then((r) => {
         if (r.ok) {
@@ -69,10 +69,10 @@ export const UserMessagesProvider = ({children}) => {
     const [state, dispatch] = React.useReducer(messageReducer, initialState);
     const backendUrl = useRecoilValue(backendUrlState);
     const backendUrlRef = React.useRef(backendUrl);
-    const token = useRecoilValue(tokenState);
+    const session = useRecoilValue(sessionState);
     React.useEffect(() => {
         let mounted = true;
-        fetchWarnings(backendUrlRef.current, token)
+        fetchWarnings(backendUrlRef.current, session)
             .catch((error) => {
                 showError(`Failed to get transformations: ${error}`);
             })

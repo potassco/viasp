@@ -1,6 +1,6 @@
 import {atom, selector, atomFamily, selectorFamily, waitForAll} from 'recoil';
 
-import {backendUrlState, tokenState} from './settingsState';
+import {backendUrlState, sessionState} from './settingsState';
 import {proxyTransformationStateFamily} from './transformationsState';
 import {
     nodeUuidsByTransforamtionStateFamily,
@@ -16,11 +16,11 @@ export const contentDivState = atom({
     default: null,
 });
 
-async function fetchCurrentSortHash(backendURL, token) {
+async function fetchCurrentSortHash(backendURL, session) {
     const response = await fetch(`${backendURL}/graph/current`, {
         method: 'GET',
         headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${session}`,
         }
     });
     if (!response.ok) {
@@ -35,8 +35,8 @@ export const currentSortState = atom({
         key: 'currentSortState/Default',
         get: async ({get}) => {
             const backendURL = get(backendUrlState);
-            const token = get(tokenState);
-            return fetchCurrentSortHash(backendURL, token);
+            const session = get(sessionState);
+            return fetchCurrentSortHash(backendURL, session);
         }
     }),
 });
@@ -47,11 +47,11 @@ export const numberOfTransformationsFromApiState = selector({
     get: async ({get}) => {
         const currentSort = get(currentSortState);
         const backendURL = get(backendUrlState);
-        const token = get(tokenState);
+        const session = get(sessionState);
         const response = await fetch(`${backendURL}/transformations/current`, {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${session}`,
                 },
         });
         if (!response.ok) {

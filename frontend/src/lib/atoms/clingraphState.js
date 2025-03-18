@@ -1,15 +1,15 @@
 import {selector, atomFamily, selectorFamily, waitForAll} from 'recoil';
-import {backendUrlState, tokenState} from './settingsState';
+import {backendUrlState, sessionState} from './settingsState';
 import {currentSortState} from './currentGraphState';
 
-const getClingraphsFromServer = async (backendUrl, currentSort, token) => {
+const getClingraphsFromServer = async (backendUrl, currentSort, session) => {
     return fetch(`${backendUrl}/clingraph/children`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${session}`,
         },
-        body: JSON.stringify({currentSort, token}),
+        body: JSON.stringify({currentSort}),
     });
 };
 
@@ -17,12 +17,12 @@ export const clingraphNodesState = selector({
     key: 'clingraphNodesState',
     get: async ({get}) => {
         const backendURL = get(backendUrlState);
-        const token = get(tokenState)
+        const session = get(sessionState)
         const currentSort = get(currentSortState);
         const response = await getClingraphsFromServer(
             backendURL,
             currentSort,
-            token
+            session
         );
         if (!response.ok) {
             throw new Error(response.statusText);

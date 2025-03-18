@@ -53,22 +53,43 @@ def backend():
     app.run(host=host, port=port, use_reloader=use_reloader, debug=debug)
 
 
+def server():
+    parser = argparse.ArgumentParser(description=_("VIASP_BACKEND_TITLE_HELP"))
+    parser.add_argument('--host',
+                        type=str,
+                        help=_("BACKENDHOST_HELP"),
+                        default=DEFAULT_BACKEND_HOST)
+    parser.add_argument('-p',
+                        '--port',
+                        type=int,
+                        help=_("BACKENDPORT_HELP"),
+                        default=DEFAULT_BACKEND_PORT)
+    parser.add_argument('--frontend-host',
+                        type=str,
+                        help=_("FRONTENDHOST_HELP"),
+                        default=DEFAULT_FRONTEND_HOST)
+    parser.add_argument('--frontend-port',
+                        type=int,
+                        help=_("FRONTENDPORT_HELP"),
+                        default=DEFAULT_FRONTEND_PORT)
+    args = parser.parse_args()
+    host = args.host
+    port = args.port
+    backend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
+    front_host = args.frontend_host
+    front_port = args.frontend_port
+    app = startup.run(host=host,
+                      port=port,
+                      front_host=front_host,
+                      front_port=front_port)
+    viasp.api.load_program_string("a.", viasp_backend_url=backend_url)
+    # use ViaspRunner to manage shutdown
+    runner = ViaspRunner()
+    runner.backend_url = backend_url
+    app.run("", host=front_host, port=front_port, open_browser=False)
+
 def start():
     ViaspRunner().run(sys.argv[1:])
-
-
-def _is_running_in_notebook():
-    try:
-        shell = get_ipython().__class__.__name__  # type: ignore
-        if shell == 'ZMQInteractiveShell':
-            return True  # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False  # Probably standard Python interpreter
-
 
 #
 # MyArgumentParser
@@ -666,7 +687,8 @@ class ViaspRunner():
 
         # print relaxed program
         if options['print_relax']:
-            app = startup.run(host=host, port=port)
+            app = startup.run(host=host, port=port, front_host=frontend_host,
+                              front_port=frontend_port)
             relaxed_program = self.relax_program_quietly(
                 encoding_files, options['stdin'], head_name,
                 no_collect_variables, options['constants'])
@@ -682,7 +704,8 @@ class ViaspRunner():
                                                   encoding_files,
                                                   model_from_json, relax,
                                                   select_model)
-        app = startup.run(host=host, port=port)
+        app = startup.run(host=host, port=port, front_host=frontend_host,
+                          front_port=frontend_port)
         viasp.api.set_config(
             show_all_derived = options.get("show_all_derived", False),
             color_theme = options.get("color", DEFAULT_COLOR),

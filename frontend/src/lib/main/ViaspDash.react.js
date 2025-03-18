@@ -39,7 +39,7 @@ import {
     backendUrlState,
     colorPaletteState,
     defaultBackendUrlState,
-    tokenState,
+    sessionState,
     availableColorThemesState,
 } from '../atoms/settingsState';
 import {clearAllHighlightsCallback} from '../hooks/highlights';
@@ -55,12 +55,12 @@ import {
 import {mapShiftState} from '../atoms/mapShiftState';
 import useResizeObserver from '@react-hook/resize-observer';
 
-async function postCurrentSort(backendUrl, currentSort, oldIndex, newIndex, token) {
+async function postCurrentSort(backendUrl, currentSort, oldIndex, newIndex, session) {
     const r = await fetch(`${backendUrl}/graph/sorts`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${session}`,
         },
         body: JSON.stringify({
             current_sort: currentSort,
@@ -82,7 +82,7 @@ function GraphContainer(props) {
     const clingraphUsed = useRecoilValue(usingClingraphState);
     const backendUrl = useRecoilValue(backendUrlState);
     const colorPalette = useRecoilValue(colorPaletteState);
-    const token = useRecoilValue(tokenState);
+    const session = useRecoilValue(sessionState);
     const setDraggableSelectedItem = useSetRecoilState(draggableListSelectedItem)
     const [currentSort, setCurrentSort] = useRecoilState(currentSortState)
     const tDropIndices = useRecoilValue(reorderTransformationDropIndicesState);
@@ -103,7 +103,7 @@ function GraphContainer(props) {
             resetShownRecursion();
             clearHighlights();
             // setTransformationsList([]);
-            postCurrentSort(backendUrl, currentSort, oldIndex, newIndex, token).then(
+            postCurrentSort(backendUrl, currentSort, oldIndex, newIndex, session).then(
                 (data) => {
                     setCurrentSort(data.hash);
                 }
@@ -114,7 +114,7 @@ function GraphContainer(props) {
 
     const graphContainerRef = React.useRef(null);
     return (
-        currentSort === "ERROR" ? <div>No graph found. Invalid token?</div> :
+        currentSort === "ERROR" ? <div>No graph found. Invalid session ID?</div> :
         <div className="graph_container" ref={graphContainerRef}>
             <Facts />
             <Settings />
@@ -257,7 +257,7 @@ function ZoomInteraction() {
 }
 
 function MainWindow(props) {
-    const {notifyDash, backendUrl, colorPalette, token} = props;
+    const {notifyDash, backendUrl, colorPalette, session} = props;
     
     const setBackendURLRecoil = useSetRecoilState(backendUrlState);
     React.useLayoutEffect(() => {
@@ -266,10 +266,10 @@ function MainWindow(props) {
     
     const contentDivRef = useRef(null);
     const setContentDiv = useSetRecoilState(contentDivState);
-    const setToken = useSetRecoilState(tokenState);
+    const setsession = useSetRecoilState(sessionState);
     React.useLayoutEffect(() => {
-        setToken(token);
-    }, [token, setToken]);
+        setsession(session);
+    }, [session, setsession]);
 
     const setAvailableColorThemes = useSetRecoilState(availableColorThemesState);
     React.useLayoutEffect(() => {
@@ -319,9 +319,9 @@ MainWindow.propTypes = {
      */
     colorPalette: PropTypes.object,
     /**
-     * The token for the encoding
+     * The session for the encoding
      */
-    token: PropTypes.string,
+    session: PropTypes.string,
 };
 
 /**
@@ -340,8 +340,8 @@ export default function ViaspDash(props) {
 
     React.useLayoutEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const token = params.get('token') || '0';
-        setEncodingId(token);
+        const session = params.get('session') || '0';
+        setEncodingId(session);
     }, []);
 
     return (
@@ -354,7 +354,7 @@ export default function ViaspDash(props) {
                             notifyDash={notifyDash}
                             backendUrl={backendURL}
                             colorPalette={colorPalette}
-                            token={encodingId}
+                            session={encodingId}
                         />
                     </>
                 </UserMessagesProvider>
