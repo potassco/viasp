@@ -4,7 +4,6 @@ import re
 import os
 import shutil
 import subprocess
-import atexit
 import signal
 
 import importlib.metadata
@@ -242,6 +241,9 @@ class ViaspArgumentParser:
         basic.add_argument('--show-all-derived',
                            action='store_true',
                            help=_("VIASP_SHOW_ALL_DERIVED_HELP"))
+        basic.add_argument('--reset',
+                           action='store_true',
+                           help=_("VIASP_RESET_HELP"))
 
         # Solving Options
         solving = cmd_parser.add_argument_group(_("CLINGO_SOLVING_OPTION"))
@@ -391,12 +393,13 @@ class ViaspRunner():
         sys.exit(0)
 
     def run(self, args):
-        # try:
-        self.run_wild(args)
-        # except Exception as e:
-        #     error(_("ERROR").format(e))
-        #     error(_("ERROR_INFO"))
-        #     sys.exit(1)
+        try:
+            self.run_wild(args)
+        except Exception as e:
+            self.signal_handler(None, None)
+            error(_("ERROR").format(e))
+            error(_("ERROR_INFO"))
+            sys.exit(1)
 
     def warn_unsat(self):
         warn(_("WARN_UNSATISFIABLE_STRING"))
@@ -460,22 +463,23 @@ class ViaspRunner():
         return models_to_mark
 
     def run_with_clingo(self, ctl, relax, max_models,
-                        opt_mode):
+                        opt_mode_str):
         models_to_mark = []
         sat_flag = None
         ctl.ground([("base", [])])
         with ctl.solve(yield_=True) as handle:
             for m in handle:
-                if (len(m.cost) > 0 and opt_mode == "opt" and max_models != 0):
+                if (len(m.cost) > 0 and opt_mode_str == "--opt-mode=opt"
+                        and max_models != 0):
                     self.warn_optimality_not_guaranteed()
 
                 plain(f"Answer: {m.number}\n{m}")
                 if len(m.cost) > 0:
                     plain(f"Optimization: {' '.join(map(str,m.cost))}")
 
-                if opt_mode == "opt" and len(m.cost) > 0:
+                if opt_mode_str == "--opt-mode=opt" and len(m.cost) > 0:
                     models_to_mark = [clingo_model_to_stable_model(m)]
-                elif opt_mode == "optN":
+                elif opt_mode_str == "--opt-mode=optN":
                     if m.optimality_proven:
                         models_to_mark.append(clingo_model_to_stable_model(m))
                 else:
@@ -499,15 +503,16 @@ class ViaspRunner():
         return models_to_mark
 
     def run_relaxer(self, encoding_files, options, head_name,
-                    no_collect_variables, relaxer_opt_mode, clingo_options):
+                    no_collect_variables, relaxer_opt_mode_str, clingo_options):
         info(_("SWITCH_TO_TRANSFORMED_VISUALIZATION"))
+        options['max_models'] = 0
         relaxed_program = self.relax_program(encoding_files, options['stdin'],
                                              head_name, no_collect_variables,
                                              options['constants'])
 
         ctl_options = [
             '--models',
-            str(options['max_models']), relaxer_opt_mode
+            str(options['max_models']), relaxer_opt_mode_str
         ]
         for k, v in options['constants'].items():
             ctl_options.extend(["--const", f"{k}={v}"])
@@ -518,7 +523,7 @@ class ViaspRunner():
 
         plain("Solving...")
         models = self.run_with_clingo(ctl, True,
-                                      options['max_models'], relaxer_opt_mode)
+                                      options['max_models'], relaxer_opt_mode_str)
         viasp.api.add_program_string(relaxed_program,
                                      viasp_backend_url=self.backend_url)
         if len(models) == 0:
@@ -553,7 +558,7 @@ class ViaspRunner():
         else:
             models = self.run_with_clingo(ctl, relax,
                                 options['max_models'],
-                                options['opt_mode'])
+                                options['opt_mode_str'])
 
         return models
 
@@ -609,7 +614,6 @@ class ViaspRunner():
                                                      head_name,
                                                      no_collect_variables,
                                                      constants)
-                atexit._run_exitfuncs()
         return relaxed_program
 
     def deregister_session(self):
@@ -684,10 +688,18 @@ class ViaspRunner():
         if options['print_relax']:
             app = startup.run(host=host, port=port, front_host=frontend_host,
                               front_port=frontend_port)
+            app.wait_for_backend_server_running()
             relaxed_program = self.relax_program_quietly(
                 encoding_files, options['stdin'], head_name,
                 no_collect_variables, options['constants'])
             plain(relaxed_program)
+            self.deregister_session()
+            sys.exit(0)
+
+        if options['reset']:
+            self.deregister_session()
+            self.shutdown_server()
+            self.shutdown_frontend_server()
             sys.exit(0)
 
         # prologue

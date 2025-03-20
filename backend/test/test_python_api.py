@@ -355,8 +355,7 @@ def test_get_relaxed_program(unique_session):
     debug_client = DebugClient(unique_session)
     input_program = r"sample. :- sample.:-a(X)."
     relaxed_program = r"#program base.sample.unsat(r1,()) :- sample.unsat(r2,(X,)) :- a(X).:~ unsat(R,T). [1@0,R,T]"
-    load_program_string(
-        input_program, _viasp_client=debug_client)
+    load_program_string(input_program, _viasp_client=debug_client)
 
     res = get_relaxed_program(_viasp_client=debug_client)
     assert res == relaxed_program

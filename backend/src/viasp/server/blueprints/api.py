@@ -11,7 +11,7 @@ from clingraph.orm import Factbase
 from clingraph.graphviz import compute_graphs, render
 import networkx as nx
 
-from .dag_api import generate_graph, wrap_marked_models
+from .dag_api import generate_graph, wrap_marked_models, load_analyzer
 from ..database import db_session, ensure_encoding_id
 from ..models import *
 from ...asp.reify import ProgramAnalyzer
@@ -49,6 +49,9 @@ def handle_call_received(call: ClingoMethodCall, encoding_id: str) -> None:
                                     filename="<string>",
                                     program=call.kwargs["program"])
             db_session.add(db_encoding)
+    elif call.name == "clear":
+        db_session.execute(
+            delete(Encodings).where(Encodings.encoding_id == encoding_id))
     else:
         pass
     db_session.commit()
@@ -90,7 +93,8 @@ def get_program():
         return jsonify("".join(result)) if result else "ok", 200
     elif request.method == "DELETE":
         encoding_id = session['encoding_id']
-        db_session.query(Encodings).filter_by(encoding_id=encoding_id).delete()
+        db_session.execute(
+            delete(Encodings).where(Encodings.encoding_id == encoding_id))
         db_session.commit()
     return "ok", 200
 
@@ -307,23 +311,27 @@ def save_analyzer_values(analyzer: ProgramAnalyzer, encoding_id: str):
             seen.add(str(c))
     db_session.commit()
 
+def analyze_program(encoding_id):
+    try:
+        analyzer = load_analyzer(encoding_id)
+    except Exception as e:
+        program = db_session.execute(
+            select(Encodings.program).where(
+                Encodings.encoding_id == encoding_id)).scalars().all()
+        db_transformer = db_session.query(Transformers).filter(
+            Transformers.encoding_id == encoding_id).first()
+        transformer = current_app.json.loads(
+            db_transformer.transformer) if db_transformer is not None else None
+        analyzer = ProgramAnalyzer()
+        analyzer.add_program(program, transformer)
+    return analyzer
 
 @bp.route("/control/show", methods=["POST"])
 @ensure_encoding_id
 def show_selected_models():
     try:
-        analyzer = ProgramAnalyzer()
         encoding_id = session['encoding_id']
-        encodings = db_session.execute(
-            select(Encodings.program).where(
-                Encodings.encoding_id == encoding_id)).scalars().all()
-
-        result = db_session.query(Transformers).filter(
-            Transformers.encoding_id == encoding_id).first()
-        transformer = current_app.json.loads(
-            result.transformer) if result is not None else None
-
-        analyzer.add_program(encodings, transformer)
+        analyzer = analyze_program(encoding_id)
 
         warnings = [
             Warnings(encoding_id=encoding_id,
@@ -359,6 +367,11 @@ def transform_relax():
             program = "".join(encoding)
         else:
             return "No program found", 400
+        analyzer = analyze_program(encoding_id)
+        kwargs.update({
+            "get_conflict_free_variable":
+            analyzer.get_conflict_free_variable
+        })
         relaxer = ProgramRelaxer(*args, **kwargs)
         relaxed = relax_constraints(relaxer, program)
         return jsonify(relaxed)

@@ -14,7 +14,7 @@ from clingo.ast import (
 )
 from viasp.shared.util import RuleType, hash_transformation_rules, hash_string
 
-from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, move_constraints_only_transformations_to_end, topological_sort
+from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, move_constraints_only_transformations_to_end, topological_sort, VariableConflictResolver
 from ..asp.utils import merge_cycles, remove_loops
 from viasp.asp.ast_types import (
     SUPPORTED_TYPES,
@@ -645,7 +645,7 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         return True
 
 
-class ProgramReifier(DependencyCollector):
+class ProgramReifier(DependencyCollector, VariableConflictResolver):
 
     def __init__(self,
                  component_nr=1,
@@ -660,10 +660,10 @@ class ProgramReifier(DependencyCollector):
         self.h = h_str
         self.h_showTerm = h_showTerm_str
         self.model = model_str
-        self.get_conflict_free_variable = get_conflict_free_variable_str
+        self.get_conflict_free_variable_str = get_conflict_free_variable_str
         self.clear_temp_names = clear_temp_names
         self.conflict_free_showTerm = conflict_free_showTerm_str
-        super().__init__(in_analyzer=False)
+        super().__init__(in_analyzer=False, get_conflict_free_variable_str=get_conflict_free_variable_str)
 
     def make_component_lit(self, loc: ast.Location) -> ast.Literal:  # type: ignore
         loc_fun = ast.Function(loc, str(self.component_nr), [], False)
@@ -725,7 +725,7 @@ class ProgramReifier(DependencyCollector):
         if has_an_interval(dependant):
             # replace dependant with variable: e.g. (1..3) -> X
             variables = [
-                ast.Variable(loc, self.get_conflict_free_variable())
+                ast.Variable(loc, self.get_conflict_free_variable_str())
                 if arg.ast_type == ASTType.Interval else arg
                 for arg in dependant.atom.symbol.arguments
             ]
@@ -820,23 +820,6 @@ class ProgramReifier(DependencyCollector):
     def visit_Minimize(self, minimize: ast.Minimize, **kwargs):  # type: ignore
         return [minimize]
 
-    def replace_anon_variables(
-            self, literals: List[ast.Literal]) -> None:  # type: ignore
-        """
-        Replaces all anonymous variables in the literals with a new variable.
-        """
-        for l in literals:
-            try:
-                if l.ast_type == ASTType.Literal and \
-                    l.sign == ast.Sign.NoSign:
-                    for arg in l.atom.symbol.arguments:
-                        if arg.ast_type == ASTType.Variable and arg.name == "_":
-                            arg.name = self.get_conflict_free_variable(
-                                f"ANON_{arg.location.begin.line}{arg.location.begin.column}_{arg.location.end.line}{arg.location.end.column}_"
-                            )
-            except AttributeError:
-                continue
-
 
 class LiteralWrapper(Transformer):
 
@@ -859,7 +842,7 @@ class LiteralWrapper(Transformer):
         return ast.Literal(literal.location, ast.Sign.NoSign, wrap_atm)
 
 
-class ProgramReifierForRecursions(ProgramReifier):
+class ProgramReifierForRecursions(ProgramReifier, VariableConflictResolver):
 
     def __init__(self, *args, **kwargs):
         self.model_str: str = kwargs.pop("conflict_free_model_str", "model")

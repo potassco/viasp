@@ -479,7 +479,8 @@ def clear_program(**kwargs) -> None:
 
     """
     connector = _get_connector(**kwargs)
-    connector.clear_program()
+    connector.register_function_call(
+        "clear", signature(InnerControl.add), [], kwargs={})
 
 
 def get_relaxed_program(*args, **kwargs) -> Union[str, None]:

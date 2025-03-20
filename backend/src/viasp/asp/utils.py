@@ -269,3 +269,25 @@ def filter_body_aggregates(element: AST):
             in aggregate_types):
         return False
     return True
+
+
+class VariableConflictResolver:
+    def __init__(self, *args, **kwargs):
+        self.get_conflict_free_variable_str = kwargs.get("get_conflict_free_variable_str", lambda x: x)
+            
+    def replace_anon_variables(self, literals: List[ast.Literal]) -> None:  # type: ignore
+        """
+        Replaces all anonymous variables in the literals with a new variable.
+        """
+        for l in literals:
+            try:
+                if l.ast_type == ASTType.Literal and \
+                    l.sign == ast.Sign.NoSign:
+                    for arg in l.atom.symbol.arguments:
+                        if arg.ast_type == ASTType.Variable and arg.name == "_":
+                            arg.name = self.get_conflict_free_variable_str(
+                                f"ANON_{arg.location.begin.line}{arg.location.begin.column}_{arg.location.end.line}{arg.location.end.column}_"
+                            )
+
+            except AttributeError as e:
+                continue

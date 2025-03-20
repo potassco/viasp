@@ -1,7 +1,7 @@
 from clingo.ast import (AST, Transformer, SymbolicTerm, Function, Literal,
                     SymbolicAtom, parse_string, Sign)
 from clingo import Function as ClingoFunction, ast
-from .utils import is_constraint
+from .utils import is_constraint, VariableConflictResolver
 from typing import List
 
 
@@ -19,7 +19,7 @@ class TermRelaxer(Transformer):
         Visit a variable. Add it to the collector via the callback method adder in kwargs.
         """
         kwargs.get("adder", lambda x: None)(Variable)
-        return Variable
+        return Variable.update(**self.visit_children(Variable, **kwargs))
 
     def visit_Literal(
             self,
@@ -57,7 +57,7 @@ class TermRelaxer(Transformer):
         return TheoryAtom
 
 
-class ProgramRelaxer(TermRelaxer):
+class ProgramRelaxer(TermRelaxer, VariableConflictResolver):
     """
     Transformer class for modifying rules in a program.
     """
@@ -66,6 +66,12 @@ class ProgramRelaxer(TermRelaxer):
         self.head_name: str = kwargs.get("head_name", "unsat")
         self.collect_variables: bool = kwargs.get("collect_variables", True)
         self.constraint_counter: int = 1
+        super().__init__(*args, **kwargs)
+
+    def visit_ShowSignature(self, show: ast.ShowSignature): # type: ignore
+        if show.name == "":
+            show.name = "_"
+        return show
 
     def visit_Rule(self, rule: ast.Rule) -> AST: # type: ignore
         """
@@ -86,6 +92,7 @@ class ProgramRelaxer(TermRelaxer):
 
             if self.collect_variables:
                 variables: List[AST] = []
+                self.replace_anon_variables(rule.body)
                 _ = self.visit_sequence(rule.body, adder=variables.append)
                 variables = [v for i,v in enumerate(variables) if v not in variables[:i]]
                 args.append(Function(location, '', variables, 0))

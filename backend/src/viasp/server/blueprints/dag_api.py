@@ -241,6 +241,18 @@ def get_current_sort(encoding_id):
     current_hash = get_current_graph_hash(encoding_id)
     return get_current_sort_by_hash(encoding_id, current_hash)
 
+def load_analyzer(encoding_id) -> ProgramAnalyzer:
+    result = db_session.query(DependencyGraphs).filter_by(encoding_id=encoding_id).one_or_none()
+    if result is not None:
+        dependency_graph = nx.node_link_graph(current_app.json.loads(result.data))
+    else:
+        raise DatabaseInconsistencyError
+    analyzer_names = {n.name for n in db_session.query(AnalyzerNames).filter_by(encoding_id=encoding_id).all()}
+    analyzer_facts = {f.fact for f in db_session.query(AnalyzerFacts).filter_by(encoding_id=encoding_id).all()}
+    analyzer_constants = {c.constant for c in db_session.query(AnalyzerConstants).filter_by(encoding_id=encoding_id).all()}
+
+    return ProgramAnalyzer(dependency_graph=dependency_graph, names=analyzer_names, facts=analyzer_facts, constants=analyzer_constants)
+
 @bp.route("/graph/sorts", methods=["GET", "POST"])
 @ensure_encoding_id
 def handle_new_sort():
@@ -261,19 +273,10 @@ def handle_new_sort():
         if result is None:
             raise DatabaseInconsistencyError
         sorted_program_rules = [t.rules for t in current_app.json.loads(result.sort)]
-        result = db_session.query(DependencyGraphs).filter_by(encoding_id=encoding_id).one_or_none()
-        if result is not None:
-            dependency_graph = nx.node_link_graph(current_app.json.loads(result.data))
-        else:
-            raise DatabaseInconsistencyError
-        analyzer_names = {n.name for n in db_session.query(AnalyzerNames).filter_by(encoding_id=encoding_id).all()}
-        analyzer_facts = {f.fact for f in db_session.query(AnalyzerFacts).filter_by(encoding_id=encoding_id).all()}
-        analyzer_constants = {c.constant for c in db_session.query(AnalyzerConstants).filter_by(encoding_id=encoding_id).all()}
-
         moved_item = sorted_program_rules.pop(moved_transformation["old_index"])
         sorted_program_rules.insert(moved_transformation["new_index"], moved_item)
 
-        analyzer = ProgramAnalyzer(dependency_graph=dependency_graph, names=analyzer_names, facts=analyzer_facts, constants=analyzer_constants)
+        analyzer = load_analyzer(encoding_id)
         new_sorted_program_transformations = analyzer.make_transformations_from_sorted_program(sorted_program_rules)
         new_hash = hash_from_sorted_transformations(new_sorted_program_transformations)
 

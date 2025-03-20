@@ -101,3 +101,9 @@ def test_double_negation_literal():
     expected = "c((1..3)).d(X) :- c(X).unsat(r1,()) :- not not d(X).:~ unsat(R,T). [1,R,T]"
     visitor = ProgramRelaxer(head_name = "unsat", collect_variables = True)
     assertProgramEqual(relax_constraints(visitor,rule), parse_program_to_ast(expected))
+
+def test_anon_variable():
+    rule = "c(1..3).d(X):-c(X).:- d(_)."
+    expected = "c((1..3)).d(X) :- c(X).unsat(r1,(ANON_125_126_,)) :- d(ANON_125_126_).:~ unsat(R,T). [1,R,T]"
+    visitor = ProgramRelaxer(head_name = "unsat", collect_variables = True)
+    assertProgramEqual(relax_constraints(visitor,rule), parse_program_to_ast(expected))

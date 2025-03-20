@@ -58,6 +58,7 @@
     "VIASP_PRIMARY_COLOR_HELP": "\t: The primary color",
     "VIASP_VERBOSE_LOGGING_HELP": "\t: Enable verbose logging",
     "VIASP_SHOW_ALL_DERIVED_HELP": "\t: Show all derived symbols at each step",
+    "VIASP_RESET_HELP": "\t: Reset viasp server state",
     "CLINGO_SOLVING_OPTION": "Solving Options",
     "CLINGO_MODELS_HELP": "\t: Compute at most <n> models (0 for all)",
     "CLINGO_SELECT_MODEL_HELP": "\t: Select only one of the models when using a json input\n\t  Defined by an index for accessing the models, starting in index 0\n\t  Can appear multiple times to select multiple models",
