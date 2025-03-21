@@ -2,7 +2,7 @@
 import networkx as nx
 from clingo import Symbol, ast
 from clingo.ast import ASTType, AST
-from typing import List, Sequence, Collection, Tuple, Dict, Set, FrozenSet, Optional
+from typing import Iterable, List, Sequence, Collection, Tuple, Dict, Set, FrozenSet, Optional
 
 from ..shared.simple_logging import warn
 from ..shared.model import Node, SymbolIdentifier, Transformation, RuleContainer
@@ -86,6 +86,12 @@ def insert_atoms_into_nodes(path: List[Node]) -> None:
         v.atoms = frozenset(state)
         state = set(map(SymbolIdentifier, (s.symbol for s in state)))
 
+def iterate_positive_reasons(reasons: List[Symbol]) -> Iterable[Symbol]:
+    for reason in reasons:
+        if reason.name == "pos":
+            yield reason.arguments[0]
+        elif reason.name == "neg":
+            yield reason.arguments[0]
 
 def identify_reasons(g: nx.DiGraph) -> None:
     """
@@ -106,20 +112,9 @@ def identify_reasons(g: nx.DiGraph) -> None:
         for v in children_current:
             for new, rr in v.reason.items():
                 tmp_reason = []
-                for r in rr:
+                for r in iterate_positive_reasons(rr):
                     tmp_reason.append(get_identifiable_reason(g, v, r))
                 v.reason[str(new)] = tmp_reason
-            for node in v.recursive:
-                for new, rr in node.reason.items():
-                    tmp_reason = []
-                    for r in rr:
-                        tmp_reason.append(
-                            get_identifiable_reason_of_recursive_subnode(v.recursive,
-                                                    node,
-                                                    r,
-                                                    g,
-                                                    v))
-                    node.reason[str(new)] = tmp_reason
             for s in v.diff:
                 if str(s.symbol) in v.reason.keys() and len(v.reason[str(
                         s.symbol)]) > 0:
@@ -276,7 +271,7 @@ def filter_body_aggregates(element: AST):
 class VariableConflictResolver:
     def __init__(self, *args, **kwargs):
         self.get_conflict_free_variable_str = kwargs.get("get_conflict_free_variable_str", lambda x: x)
-            
+
     def replace_anon_variables(self, literals: List[ast.Literal]) -> None:  # type: ignore
         """
         Replaces all anonymous variables in the literals with a new variable.

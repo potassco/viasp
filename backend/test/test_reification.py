@@ -60,14 +60,14 @@ def test_conflict_variables_are_resolved():
 
 def test_normal_rule_with_negation_is_transformed_correctly():
     rule = 'b(X) :- c(X); not a(X).'
-    expected = f'h(1, "{hash_string(rule)}", b(X), (pos(c(X)),neg(a(X)))) :- b(X), c(X); not a(X).'
+    expected = f'h(1, "{hash_string(rule)}", b(X), (neg(a(X)),pos(c(X)))) :- b(X), c(X); not a(X).'
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_multiple_rules_with_same_head_do_not_lead_to_duplicate_h_with_wildcard():
     rules = ['b(X) :- c(X); not a(X).', 'b(X) :- a(X); not c(X).']
     program = "".join(rules)
-    expected = f'h(1, "{hash_string(rules[0])}", b(X),(pos(c(X)),neg(a(X)))) :- b(X), c(X), not a(X).h(1, "{hash_string(rules[1])}", b(X), (pos(a(X)),not(c(X)))) :- b(X), a(X), not c(X).'
+    expected = f'h(1, "{hash_string(rules[0])}", b(X),(neg(a(X)),pos(c(X)))) :- b(X), c(X), not a(X).h(1, "{hash_string(rules[1])}", b(X), (neg(c(X)),pos(a(X)))) :- b(X), a(X), not c(X).'
     assertProgramEqual(transform(program), parse_program_to_ast(expected))
 
 
@@ -86,7 +86,7 @@ def extract_rule_nrs_from_parsed_program(prg):
 def test_programs_with_facts_result_in_matching_program_mappings():
     rules = ['b(X) :- c(X); not a(X).', 'b(X) :- a(X); not c(X).']
     program = "".join(rules)
-    expected = f'h(1, "{hash_string(rules[0])}", b(X), (pos(c(X)),neg(a(X)))) :- b(X), c(X), not a(X).h(1, "{hash_string(rules[1])}", b(X),(pos(a(X)),neg(c(X)))) :- b(X), a(X), not c(X).'
+    expected = f'h(1, "{hash_string(rules[0])}", b(X), (neg(a(X)),pos(c(X)))) :- b(X), c(X), not a(X).h(1, "{hash_string(rules[1])}", b(X),(neg(c(X)),pos(a(X)))) :- b(X), a(X), not c(X).'
     parsed = parse_program_to_ast(expected)
     transformed = transform(program)
     assertProgramEqual(transformed, parsed)

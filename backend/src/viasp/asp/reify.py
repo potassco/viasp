@@ -672,6 +672,16 @@ class ProgramReifier(DependencyCollector, VariableConflictResolver):
         loc_atm = ast.SymbolicAtom(loc_fun)
         return ast.Literal(loc, ast.Sign.NoSign, loc_atm)
 
+    def create_pos_neg_reason_literal(self, literal):
+        if literal.sign == ast.Sign.Negation:
+            wrapper_name = "neg"
+        elif literal.sign == ast.Sign.DoubleNegation:
+            wrapper_name = "double_neg"
+        else:
+            wrapper_name = "pos"
+        return ast.Function(literal.location, wrapper_name,
+            [literal.atom], False)
+
     def _nest_rule_head_in_h_with_explanation_tuple(
         self,
         loc: ast.Location,
@@ -690,12 +700,11 @@ class ProgramReifier(DependencyCollector, VariableConflictResolver):
         component_lit = self.make_component_lit(loc)
         rule_lit = self.make_rule_lit(loc, **kwargs)
         for literal in conditions:
-            if hasattr(literal, "sign") and \
-                literal.sign == ast.Sign.NoSign and \
+            if (hasattr(literal, "sign") and \
                 hasattr(literal, "atom") and \
                 hasattr(literal.atom, "ast_type") and \
-               literal.atom.ast_type == ASTType.SymbolicAtom:
-                reasons.append(literal.atom)
+                literal.atom.ast_type == ASTType.SymbolicAtom):
+                reasons.append(self.create_pos_neg_reason_literal(literal))
         reasons.reverse()
         reasons = [r for i, r in enumerate(reasons) if r not in reasons[:i]]
         reason_fun = ast.Function(loc, "",
