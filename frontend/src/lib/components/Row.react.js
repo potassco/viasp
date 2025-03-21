@@ -171,7 +171,7 @@ export const Row = React.memo(
                         $onlyOneNode={nodes.length === 1}
                         $scale = {mapShift.scale}
                         $translation = {mapShift.translation.x}
-                        $isConstraintsOnly = {transformation.is_constraints_only}
+                        $isConstraintsOnly = {nodes.length === 0}
                         $background = {'transparent'}
                     >
                         {nodes.map((node) => (

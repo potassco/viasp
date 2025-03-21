@@ -555,13 +555,8 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
     ) -> List[Transformation]:
         adjacency_index_mapping = self.get_index_mapping_for_adjacent_topological_sorts(
             sorted_program)
-        is_constraints_only = [
-            all([is_constraint(rule) for rule in rules.ast])
-            for rules in sorted_program
-        ]
         transformations = [
-            Transformation(i, rules, adjacency_index_mapping[i],
-                           is_constraints_only[i])
+            Transformation(i, rules, adjacency_index_mapping[i])
             for i, rules in enumerate(sorted_program)
         ]
         transformations.sort(key=lambda t: t.id)

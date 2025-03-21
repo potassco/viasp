@@ -11,7 +11,7 @@ from clingo.ast import AST, ASTType
 
 from .reify import ProgramAnalyzer, reify_recursion_transformation, LiteralWrapper
 from .recursion import RecursionReasoner
-from .utils import insert_atoms_into_nodes, identify_reasons, calculate_spacing_factor
+from .utils import insert_atoms_into_nodes, identify_reasons, calculate_spacing_factor, is_constraint, is_minimize
 from ..shared.model import Node, RuleContainer, Transformation, SymbolIdentifier, SearchResultSymbolWrapper
 from ..shared.simple_logging import info
 from ..shared.util import pairwise, get_leafs_from_graph
@@ -151,8 +151,14 @@ def make_transformation_mapping(transformations: Iterable[Transformation]):
     return {t.id: t for t in transformations}
 
 
-def separate_constraints(sorted_program: List[Transformation]) -> Tuple[List[Transformation], List[Transformation]]:
-    return [t for t in sorted_program if t.is_constraints_only], [t for t in sorted_program if not t.is_constraints_only]
+def remove_non_node_transformations(sorted_program: List[Transformation]) -> List[Transformation]:
+    not_constraints_or_minimize = []
+    for t in sorted_program:
+        is_constraint_only = all(is_constraint(r) for r in t.rules.ast)
+        is_minimize_only = all(is_minimize(r) for r in t.rules.ast)
+        if not is_constraint_only and not is_minimize_only:
+            not_constraints_or_minimize.append(t)
+    return not_constraints_or_minimize
 
 
 def append_noops(result_graph: nx.DiGraph,
@@ -181,8 +187,7 @@ def build_graph(wrapped_stable_models: List[List[str]],
     conflict_free_h = analyzer.get_conflict_free_h()
     conflict_free_h_showTerm = analyzer.get_conflict_free_h_showTerm()
     identifiable_facts = list(map(SymbolIdentifier, facts))
-    _, sorted_program_no_constraints = separate_constraints(
-        sorted_program)
+    sorted_program_no_constraints = remove_non_node_transformations(sorted_program)
     mapping = make_transformation_mapping(sorted_program_no_constraints)
     fact_node = Node(frozenset(identifiable_facts), -1,
                      frozenset(identifiable_facts))

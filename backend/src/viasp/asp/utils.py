@@ -11,6 +11,8 @@ from ..shared.util import pairwise, get_root_node_from_graph, RuleType
 def is_constraint(rule: RuleType) -> bool:
     return rule.ast_type == ASTType.Rule and "atom" in rule.head.child_keys and rule.head.atom.ast_type == ASTType.BooleanConstant  # type: ignore
 
+def is_minimize(rule: RuleType) -> bool:
+    return rule.ast_type == ASTType.Minimize  # type: ignore
 
 def merge_constraints(g: nx.DiGraph) -> nx.DiGraph:
     mapping = {}

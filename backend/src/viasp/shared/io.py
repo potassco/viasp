@@ -144,7 +144,6 @@ def dataclass_to_dict(o):
             "id": str(o.id),
             "rules": o.rules,
             "adjacent_sort_indices": o.adjacent_sort_indices,
-            "is_constraints_only": o.is_constraints_only,
             "hash": o.hash
         }
     elif isinstance(o, RuleContainer):
