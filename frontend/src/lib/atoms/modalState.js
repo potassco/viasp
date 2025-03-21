@@ -3,7 +3,7 @@ import PulseLoader from 'react-spinners/PulseLoader';
 import {Constants} from '../constants';
 import {atom, noWait, selector} from 'recoil';
 
-import {backendUrlState, tokenState, colorPaletteState} from './settingsState';
+import {backendUrlState, sessionState, colorPaletteState} from './settingsState';
 
 async function fetchModalContent(backendURL, sourceId, nodeId, token){
     const response = await fetch(`${backendURL}/graph/ground`, {
@@ -52,7 +52,7 @@ export const bufferedModalContentState = selector({
             get(backendUrlState),
             sourceId,
             nodeId,
-            get(tokenState)
+            get(sessionState)
         );
     },
 })
