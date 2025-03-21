@@ -26,12 +26,16 @@ def get_h_symbols_from_model(wrapped_stable_model: Iterable[str],
                              facts: List[Symbol],
                              constants: List[str],
                              h="h",
-                             h_showTerm="h_showTerm") -> List[Symbol]:
+                             h_showTerm="h_showTerm",
+                             show_all_derived: bool = False) -> List[Symbol]:
     rules_that_are_reasons_why = []
     ctl = Control()
     stringified = "\n".join(map(str, transformed_prg))
     new_head = f"_{h}"
-    get_new_atoms_rule = f"{new_head}(I, J, H, G) :- {h}(I, J, H, G), not {h}(II,_,H,_) : II<I, {h}(II,_,_,_)."
+    if show_all_derived:
+        get_new_atoms_rule = f"{new_head}(I, J, H, G) :- {h}(I, J, H, G)."
+    else:
+        get_new_atoms_rule = f"{new_head}(I, J, H, G) :- {h}(I, J, H, G), not {h}(II,_,H,_) : II<I, {h}(II,_,_,_)."
     ctl.add("base", [], "".join(constants))
     ctl.add("base", [], "".join(map(stringify_fact, facts)))
     ctl.add("base", [], stringified)
@@ -170,7 +174,8 @@ def build_graph(wrapped_stable_models: List[List[str]],
                 sorted_program: List[Transformation],
                 analyzer: ProgramAnalyzer,
                 recursion_transformations_hashes: Set[str],
-                commandline_constants: Dict[str,str]) -> nx.DiGraph:
+                commandline_constants: Dict[str,str],
+                show_all_derived: bool = False) -> nx.DiGraph:
     paths: List[nx.DiGraph] = []
     facts = analyzer.get_facts(commandline_constants)
     conflict_free_h = analyzer.get_conflict_free_h()
@@ -190,7 +195,8 @@ def build_graph(wrapped_stable_models: List[List[str]],
         h_symbols = get_h_symbols_from_model(model, transformed_prg, facts,
                                              analyzer.get_constants(),
                                              conflict_free_h,
-                                             conflict_free_h_showTerm)
+                                             conflict_free_h_showTerm,
+                                             show_all_derived)
         new_path = make_reason_path_from_facts_to_stable_model(
             mapping, fact_node, h_symbols, recursion_transformations_hashes,
             conflict_free_h, analyzer)

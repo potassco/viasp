@@ -224,8 +224,16 @@ The relaxer mode only shows one optimal answer set of the transformed program. T
 Other options
 -------------
 
+If a node can be derived by multiple rules of the program, it is only shown once for the first rule. To show these symbols at every transformation that derives them, use the ``show-all-derived`` flag. 
+
 To specify the port of the backend, use the ``--port`` or ``-p`` option.
 
 To specify the port of the frontend, use the ``--frontend-port`` or ``-f`` option.
 
-To specify the host of both frontend and backend, use the ``--host`` option.
+To specify the host of both frontend and backend, use the ``--host`` and ``--frontend-host`` options.
+
+To set the color theme, use the ``--color`` option. 
+
+For verbose output, use the ``--verbose`` option.
+
+In case of a crash or database corruption, the backend can be reset with the ``--reset`` option.

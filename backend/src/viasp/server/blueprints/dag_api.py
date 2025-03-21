@@ -145,12 +145,6 @@ def get_children_of_transformation_hash_and_current_Sort():
         to_be_returned = handle_request_for_children_with_sortHash(
             transformation_hash, current_hash, session['encoding_id'])
 
-        content_to_show = db_session.execute(
-            select(SessionInfo.show).where(
-                SessionInfo.encoding_id == session['encoding_id'])).scalar() or "diff"
-        for node in to_be_returned:
-            if content_to_show == "diff":
-                node.atoms = node.diff
         return jsonify(to_be_returned)
     raise NotImplementedError
 
@@ -931,6 +925,11 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
             error("Input program contains forbidden part of clingo language.")
             return nx.DiGraph()
 
+    show_all_derived = db_session.execute(
+        select(
+            SessionInfo.show).where(SessionInfo.encoding_id ==
+                                    session['encoding_id'])).scalar() or False
+
     db_models = db_session.query(Models).filter_by(encoding_id=encoding_id).all()
     marked_models = [current_app.json.loads(m.model) for m in db_models]
     marked_models = wrap_marked_models(marked_models,
@@ -949,7 +948,7 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
         get_conflict_free_variable_str=analyzer.get_conflict_free_variable,
         clear_temp_names=analyzer.clear_temp_names)
     g = build_graph(marked_models, reified, sorted_program, analyzer,
-                    recursion_rules, commandline_constants)
+                    recursion_rules, commandline_constants, show_all_derived)
 
     save_graph(g, encoding_id, sorted_program)
 

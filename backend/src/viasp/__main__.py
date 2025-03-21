@@ -697,7 +697,6 @@ class ViaspRunner():
             sys.exit(0)
 
         if options['reset']:
-            self.deregister_session()
             self.shutdown_server()
             self.shutdown_frontend_server()
             sys.exit(0)

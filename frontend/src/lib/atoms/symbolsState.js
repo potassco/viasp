@@ -1,5 +1,6 @@
-import {atomFamily, selectorFamily, waitForAll} from 'recoil';
+import {atomFamily, selectorFamily} from 'recoil';
 import {bufferedNodesByTransformationStateFamily} from './nodesState';
+import { showDiffOnlyState } from './settingsState';
 
 export const symoblsByNodeStateFamily = atomFamily({
     key: 'symoblsByNodeState',
@@ -11,8 +12,11 @@ export const symoblsByNodeStateFamily = atomFamily({
                 const nodes = get(
                     bufferedNodesByTransformationStateFamily(transformationHash)
                 )
+                const showDiffOnly = get(showDiffOnlyState);
                 const [node] = nodes.filter(n => n.uuid === nodeUuid);
-                const [symbol] = !node?.atoms ? [{}] : node.atoms.filter(s => s.uuid === symbolUuid);
+                const [symbol] = showDiffOnly 
+                     ? !node?.diff ? [{}] : node.diff.filter(s => s.uuid === symbolUuid)
+                     : !node?.atoms ? [{}] : node.atoms.filter(s => s.uuid === symbolUuid);
                 return {
                     ...symbol,
                     highlights: [],

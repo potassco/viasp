@@ -11,7 +11,7 @@ from clingraph.orm import Factbase
 from clingraph.graphviz import compute_graphs, render
 import networkx as nx
 
-from .dag_api import generate_graph, wrap_marked_models, load_analyzer
+from .dag_api import DatabaseInconsistencyError, generate_graph, wrap_marked_models, load_analyzer
 from ..database import db_session, ensure_encoding_id
 from ..models import *
 from ...asp.reify import ProgramAnalyzer
@@ -314,7 +314,7 @@ def save_analyzer_values(analyzer: ProgramAnalyzer, encoding_id: str):
 def analyze_program(encoding_id):
     try:
         analyzer = load_analyzer(encoding_id)
-    except Exception as e:
+    except DatabaseInconsistencyError:
         program = db_session.execute(
             select(Encodings.program).where(
                 Encodings.encoding_id == encoding_id)).scalars().all()
@@ -481,7 +481,7 @@ def set_show_all_derived():
     if request.method == "POST":
         if request.json is None:
             return "Invalid request", 400
-        show = request.json["show"] if "show" in request.json else "diff"
+        show = request.json["show"] if "show" in request.json else False
         color_theme = request.json["color_theme"] if "color_theme" in request.json else "blue"
         db_session.add(
             SessionInfo(encoding_id=session['encoding_id'],

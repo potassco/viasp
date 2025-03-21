@@ -909,7 +909,4 @@ def set_config(show_all_derived=False,
           a viasp client object
     """
     connector = _get_connector(**kwargs)
-    show = "diff"
-    if show_all_derived:
-        show = "atoms"
-    connector.show_all_derived(show, color_theme)
+    connector.show_all_derived(show_all_derived, color_theme)
