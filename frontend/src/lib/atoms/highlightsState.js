@@ -153,3 +153,12 @@ export const recentSymbolSearchHighlightTimeoutState = atom({
     default: null,
 });
 
+export const isShowingExplanationStateFamily = selectorFamily({
+    key: 'isShowingExplanationState',
+    get:
+        (symbolUuid) =>
+        ({get}) => {
+            const highlights = get(symbolReasonHighlightsState);
+            return highlights.some((highlight) => highlight.origin === symbolUuid);
+        },
+})

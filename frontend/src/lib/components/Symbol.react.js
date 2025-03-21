@@ -12,6 +12,7 @@ import {symoblsByNodeStateFamily} from '../atoms/symbolsState';
 import {
     symbolBackgroundHighlightsStateFamily,
     pulsatingHighlightsState,
+    isShowingExplanationStateFamily,
 } from '../atoms/highlightsState';
 import {
     setReasonHighlightsCallback,
@@ -71,7 +72,9 @@ export function Symbol(props) {
     const contentDiv = useRecoilValue(contentDivState);
 
     const suffix = `_${isSubnode ? 'sub' : 'main'}`;
-    const isShowingExplanation = useRef(false);
+    const isShowingExplanation = useRecoilValue(
+        isShowingExplanationStateFamily(symbolUuid)
+    );
     const [, messageDispatch] = useMessages();
     const changeXShiftWithinBounds = useRecoilCallback(
         changeXShiftWithinBoundsCallback,
@@ -97,12 +100,10 @@ export function Symbol(props) {
             if (data.symbols.some((tgt) => tgt === null)) {
                 return;
             }
-            if (!isShowingExplanation.current) {
+            if (!isShowingExplanation) {
                 setThisSymbolHighlights(transformationHash, symbolUuid, data);
-                isShowingExplanation.current = true;
             } else {
                 removeThisSymbolHighlights(transformationHash,symbolUuid);
-                isShowingExplanation.current = false;
             }
         } catch (error) {
             messageDispatch(showError(`Failed to get reason: ${error}`));
