@@ -141,6 +141,7 @@ export function Symbol(props) {
 
 
     return (
+    <>
         <SymbolElementSpan
             id={symbolUuid + suffix}
             $pulsate={pulsatingState.isPulsating}
@@ -152,6 +153,7 @@ export function Symbol(props) {
             >
             {atomString}
         </SymbolElementSpan>
+    </>
     );
 }
 
