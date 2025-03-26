@@ -15,20 +15,28 @@ from .util import (DefaultMappingProxyType, hash_string, hash_transformation_rul
 class SymbolIdentifier:
     symbol: Symbol = field(hash=True)
     has_reason: bool = field(default=False, hash=False)
+    positive_reasons: Union[List[str], List[Symbol]] = field(default_factory=list,
+                                                  hash=False)
+    negative_reasons: Union[List[str],
+                            List[Symbol]] = field(default_factory=list,
+                                                  hash=False)
+    reason_rule: str = field(default="", hash=False)
     uuid: UUID = field(default_factory=uuid4, hash=False)
 
     def __eq__(self, other):
         if isinstance(other, SymbolIdentifier):
-            return self.symbol == other.symbol
+            return self.symbol == other.symbol #and self.reasons == other.reasons and self.reason_rule == other.reason_rule
         elif isinstance(other, Symbol):
             return self.symbol == other
+        elif isinstance(other, str):
+            return str(self.symbol) == other
         return False
 
     def __hash__(self):
         return hash(self.symbol)
 
     def __repr__(self):
-        return f"{{symbol: {str(self.symbol)}, uuid: {self.uuid}, hash_reason: {self.has_reason}}}"
+        return f"{{symbol: {str(self.symbol)}, uuid: {self.uuid}, positive_reasons: {self.positive_reasons}, negative_reasons: {self.negative_reasons}, reason_rule: {self.reason_rule}}}"
 
 
 @dataclass()

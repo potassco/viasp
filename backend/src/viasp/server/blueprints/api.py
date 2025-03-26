@@ -11,7 +11,7 @@ from clingraph.orm import Factbase
 from clingraph.graphviz import compute_graphs, render
 import networkx as nx
 
-from .dag_api import DatabaseInconsistencyError, generate_graph, wrap_marked_models, load_analyzer
+from .dag_api import DatabaseInconsistencyError, generate_graph, wrap_marked_models, load_analyzer, clear_encoding_session_data
 from ..database import db_session, ensure_encoding_id
 from ..models import *
 from ...asp.reify import ProgramAnalyzer
@@ -329,24 +329,21 @@ def analyze_program(encoding_id):
 @bp.route("/control/show", methods=["POST"])
 @ensure_encoding_id
 def show_selected_models():
-    try:
-        encoding_id = session['encoding_id']
-        analyzer = analyze_program(encoding_id)
+    encoding_id = session['encoding_id']
+    analyzer = analyze_program(encoding_id)
 
-        warnings = [
-            Warnings(encoding_id=encoding_id,
-                     warning=current_app.json.dumps(w))
-            for w in analyzer.get_filtered()
-        ]
-        db_session.add_all(warnings)
-        db_session.commit()
+    warnings = [
+        Warnings(encoding_id=encoding_id,
+                    warning=current_app.json.dumps(w))
+        for w in analyzer.get_filtered()
+    ]
+    db_session.add_all(warnings)
+    db_session.commit()
 
-        if analyzer.will_work():
-            save_recursions(analyzer, encoding_id)
-            set_primary_sort(analyzer, encoding_id)
-            save_analyzer_values(analyzer, encoding_id)
-    except Exception as e:
-        return str(e), 500
+    if analyzer.will_work():
+        save_recursions(analyzer, encoding_id)
+        set_primary_sort(analyzer, encoding_id)
+        save_analyzer_values(analyzer, encoding_id)
     return "ok", 200
 
 
@@ -440,36 +437,7 @@ def clingraph_generate():
 def deregister_session():
     if request.method == "POST":
         encoding_id = session['encoding_id']
-        queries = [
-            delete(Encodings).where(Encodings.encoding_id == encoding_id),
-            delete(Models).where(Models.encoding_id == encoding_id),
-            delete(Graphs).where(Graphs.encoding_id == encoding_id),
-            delete(CurrentGraphs).where(
-                CurrentGraphs.encoding_id == encoding_id),
-            delete(GraphSymbols).where(
-                GraphSymbols.node.in_(
-                    db_session.query(GraphNodes.node_uuid).filter(
-                        GraphNodes.encoding_id == encoding_id))),
-            delete(GraphNodes).where(GraphNodes.encoding_id == encoding_id),
-            delete(GraphEdges).where(GraphEdges.encoding_id == encoding_id),
-            delete(DependencyGraphs).where(
-                DependencyGraphs.encoding_id == encoding_id),
-            delete(Recursions).where(Recursions.encoding_id == encoding_id),
-            delete(Clingraphs).where(Clingraphs.encoding_id == encoding_id),
-            delete(Transformers).where(
-                Transformers.encoding_id == encoding_id),
-            delete(Constants).where(Constants.encoding_id == encoding_id),
-            delete(Warnings).where(Warnings.encoding_id == encoding_id),
-            delete(AnalyzerNames).where(
-                AnalyzerNames.encoding_id == encoding_id),
-            delete(AnalyzerFacts).where(
-                AnalyzerFacts.encoding_id == encoding_id),
-            delete(AnalyzerConstants).where(
-                AnalyzerConstants.encoding_id == encoding_id),
-        ]
-        for q in queries:
-            db_session.execute(q)
-        db_session.commit()
+        clear_encoding_session_data(encoding_id)
     number_of_active_sessions = db_session.execute(
         select(func.count()).select_from(Encodings)).scalar()
     return jsonify(number_of_active_sessions)

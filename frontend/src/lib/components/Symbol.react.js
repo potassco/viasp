@@ -8,7 +8,6 @@ import {SymbolElementSpan} from './Symbol.style';
 import {useRecoilValue, useRecoilCallback, useSetRecoilState} from 'recoil';
 import {backendUrlState, sessionState} from '../atoms/settingsState';
 import {contentDivState, currentSortState} from '../atoms/currentGraphState';
-import {symoblsByNodeStateFamily} from '../atoms/symbolsState';
 import {
     symbolBackgroundHighlightsStateFamily,
     pulsatingHighlightsState,
@@ -44,16 +43,11 @@ export function Symbol(props) {
     const {
         symbolUuid,
         isSubnode,
+        has_reason,
+        symbol_repr,
         nodeUuid,
         transformationHash,
     } = props;
-    const recoilSymbol= useRecoilValue(
-        symoblsByNodeStateFamily({
-            transformationHash,
-            nodeUuid,
-            symbolUuid,
-        })
-    );
     const setThisSymbolHighlights = useRecoilCallback(
         setReasonHighlightsCallback, []
     );
@@ -84,12 +78,9 @@ export function Symbol(props) {
     const setModalForSymbol = useSetRecoilState(modalForSymbolState);
     const setModalPosition = useSetRecoilState(modalPositionState);
     
-    let atomString = make_atoms_string(recoilSymbol.symbol);
-    atomString = atomString.length === 0 ? '' : atomString;
-
     const handleClickOnSymbol = async (e) => {
         e.stopPropagation();
-        if (!recoilSymbol.has_reason) {
+        if (!has_reason) {
             return;
         }
         try {
@@ -148,11 +139,11 @@ export function Symbol(props) {
             $pulsate={pulsatingState.isPulsating}
             $pulsatingColor={pulsatingState.color}
             $backgroundColor={backgroundColor}
-            $hasReason={recoilSymbol.has_reason}
+            $hasReason={has_reason}
             onClick={onClickHandler}
             ref={symbolElementRef}
             >
-            {atomString}
+            {symbol_repr}
         </SymbolElementSpan>
     </>
     );
@@ -175,4 +166,12 @@ Symbol.propTypes = {
      * The hash of the transformation that the symbol is in
      */
     transformationHash: PropTypes.string,
+    /**
+     * If the symbol has a reason
+     */
+    has_reason: PropTypes.bool,
+    /**
+     * The representation of the symbol
+     */
+    symbol_repr: PropTypes.string,
 };

@@ -54,28 +54,63 @@ class CurrentGraphs(Base):
     encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"),
                                              primary_key=True)
 
-
+@dataclass
 class GraphNodes(Base):
     __tablename__ = "nodes_table"
 
-    # id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     graph_hash: Mapped[str] = mapped_column(ForeignKey("graphs_table.hash"))
-    transformation_hash: Mapped[str]
-    branch_position: Mapped[float]
-    node: Mapped[str]
+    transformation_hash: Mapped[str] = mapped_column()
+    branch_position: Mapped[float] = mapped_column()
     node_uuid: Mapped[str] = mapped_column(primary_key=True)
+    recursive: Mapped[bool] = mapped_column()
     recursive_supernode_uuid: Mapped[str] = mapped_column(nullable=True)
-    space_multiplier: Mapped[float]
+    space_multiplier: Mapped[float] = mapped_column()
 
 @dataclass
 class GraphSymbols(Base):
     __tablename__ = "symbols_table"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
     node: Mapped[str] = mapped_column(ForeignKey("nodes_table.node_uuid"))
+    has_reason: Mapped[bool] = mapped_column()
     symbol_uuid: Mapped[str] = mapped_column()
-    symbol: Mapped[str] = mapped_column()
+    symbol_repr: Mapped[str] = mapped_column()
+
+@dataclass
+class ReasonRules(Base):
+    __tablename__ = "reason_rules_table"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
+    symbol_uuid: Mapped[str] = mapped_column(ForeignKey("symbols_table.symbol_uuid"))
+    rule: Mapped[str] = mapped_column()
+
+    __table_args__ = (UniqueConstraint(
+        'encoding_id',
+        'rule',
+        'symbol_uuid',
+        name='_encoding_symbol_reason_rule_uc'), )
+
+@dataclass
+class SymbolDetails(Base):
+    __tablename__ = "symbol_details_table"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"))
+    symbol_uuid: Mapped[str] = mapped_column(ForeignKey("symbols_table.symbol_uuid"))
+    reason_uuid: Mapped[str] = mapped_column(
+        ForeignKey("symbols_table.symbol_uuid"), nullable=True)
+    reason_repr: Mapped[str] = mapped_column(nullable=True)
+    sign_positive: Mapped[bool] = mapped_column()
+    sign_negative: Mapped[bool] = mapped_column()
+
+    __table_args__ = (UniqueConstraint('encoding_id',
+                                       'symbol_uuid',
+                                       'reason_uuid',
+                                       'reason_repr',
+                                       name='_encoding_symbol_reason_uc'), )
 
 @dataclass
 class GraphEdges(Base):

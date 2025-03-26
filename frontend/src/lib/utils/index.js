@@ -62,13 +62,9 @@ export function make_default_nodes(oldNodes = []) {
             };
         });
         nodes.push({
-            _type: 'Node',
-            recursive: [],
-            uuid: new_uuid4_hex(),
-            atoms: diff,
-            diff: diff,
-            rule_nr: 0,
-            reason: {},
+            _type: 'GraphNode',
+            node_uuid: new_uuid4_hex(),
+            recursive: false,
             space_multiplier: 0.5,
             loading: true,
         });

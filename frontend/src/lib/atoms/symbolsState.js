@@ -1,26 +1,64 @@
-import {atomFamily, selectorFamily} from 'recoil';
-import {bufferedNodesByTransformationStateFamily} from './nodesState';
-import { showDiffOnlyState } from './settingsState';
+import { selectorFamily, noWait} from 'recoil';
+import { backendUrlState, sessionState } from './settingsState';
+import { currentSortState } from './currentGraphState';
 
-export const symoblsByNodeStateFamily = atomFamily({
+const getSymbolsFromServer = async (
+    backendUrl,
+    currentSort, 
+    nodeUuid,
+    session
+) => {
+    return fetch(`${backendUrl}/graph/symbols`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session}`,
+        },
+        body: JSON.stringify({nodeUuid, currentSort}),
+    });
+};
+
+export const symbolUuidsByNodeUuidStateFamily = selectorFamily({
     key: 'symoblsByNodeState',
-    default: selectorFamily({
-        key: 'symoblsByNodeState/Default',
-        get: 
-            ({transformationHash, nodeUuid, symbolUuid}) =>
-            ({get}) => {
-                const nodes = get(
-                    bufferedNodesByTransformationStateFamily(transformationHash)
-                )
-                const showDiffOnly = get(showDiffOnlyState);
-                const [node] = nodes.filter(n => n.uuid === nodeUuid);
-                const [symbol] = showDiffOnly 
-                     ? !node?.diff ? [{}] : node.diff.filter(s => s.uuid === symbolUuid)
-                     : !node?.atoms ? [{}] : node.atoms.filter(s => s.uuid === symbolUuid);
-                return {
-                    ...symbol,
-                    highlights: [],
-                };
+    get:
+        ({nodeUuid, subnodeIndex}) =>
+        async ({get}) => {
+            if (typeof nodeUuid === 'undefined') {
+                return [];
             }
-    })
-})
+            const backendUrl = get(backendUrlState);
+            const currentSort = get(currentSortState);
+            const session = get(sessionState);
+            const response = await getSymbolsFromServer(
+                backendUrl,
+                currentSort,
+                nodeUuid,
+                session
+            );
+            if (!response.ok) {
+                throw new Error(response.statusText);
+            }
+            return response.json();
+        },
+});
+
+const previousSymbolsByNode = {};
+export const bufferedSymbolsByNodeUuidStateFamily = selectorFamily({
+    key: 'bufferedSymbolsByNodeState',
+    get:
+        ({nodeUuid, subnodeIndex}) =>
+        async ({get}) => {
+            const symbolsLoadable = get(
+                noWait(symbolUuidsByNodeUuidStateFamily({nodeUuid, subnodeIndex}))
+            );
+            switch (symbolsLoadable.state) {
+                case 'hasValue':
+                    previousSymbolsByNode[nodeUuid] = symbolsLoadable.contents;
+                    return symbolsLoadable.contents;
+                case 'loading':
+                    return previousSymbolsByNode[nodeUuid] || [];
+                default:
+                    return [];
+            }
+        },
+});

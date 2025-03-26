@@ -27,13 +27,17 @@ import {
 import {colorPaletteState} from '../atoms/settingsState';
 import {
     nodeAtomByNodeUuidStateFamily,
+    subnodesAtomByNodeUuidStateFamily,
     nodeIsExpandableVByNodeUuidStateFamily,
     nodeIsCollapsibleVByNodeUuidStateFamily,
     nodeShowMiniByNodeUuidStateFamily,
     nodeIsExpandVAllTheWayByNodeUuidStateFamily,
     longestSymbolInNodeByNodeUuidStateFamily,
-    symbolUuidsByNodeUuidStateFamily,
 } from '../atoms/nodesState';
+import {
+    bufferedSymbolsByNodeUuidStateFamily,
+    symbolUuidsByNodeUuidStateFamily,
+} from '../atoms/symbolsState';
 import {
     changeXShiftWithinBoundsCallback,
 } from '../hooks/mapShift';
@@ -58,9 +62,8 @@ function NodeContent(props) {
     } = props;
     const colorPalette = useRecoilValue(colorPaletteState);
     const highlightedSymbols = useRecoilValue(allHighlightedSymbolsState);
-    const contentToShow = useRecoilValue(
-        symbolUuidsByNodeUuidStateFamily({
-            transformationHash,
+    const contentSymbols = useRecoilValue(
+        bufferedSymbolsByNodeUuidStateFamily({
             nodeUuid,
             subnodeIndex,
         })
@@ -123,7 +126,7 @@ function NodeContent(props) {
             const getNewHeight = () => {
                 const lowestSymbolHeight = Math.max(
                     emToPixel(Constants.minimumNodeHeight),
-                    ...contentToShow.map((s) => symbolYPosition.current[s])
+                    ...contentToShow.map((s) => symbolYPosition.current[s.symbol_uuid])
                 );
                 const isNodeInsignificantlyBiggerThanStandardNodeHeight =
                     lowestSymbolHeight * Constants.foldNodeThreshold <
@@ -145,7 +148,7 @@ function NodeContent(props) {
 
 
                 const markedItems = contentToShow.filter((s) =>
-                    highlightedSymbols.map((h) => h.symbolUuid).includes(s)
+                    highlightedSymbols.map((h) => h.symbolUuid).includes(s.symbol_uuid)
                 );
                 if (
                     markedItems.length > 0 &&
@@ -160,8 +163,8 @@ function NodeContent(props) {
                     const newHeight = Math.max(
                         emToPixel(Constants.minimumNodeHeight),
                         ...contentToShow
-                            .filter((s) => markedItems.includes(s))
-                            .map((s) => symbolYPosition.current[s])
+                            .filter((s) => markedItems.includes(s.symbol_uuid))
+                            .map((s) => symbolYPosition.current[s.symbol_uuid])
                     );
                     const isNodeInsignificantlyBiggerThanMaxNodeHeight =
                         newHeight * Constants.foldNodeThreshold >
@@ -178,8 +181,8 @@ function NodeContent(props) {
                     Math.max(
                         emToPixel(Constants.minimumNodeHeight),
                         ...contentToShow.map((s) =>
-                            symbolYPosition.current[s]
-                                ? symbolYPosition.current[s]
+                            symbolYPosition.current[s.symbol_uuid]
+                                ? symbolYPosition.current[s.symbol_uuid]
                                 : 0
                         )
                     )
@@ -196,20 +199,20 @@ function NodeContent(props) {
     }, [setHeightFromContent]);
 
     useEffect(() => {
-        contentToShow.forEach((s) => {
-            debouncedSymbolVisibilityManager(s);
+        contentSymbols.forEach((s) => {
+            debouncedSymbolVisibilityManager(s.symbol_uuid);
         });
-    }, [debouncedSymbolVisibilityManager, contentToShow]);
+    }, [debouncedSymbolVisibilityManager, contentSymbols]);
     useResizeObserver(setContainerRef, () => {
-        contentToShow.forEach((s) => {
-            debouncedSymbolVisibilityManager(s);
+        contentSymbols.forEach((s) => {
+            debouncedSymbolVisibilityManager(s.symbol_uuid);
         });
     });
 
     useEffect(() => {
         if (isMounted.current) {
             debouncedSetHeightFromContent(
-                contentToShow,
+                contentSymbols,
                 highlightedSymbols,
                 isExpandVAllTheWay
             );
@@ -221,13 +224,13 @@ function NodeContent(props) {
         };
     }, [
         debouncedSetHeightFromContent,
-        contentToShow,
+        contentSymbols,
         highlightedSymbols,
         isExpandVAllTheWay,
     ]);
     useResizeObserver(setContainerRef, () => {
         debouncedSetHeightFromContent(
-            contentToShow,
+            contentSymbols,
             highlightedSymbols,
             isExpandVAllTheWay
         );
@@ -255,12 +258,14 @@ function NodeContent(props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(symbolLengthManager, []);
 
-    const renderedSymbols = contentToShow.map((s) => {
+    const renderedSymbols = contentSymbols.map((s) => {
         return (
-            <div key={s} data-uuid={s}>
+            <div key={s.symbol_uuid} data-uuid={s.symbol_uuid}>
                 <Symbol
-                    symbolUuid={s}
+                    symbolUuid={s.symbol_uuid}
                     isSubnode={isSubnode}
+                    has_reason={s.has_reason}
+                    symbol_repr={s.symbol_repr}
                     nodeUuid={nodeUuid}
                     transformationHash={transformationHash}
                     transformationId={transformationId}
@@ -272,7 +277,7 @@ function NodeContent(props) {
     return (
         <SetContainerDiv
             className={`set_container ${
-                contentToShow.length === 0 ? 'hidden' : ''
+                contentSymbols.length === 0 ? 'hidden' : ''
             }`}
             ref={setContainerRef}
             $colorPalette={colorPalette}
@@ -366,10 +371,10 @@ function RecursionButton(props) {
         e.stopPropagation();
 
         setShownRecursionState((old) => {
-            if (old.includes(node.uuid)) {
-                return old.filter((n) => n !== node.uuid);
+            if (old.includes(node.node_uuid)) {
+                return old.filter((n) => n !== node.node_uuid);
             }
-            return [...old, node.uuid];
+            return [...old, node.node_uuid];
         })
     }
 
@@ -378,7 +383,7 @@ function RecursionButton(props) {
             className={'recursion_button'}
             onClick={handleClick}
         >
-            {node.recursive.length === 0 ? null : (
+            {!node.recursive ? null : (
                 <RecursionButtonTextDiv
                     className={'recursion_button_text'}
                     $colorPalette={colorPalette}
@@ -506,18 +511,18 @@ export function Node(props) {
         <>
             {showMini ? (
                 <MiniNode
-                    id={node.uuid}
+                    id={node.node_uuid}
                     transformationHash={transformationHash}
                     nodeUuid={nodeUuid}
                 />
             ) : (
                 <NodeDiv
-                    id={node.uuid}
-                    className={`txt-elem ${node.uuid}`}
+                    id={node.node_uuid}
+                    className={`txt-elem ${node.node_uuid}`}
                     $colorPalette={colorPalette}
                 >
                     <AnimateHeight
-                        id={`${node.uuid}_animate_height`}
+                        id={`${node.node_uuid}_animate_height`}
                         duration={500}
                         height={height}
                         ref={animateHeightRef}
@@ -575,6 +580,10 @@ export function RecursiveSuperNode(props) {
     const node = useRecoilValue(
         nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
     );
+    const subnodes = useRecoilValue(
+        subnodesAtomByNodeUuidStateFamily({supernodeUuid: nodeUuid})
+    );
+    console.log({subnodes})
     const colorPalette = useRecoilValue(colorPaletteState);
     const longestSymbol = useRecoilValue(
         longestSymbolInNodeByNodeUuidStateFamily(nodeUuid)
@@ -618,34 +627,34 @@ export function RecursiveSuperNode(props) {
 
     return (
         <>
-        {showMini ? (
-            <MiniNode
-                id={node.uuid}
-                transformationHash={transformationHash}
-                nodeUuid={nodeUuid}
-            />
-        ) : (
-        <SuperNodeDiv
-            className={node.uuid}
-            id={node.uuid}
-            $colorPalette={colorPalette}
-        >
-                <>
-                    <RecursionButton node={node} />
-                    {node.recursive.map((subnode, i) => {
-                        return (
-                            <Node
-                                key={subnode.uuid}
-                                transformationHash={transformationHash}
-                                nodeUuid={nodeUuid}
-                                branchSpace={branchSpace}
-                                transformationId={transformationId}
-                                subnodeIndex={i}
-                            />
-                        );
-                    })}
-                </>
-            </SuperNodeDiv>
+            {showMini ? (
+                <MiniNode
+                    id={nodeUuid}
+                    transformationHash={transformationHash}
+                    nodeUuid={nodeUuid}
+                />
+            ) : (
+                <SuperNodeDiv
+                    className={nodeUuid}
+                    id={nodeUuid}
+                    $colorPalette={colorPalette}
+                >
+                    <>
+                        <RecursionButton node={node} />
+                        {subnodes.map((subnode, i) => {
+                            return (
+                                <Node
+                                    key={subnode.node_uuid}
+                                    transformationHash={transformationHash}
+                                    nodeUuid={subnode.node_uuid}
+                                    branchSpace={branchSpace}
+                                    transformationId={transformationId}
+                                    subnodeIndex={i}
+                                />
+                            );
+                        })}
+                    </>
+                </SuperNodeDiv>
             )}
         </>
     );

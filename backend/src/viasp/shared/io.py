@@ -27,7 +27,7 @@ from clingo.ast import AST, ASTType
 from flask.json.tag import TaggedJSONSerializer
 from .interfaces import ViaspClient
 from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper
-from ..server.models import GraphEdges
+from ..server.models import GraphEdges, GraphNodes
 
 class DataclassJSONProvider(JSONProvider):
     def dumps(self, obj, **kwargs):
@@ -102,6 +102,8 @@ def object_hook(obj):
         return reconstruct_transformer(obj)
     elif t == "GraphEdges":
         return GraphEdges(**obj)
+    elif t == "GraphNode":
+        return GraphNodes(**obj)
     return obj
 
 
@@ -135,7 +137,15 @@ def dataclass_to_dict(o):
     elif isinstance(o, TransformationError):
         return {"_type": "TransformationError", "ast": o.ast, "reason": o.reason}
     elif isinstance(o, SymbolIdentifier):
-        return {"_type": "SymbolIdentifier", "symbol": o.symbol, "has_reason": o.has_reason, "uuid": o.uuid}
+        return {"_type": "SymbolIdentifier", "symbol": o.symbol, "has_reason": o.has_reason, "positive_reasons": o.positive_reasons, "negative_reasons": o.negative_reasons, "reason_rule": o.reason_rule, "uuid": o.uuid}
+    elif isinstance(o, GraphNodes):
+        return {
+            "_type": "GraphNode",
+            "node_uuid": o.node_uuid,
+            "recursive": o.recursive,
+            "recursive_supernode_uuid": o.recursive_supernode_uuid,
+            "space_multiplier": o.space_multiplier
+        }
     elif isinstance(o, Signature):
         return {"_type": "Signature", "name": o.name, "args": o.args}
     elif isinstance(o, Transformation):

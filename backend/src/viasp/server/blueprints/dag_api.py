@@ -1,6 +1,7 @@
 import os
 from collections import defaultdict
-from typing import Union, Collection, Dict, List, Iterable, Optional
+from re import S
+from typing import Sequence, Union, Collection, Dict, List, Iterable, Optional
 import uuid
 
 import igraph
@@ -87,32 +88,41 @@ def handle_request_for_children(
 def handle_request_for_children_with_sortHash(
         transformation_hash: str,
         current_hash: str,
-        encoding_id: str) -> Collection[Node]:
+        encoding_id: str) -> Collection[GraphNodes]:
     result = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_hash, transformation_hash=transformation_hash, recursive_supernode_uuid = None).order_by(GraphNodes.branch_position).all()
-    ordered_children = [current_app.json.loads(n.node) for n in result]
+    ordered_children = result
     return ordered_children
 
 
 def clear_encoding_session_data(encoding_id: str):
-    db_session.query(Encodings).filter_by(encoding_id=encoding_id).delete()
-    db_session.query(Models).filter_by(encoding_id = encoding_id).delete()
-    db_session.query(Graphs).filter_by(encoding_id = encoding_id).delete()
-    db_session.query(CurrentGraphs).filter_by(encoding_id = encoding_id).delete()
-    db_graph_node_uuids = db_session.execute(
-        select(GraphNodes.node_uuid).filter_by(
-            encoding_id=encoding_id,
-            recursive_supernode_uuid=None)).scalars().all()
-    db_session.execute(delete(GraphSymbols).filter(GraphSymbols.node.in_(db_graph_node_uuids)))
-    db_session.query(GraphNodes).filter_by(encoding_id = encoding_id).delete()
-    db_session.query(GraphEdges).filter_by(encoding_id = encoding_id).delete()
-    db_session.query(DependencyGraphs).filter_by(encoding_id = encoding_id).delete()
-    db_session.query(Recursions).filter_by(encoding_id = encoding_id).delete()
-    db_session.query(Clingraphs).filter_by(encoding_id = encoding_id).delete()
-    db_session.query(Transformers).filter_by(encoding_id = encoding_id).delete()
-    db_session.query(Warnings).filter_by(encoding_id = encoding_id).delete()
-    db_session.execute(delete(AnalyzerNames).filter_by(encoding_id = encoding_id))
-    db_session.execute(delete(AnalyzerFacts).filter_by(encoding_id = encoding_id))
-    db_session.execute(delete(AnalyzerConstants).filter_by(encoding_id = encoding_id))
+    queries = [
+        delete(Encodings).where(Encodings.encoding_id == encoding_id),
+        delete(Models).where(Models.encoding_id == encoding_id),
+        delete(Graphs).where(Graphs.encoding_id == encoding_id),
+        delete(CurrentGraphs).where(
+            CurrentGraphs.encoding_id == encoding_id),
+        delete(GraphSymbols).where(GraphSymbols.encoding_id == encoding_id),
+        delete(ReasonRules).where(ReasonRules.encoding_id == encoding_id),
+        delete(SymbolDetails).where(SymbolDetails.encoding_id == encoding_id),
+        delete(GraphNodes).where(GraphNodes.encoding_id == encoding_id),
+        delete(GraphEdges).where(GraphEdges.encoding_id == encoding_id),
+        delete(DependencyGraphs).where(
+            DependencyGraphs.encoding_id == encoding_id),
+        delete(Recursions).where(Recursions.encoding_id == encoding_id),
+        delete(Clingraphs).where(Clingraphs.encoding_id == encoding_id),
+        delete(Transformers).where(
+            Transformers.encoding_id == encoding_id),
+        delete(Constants).where(Constants.encoding_id == encoding_id),
+        delete(Warnings).where(Warnings.encoding_id == encoding_id),
+        delete(AnalyzerNames).where(
+            AnalyzerNames.encoding_id == encoding_id),
+        delete(AnalyzerFacts).where(
+            AnalyzerFacts.encoding_id == encoding_id),
+        delete(AnalyzerConstants).where(
+            AnalyzerConstants.encoding_id == encoding_id),
+    ]
+    for q in queries:
+        db_session.execute(q)
     db_session.commit()
 
 
@@ -145,6 +155,55 @@ def get_children_of_transformation_hash_and_current_Sort():
         to_be_returned = handle_request_for_children_with_sortHash(
             transformation_hash, current_hash, session['encoding_id'])
 
+        return jsonify(to_be_returned)
+    raise NotImplementedError
+
+def handle_request_for_subchildren_with_sortHash(supernode_uuid, current_hash, encoding_id):
+    query = select(GraphNodes).where(
+        GraphNodes.encoding_id == encoding_id).where(
+        GraphNodes.graph_hash == current_hash).where(
+        GraphNodes.recursive_supernode_uuid == supernode_uuid).order_by(
+        GraphNodes.branch_position)
+    return db_session.execute(query).scalars().all()
+
+@bp.route("/graph/subchildren", methods=["POST"])
+@ensure_encoding_id
+def get_subchildren_of_transformation_hash_and_current_Sort():
+    if request.method == "POST":
+        if request.json is None:
+            return jsonify({'error': 'Missing JSON in request'}), 400
+        if "supernodeUuid" not in request.json:
+            return jsonify({'error': 'Missing supernode_uuid in request'}), 400
+        supernode_uuid = request.json["supernodeUuid"]
+        if "currentSort" not in request.json:
+            return jsonify({'error': 'Missing current_sort in request'}), 400
+        current_hash = request.json["currentSort"]
+
+        to_be_returned = handle_request_for_subchildren_with_sortHash(
+            supernode_uuid, current_hash, session['encoding_id'])
+        return jsonify(to_be_returned)
+    raise NotImplementedError
+
+def handle_request_for_node_symbols(node_uuid: str) -> Sequence[GraphSymbols]:
+    query = select(GraphSymbols).where(
+        GraphSymbols.node == node_uuid).where(
+    )
+    return db_session.execute(query).scalars().all()
+
+@bp.route("/graph/symbols", methods=["POST"])
+@ensure_encoding_id
+def get_symbols():
+    if request.method == "POST":
+        if request.json is None:
+            return jsonify({'error': 'Missing JSON in request'}), 400
+        if "nodeUuid" not in request.json:
+            return jsonify({'error': 'Missing node_uuid in request'}), 400
+        node_uuid = request.json["nodeUuid"]
+        if "currentSort" not in request.json:
+            return jsonify({'error': 'Missing current_sort in request'}), 400
+        current_hash = request.json["currentSort"]
+
+        to_be_returned = handle_request_for_node_symbols(node_uuid)
         return jsonify(to_be_returned)
     raise NotImplementedError
 
@@ -509,9 +568,11 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
         db_session.add(db_graph)
 
     pos: Dict[Node, List[float]] = get_node_positions(graph)
-    db_nodes = []
-    db_symbols = []
-    db_edges = []
+    db_nodes: List[GraphNodes] = []
+    db_symbols: List[GraphSymbols] = []
+    db_edges: List[GraphEdges] = []
+    db_reason_rules: List[ReasonRules] = []
+    db_symbol_details: List = []
     for source, target, edge in graph.edges(data=True):
         db_edges.append(GraphEdges(
             encoding_id=encoding_id,
@@ -528,33 +589,55 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    graph_hash=graph_hash,
                    transformation_hash=edge["transformation"].hash,
                    branch_position=branch_position,
-                   node=current_app.json.dumps(target),
+                   recursive=len(target.recursive)>0,
                    node_uuid=target.uuid.hex,
                    space_multiplier=target.space_multiplier)
         )
         for symbol in target.diff:
             db_symbols.append(
                 GraphSymbols(node=target.uuid.hex,
+                             encoding_id=encoding_id,
                              symbol_uuid=symbol.uuid.hex,
-                             symbol=str(symbol.symbol)))
-
+                             has_reason=len(symbol.reason_rule)>0,
+                             symbol_repr=str(symbol.symbol)))
+            db_reason_rules.append(
+                ReasonRules(encoding_id=encoding_id,
+                            symbol_uuid=symbol.uuid.hex,
+                            rule = symbol.reason_rule))
+            for reason in symbol.positive_reasons:
+                db_symbol_details.append(
+                    SymbolDetails(encoding_id=encoding_id,
+                                symbol_uuid=symbol.uuid.hex,
+                                reason_uuid=reason,
+                                reason_repr=reason,
+                                sign_positive=True,
+                                sign_negative=False))
+            for reason in symbol.negative_reasons:
+                db_symbol_details.append(
+                    SymbolDetails(encoding_id=encoding_id,
+                                symbol_uuid=symbol.uuid.hex,
+                                reason_repr=reason,
+                                sign_positive=False,
+                                sign_negative=True))
         if len(target.recursive) > 0:
-            for subnode in target.recursive:
+            for i, subnode in enumerate(target.recursive):
                 db_nodes.append(
                     GraphNodes(encoding_id=encoding_id,
                                graph_hash=graph_hash,
                                transformation_hash=edge["transformation"].hash,
-                               branch_position=branch_position,
-                               node=current_app.json.dumps(subnode),
+                               branch_position=i,
                                node_uuid=subnode.uuid.hex,
+                               recursive=False,
                                recursive_supernode_uuid=target.uuid.hex,
                                space_multiplier=1)
                 )
                 for symbol in subnode.diff:
                     db_symbols.append(
                         GraphSymbols(node=subnode.uuid.hex,
+                                     encoding_id=encoding_id,
                                      symbol_uuid=symbol.uuid.hex,
-                                     symbol=str(symbol.symbol)))
+                                     has_reason=len(symbol.reason_rule) > 0,
+                                     symbol_repr=str(symbol.symbol)))
             db_edges.append(GraphEdges(
                 encoding_id=encoding_id,
                 graph_hash=graph_hash,
@@ -591,17 +674,21 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                    graph_hash=graph_hash,
                    transformation_hash="-1",
                    branch_position=0,
-                   node=current_app.json.dumps(fact_node),
+                   recursive=False,
                    node_uuid=fact_node.uuid.hex,
                    space_multiplier=1))
     for symbol in fact_node.diff:
         db_symbols.append(
             GraphSymbols(node=fact_node.uuid.hex,
+                         encoding_id=encoding_id,
                          symbol_uuid=symbol.uuid.hex,
-                         symbol=str(symbol.symbol)))
+                         has_reason=False,
+                         symbol_repr=str(symbol.symbol)))
     db_session.add_all(db_nodes)
     db_session.add_all(db_symbols)
     db_session.add_all(db_edges)
+    db_session.add_all(db_reason_rules)
+    db_session.add_all(db_symbol_details)
 
     db_session.commit()
 
@@ -715,20 +802,18 @@ def get_all_symbols_in_graph(encoding_id, current_graph_hash):
 
 def search_ground_term_in_symbols(query, db_graph_symbols, is_autocomplete=False):
     all_filtered_symbols = list(
-        filter(lambda x: query in x[0].symbol, db_graph_symbols))
+        filter(lambda x: query in x[0].symbol_repr, db_graph_symbols))
     all_filtered_symbols.reverse()
     symbols_results = []
     for symbol, _ in all_filtered_symbols:
-        if symbol.symbol not in symbols_results:
+        if symbol.symbol_repr not in symbols_results:
             symbols_results.append(
-                SearchResultSymbolWrapper(
-                    repr=symbol.symbol,
-                    includes=[symbol.symbol_uuid],
-                    is_autocomplete=is_autocomplete
-                ))
+                SearchResultSymbolWrapper(repr=symbol.symbol_repr,
+                                          includes=[symbol.symbol_uuid],
+                                          is_autocomplete=is_autocomplete))
         else:
             symbols_results[symbols_results.index(
-                symbol.symbol)].includes.append(symbol.symbol_uuid)
+                symbol.symbol_repr)].includes.append(symbol.symbol_uuid)
     return symbols_results
 
 

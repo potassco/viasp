@@ -11,7 +11,7 @@ from clingo.ast import AST, ASTType
 
 from .reify import ProgramAnalyzer, reify_recursion_transformation, LiteralWrapper
 from .recursion import RecursionReasoner
-from .utils import insert_atoms_into_nodes, identify_reasons, calculate_spacing_factor, is_constraint, is_minimize
+from .utils import insert_atoms_into_nodes, identify_reasons, calculate_spacing_factor, is_constraint, is_minimize, EXPERIMENTAL_identify_reasons, iterate_negative_reasons, iterate_positive_reasons
 from ..shared.model import Node, RuleContainer, Transformation, SymbolIdentifier, SearchResultSymbolWrapper
 from ..shared.simple_logging import info
 from ..shared.util import pairwise, get_leafs_from_graph
@@ -41,6 +41,7 @@ def get_h_symbols_from_model(wrapped_stable_model: Iterable[str],
     ctl.add("base", [], stringified)
     ctl.add("base", [], "".join(map(str, wrapped_stable_model)))
     ctl.add("base", [], get_new_atoms_rule)
+    print(f"Justifier Program (part):\n{stringified}", flush=True)
     ctl.ground([("base", [])])
     for x in ctl.symbolic_atoms.by_signature(new_head, 4):
         if x.symbol.arguments[2] in facts:
@@ -77,12 +78,21 @@ def collect_h_symbols_and_create_nodes(
         tmp_symbol[component_nr.number].append(symbol)
         tmp_reason[component_nr.number][str(symbol)] = reasons.arguments
         tmp_reason_rules[component_nr.number][str(symbol)] = rule_hash.string
-    for component_nr in tmp_symbol.keys():
-        tmp_symbol[component_nr] = list(tmp_symbol[component_nr])
-        tmp_symbol_identifier[component_nr] = list(map(lambda symbol: next(filter(
-        lambda supernode_symbol: supernode_symbol==symbol, supernode_symbols)) if
-        symbol in supernode_symbols else
-        SymbolIdentifier(symbol),tmp_symbol[component_nr]))
+    for component_nr, symbols in tmp_symbol.items():
+        symbols = list(symbols)
+        this_component_reason_rules = tmp_reason_rules[component_nr]
+        this_component_reason = tmp_reason[component_nr]
+        tmp_symbol_identifier[component_nr] = list(
+            map(
+                lambda symbol: next(
+                    filter(lambda supernode_symbol: supernode_symbol == symbol,
+                           supernode_symbols))
+                if symbol in supernode_symbols else SymbolIdentifier(
+                    symbol=symbol,
+                    reason_rule=this_component_reason_rules[str(symbol)],
+                    positive_reasons=list(iterate_positive_reasons(this_component_reason[str(symbol)])),
+                    negative_reasons=list(iterate_negative_reasons(this_component_reason[str(symbol)])),
+                ), symbols))
     if pad:
         h_nodes: List[Node] = [
             Node(diff=frozenset(tmp_symbol_identifier[component_nr]),
@@ -114,14 +124,14 @@ def make_reason_path_from_facts_to_stable_model(rule_mapping: Dict[int, Transfor
                                             analyzer: ProgramAnalyzer = ProgramAnalyzer(),
                                             pad=True) \
                                             -> nx.DiGraph:
-    h_syms: List[Node] = collect_h_symbols_and_create_nodes(
+    h_nodes: List[Node] = collect_h_symbols_and_create_nodes(
         h_symbols, rule_mapping, pad)
-    h_syms.sort(key=lambda node: node.rule_nr)
-    h_syms.insert(0, fact_node)
+    h_nodes.sort(key=lambda node: node.rule_nr)
+    h_nodes.insert(0, fact_node)
 
-    insert_atoms_into_nodes(h_syms)
+    insert_atoms_into_nodes(h_nodes)
     g = nx.DiGraph()
-    if len(h_syms) == 1:
+    if len(h_nodes) == 1:
         # If there is a stable model that is exactly the same as the facts.
         g.add_edge(fact_node,
                    Node(frozenset(), min(rule_mapping.keys()),
@@ -129,7 +139,7 @@ def make_reason_path_from_facts_to_stable_model(rule_mapping: Dict[int, Transfor
                    transformation=rule_mapping[min(rule_mapping.keys())])
         return g
 
-    for a, b in pairwise(h_syms):
+    for a, b in pairwise(h_nodes):
         if rule_mapping[b.rule_nr].hash in recursive_transformations_hashes:
             b.recursive = get_recursion_subgraph(a.atoms, b.diff,
                                                  rule_mapping[b.rule_nr], h,
@@ -180,14 +190,15 @@ def build_graph(wrapped_stable_models: List[List[str]],
                 sorted_program: List[Transformation],
                 analyzer: ProgramAnalyzer,
                 recursion_transformations_hashes: Set[str],
-                commandline_constants: Dict[str,str],
+                commandline_constants: Dict[str, str],
                 show_all_derived: bool = False) -> nx.DiGraph:
     paths: List[nx.DiGraph] = []
     facts = analyzer.get_facts(commandline_constants)
     conflict_free_h = analyzer.get_conflict_free_h()
     conflict_free_h_showTerm = analyzer.get_conflict_free_h_showTerm()
     identifiable_facts = list(map(SymbolIdentifier, facts))
-    sorted_program_no_constraints = remove_non_node_transformations(sorted_program)
+    sorted_program_no_constraints = remove_non_node_transformations(
+        sorted_program)
     mapping = make_transformation_mapping(sorted_program_no_constraints)
     fact_node = Node(frozenset(identifiable_facts), -1,
                      frozenset(identifiable_facts))
@@ -212,7 +223,8 @@ def build_graph(wrapped_stable_models: List[List[str]],
     if analyzer.pass_through:
         append_noops(result_graph, sorted_program, analyzer.pass_through)
     calculate_spacing_factor(result_graph)
-    identify_reasons(result_graph)
+    # identify_reasons(result_graph)
+    EXPERIMENTAL_identify_reasons(result_graph)
     return result_graph
 
 

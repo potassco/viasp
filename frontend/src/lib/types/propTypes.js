@@ -62,21 +62,12 @@ export const GRAPH = PropTypes.exact({
     _graph: PropTypes.object
 })
 export const NODE = PropTypes.exact({
-    _type: PropTypes.oneOf(['Node']),
-    atoms: PropTypes.array,
-    diff: PropTypes.array,
-    rule_nr: PropTypes.number,
-    reason: PropTypes.object, 
-    reason_rules: PropTypes.object,
-    recursive: PropTypes.oneOfType([PropTypes.bool, PropTypes.array]),
+    _type: PropTypes.oneOf(['GraphNode']),
+    node_uuid: PropTypes.string,
+    recursive: PropTypes.bool,
     space_multiplier: PropTypes.number,
-    uuid: PropTypes.string,
+    recursive_supernode_uuid: PropTypes.string,
     loading: PropTypes.bool,
-    shownRecursion: PropTypes.bool,
-    isExpandableV: PropTypes.bool,
-    isCollapsibleV: PropTypes.bool,
-    isExpandVAllTheWay: PropTypes.bool,
-    showMini: PropTypes.bool,
 })
 export const CLINGRAPHNODE = PropTypes.exact({
     _type: PropTypes.oneOf(['ClingraphNode']),

@@ -68,7 +68,7 @@ export const nodeUuidsByTransforamtionStateFamily = selectorFamily({
         (transformationHash) =>
         ({get}) => {
             const nodes = get(bufferedNodesByTransformationStateFamily(transformationHash));
-            return nodes.map((n) => n.uuid);
+            return nodes.map((n) => n.node_uuid);
         },
 });
 
@@ -84,6 +84,7 @@ export const nodeAtomByNodeUuidStateFamily = atomFamily({
                     const [node] = nodes.filter((n) => n.uuid === nodeUuid);
                     return {
                         ...node,
+                        node_uuid: node.uuid,
                         recursive: [],
                         loading: true,
                     }
@@ -91,35 +92,45 @@ export const nodeAtomByNodeUuidStateFamily = atomFamily({
                 const nodes = get(
                     bufferedNodesByTransformationStateFamily(transformationHash)
                 );
-                let [node] = nodes.filter(n => n.uuid === nodeUuid)
+                let [node] = nodes.filter((n) => n.node_uuid === nodeUuid);
                 if (!node) {
                     throw new Error(`Node with uuid ${nodeUuid} not found`)
                 }
                 if (typeof subnodeIndex !== 'undefined') {
                     node = node.recursive[subnodeIndex]
                 }
-                return {
-                    ...node,
-                    shownRecursion: false,
-                };
+                return node;
             }
     })
 })
 
-export const symbolUuidsByNodeUuidStateFamily = selectorFamily({
-    key: 'symbolUuidsByNodeUuidState',
+const getSubnodesFromServer = async (backendUrl, currentSort, supernodeUuid, session) => {
+    return fetch(`${backendUrl}/graph/subchildren`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session}`,
+        },
+        body: JSON.stringify({currentSort, supernodeUuid}),
+    });
+}
+
+export const subnodesAtomByNodeUuidStateFamily = selectorFamily({
+    key: 'subnodesAtomByNodeUuidState',
     get:
-        ({transformationHash, nodeUuid, subnodeIndex}) =>
-        ({get}) => {
-            const node = get(nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid, subnodeIndex}));
-            if (node.loading) {
+        ({supernodeUuid}) =>
+        async ({get}) => {
+            if (typeof supernodeUuid === 'undefined') {
                 return [];
             }
-            const showDiffOnly = get(showDiffOnlyState);
-            if (showDiffOnly) {
-                return node.diff.map((n) => n.uuid);
+            const backendUrl = get(backendUrlState);
+            const currentSort = get(currentSortState);
+            const session = get(sessionState);
+            const response = await getSubnodesFromServer(backendUrl, currentSort, supernodeUuid, session);
+            if (!response.ok) {
+                throw new Error(response.statusText);
             }
-            return node.atoms.map((n) => n.uuid);
+            return response.json();
         },
 });
 

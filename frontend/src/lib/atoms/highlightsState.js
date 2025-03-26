@@ -5,7 +5,7 @@ import {
     RULEBACKGROUNDHIGHLIGHTS_RECOIL,
 } from '../types/propTypes';
 import {edgesState} from './edgesState';
-import {symbolUuidsByNodeUuidStateFamily} from './nodesState';
+import {symbolUuidsByNodeUuidStateFamily} from './symbolsState';
 
 
 export const symbolReasonHighlightsState = atom({

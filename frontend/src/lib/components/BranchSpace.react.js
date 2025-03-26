@@ -14,21 +14,19 @@ export function BranchSpace(props) {
     const node = useRecoilValue(
         nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
     );
-    const shownRecursion = useRecoilValue(
-        shownRecursionState
-    )
+    const shownRecursion = useRecoilValue(shownRecursionState);
     const branchSpaceRef = useRef(null);
 
     return (
         <BranchSpaceDiv
             className="branch_space"
-            key={node.uuid}
+            key={nodeUuid}
             $spaceMultiplier={node.space_multiplier}
             ref={branchSpaceRef}
         >
-            {node.recursive.length > 0 && shownRecursion.includes(nodeUuid) ? (
+            {node.recursive && shownRecursion.includes(nodeUuid) ? (
                 <RecursiveSuperNode
-                    key={node.uuid}
+                    key={nodeUuid}
                     transformationHash={transformationHash}
                     nodeUuid={nodeUuid}
                     branchSpace={branchSpaceRef}
@@ -36,13 +34,13 @@ export function BranchSpace(props) {
                 />
             ) : transformationHash === 'clingraphTransformation' ? (
                 <Box
-                    key={node.uuid}
-                    clingraphUuid={node.uuid}
+                    key={nodeUuid}
+                    clingraphUuid={nodeUuid}
                     branchSpace={branchSpaceRef}
                 />
             ) : (
                 <Node
-                    key={node.uuid}
+                    key={nodeUuid}
                     transformationHash={transformationHash}
                     nodeUuid={nodeUuid}
                     branchSpace={branchSpaceRef}
