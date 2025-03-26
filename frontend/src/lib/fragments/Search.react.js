@@ -127,6 +127,7 @@ export function Search() {
 
     useEffect(() => {
         setSelectedSuggestion(null);
+        setActiveSuggestion(-1);
         resetSelectedBranch();
         handleSearchResultSuggestions();
         // eslint-disable-next-line react-hooks/exhaustive-deps

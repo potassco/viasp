@@ -25,6 +25,7 @@ The configuration of constants used for sizing and animating the viASP graph is 
         "hoverColorLightenFactor": 0.15,
         "opacityMultiplier": 0.8,
         "overflowButtonColorLightenFactor": 0.58,
+        "overflowButtonArrowColorLightenFactor": 0.1,
         "ruleHighlightDuration": 3000,
         "ruleHighlightFadeDuration": 1000,
         "searchResultHighlightDuration": 4500,
