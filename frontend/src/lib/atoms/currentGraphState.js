@@ -10,6 +10,7 @@ import {
     nodeShowMiniByNodeUuidStateFamily,
 } from './nodesState';
 import {clingraphNodesState} from './clingraphState';
+import { number } from 'prop-types';
 
 export const contentDivState = atom({
     key: 'contentDivState',
@@ -222,6 +223,51 @@ export const isCurrentlyBeingReorderedState = atom({
     default: false,
 })
 
+export const isCurrentlyLoadingNodeStateFamily = atomFamily({
+    key: 'isCurrentlyLoadingNodeStateFamily',
+    default: false,
+});
+
+export const isCurrentlyLoadingNodeState = selector({
+    key: 'isCurrentlyLoadingNodeState',
+    get: ({get}) => {
+        const numberOfTransformations = get(numberOfTransformationsState);
+        if (
+            !Array.isArray(numberOfTransformations) ||
+            numberOfTransformations.length === 0
+        ) {
+            return false;
+        }
+
+        const transformations = get(
+            waitForAll(
+                numberOfTransformations.map((n) =>
+                    proxyTransformationStateFamily(n.id)
+                )
+            )
+        );
+        const validTransformations = transformations.filter((t) => t && t.hash);
+
+        const nodeUuidsArray = get(
+            waitForAll(
+                validTransformations.map((t) =>
+                    nodeUuidsByTransforamtionStateFamily(t.hash)
+                )
+            )
+        );
+
+        const allNodeUuids = nodeUuidsArray.flat();
+        const loadingStates = get(
+            waitForAll(
+                allNodeUuids.map((uuid) =>
+                    isCurrentlyLoadingNodeStateFamily(uuid)
+                )
+            )
+        );
+        return loadingStates.some((v) => v);
+    },
+});
+
 export const transformationMountedStateFamily = atomFamily({
     key: 'transformationMountedState',
     default: false,
@@ -235,7 +281,8 @@ export const isAnimatingState = selector({
             get(isCurrentlyAnimatingHeightState) ||
             get(isCurrentlyZoomingState) ||
             get(isCurrentlyPickedUpState) ||
-            get(isCurrentlyBeingReorderedState) 
+            get(isCurrentlyBeingReorderedState) ||
+            get(isCurrentlyLoadingNodeState)
         );
     }
 });

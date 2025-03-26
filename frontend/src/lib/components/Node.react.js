@@ -27,7 +27,6 @@ import {
 import {colorPaletteState} from '../atoms/settingsState';
 import {
     nodeAtomByNodeUuidStateFamily,
-    subnodesAtomByNodeUuidStateFamily,
     nodeIsExpandableVByNodeUuidStateFamily,
     nodeIsCollapsibleVByNodeUuidStateFamily,
     nodeShowMiniByNodeUuidStateFamily,
@@ -35,8 +34,10 @@ import {
     longestSymbolInNodeByNodeUuidStateFamily,
 } from '../atoms/nodesState';
 import {
+    bufferedSubnodesBySupernodeStateFamily,
+} from '../atoms/subnodesState';
+import {
     bufferedSymbolsByNodeUuidStateFamily,
-    symbolUuidsByNodeUuidStateFamily,
 } from '../atoms/symbolsState';
 import {
     changeXShiftWithinBoundsCallback,
@@ -49,6 +50,7 @@ import {
     contentDivState,
     shownRecursionState,
     isCurrentlyAnimatingHeightStateFamily,
+    isCurrentlyLoadingNodeStateFamily,
 } from '../atoms/currentGraphState';
 
 function NodeContent(props) {
@@ -499,6 +501,16 @@ export function Node(props) {
         }, Constants.isAnimatingTimeout);
     };
 
+    const setIsCurrentlyLoadingNode = useSetRecoilState(
+        isCurrentlyLoadingNodeStateFamily(nodeUuid)
+    );
+    // if (node.loading) {
+    //     setIsCurrentlyLoadingNode(true);
+    // }
+    // else {
+    //     setIsCurrentlyLoadingNode(false);
+    // }
+
     useEffect(() => {
         return () => {
             if (timerRef.current) {
@@ -532,14 +544,16 @@ export function Node(props) {
                         onHeightAnimationStart={startAnimateHeight}
                         onHeightAnimationEnd={endAnimateHeight}
                     >
-                        <NodeContent
-                            nodeUuid={nodeUuid}
-                            setHeight={setHeight}
-                            parentRef={animateHeightRef}
-                            transformationId={transformationId}
-                            transformationHash={transformationHash}
-                            subnodeIndex={subnodeIndex}
-                        />
+                        {node.loading ? (null) : (
+                            <NodeContent
+                                nodeUuid={node.node_uuid}
+                                setHeight={setHeight}
+                                parentRef={animateHeightRef}
+                                transformationId={transformationId}
+                                transformationHash={transformationHash}
+                                subnodeIndex={subnodeIndex}
+                            />
+                        )}
                         <RecursionButton node={node} />
                     </AnimateHeight>
                 </NodeDiv>
@@ -581,9 +595,8 @@ export function RecursiveSuperNode(props) {
         nodeAtomByNodeUuidStateFamily({transformationHash, nodeUuid})
     );
     const subnodes = useRecoilValue(
-        subnodesAtomByNodeUuidStateFamily({supernodeUuid: nodeUuid})
+        bufferedSubnodesBySupernodeStateFamily({supernodeUuid: nodeUuid})
     );
-    console.log({subnodes})
     const colorPalette = useRecoilValue(colorPaletteState);
     const longestSymbol = useRecoilValue(
         longestSymbolInNodeByNodeUuidStateFamily(nodeUuid)
@@ -646,7 +659,7 @@ export function RecursiveSuperNode(props) {
                                 <Node
                                     key={subnode.node_uuid}
                                     transformationHash={transformationHash}
-                                    nodeUuid={subnode.node_uuid}
+                                    nodeUuid={node.node_uuid}
                                     branchSpace={branchSpace}
                                     transformationId={transformationId}
                                     subnodeIndex={i}

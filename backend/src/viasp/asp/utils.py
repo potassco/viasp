@@ -127,44 +127,11 @@ def identify_reasons(g: nx.DiGraph) -> None:
     children_current = [root_node]
     while len(children_current) != 0:
         for v in children_current:
-            for new, rr in v.reason.items():
-                tmp_reason = []
-                for r in iterate_positive_reasons(rr):
-                    tmp_reason.append(get_identifiable_reason(g, v, r))
-                v.reason[str(new)] = tmp_reason
-            for s in v.diff:
-                if str(s.symbol) in v.reason.keys() and len(v.reason[str(
-                        s.symbol)]) > 0:
-                    s.has_reason = True
-            searched_nodes.add(v)
-            for w in g.successors(v):
-                children_next.add(w)
-            children_next = children_next.difference(searched_nodes)
-        children_current = list(children_next)
-
-def EXPERIMENTAL_identify_reasons(g: nx.DiGraph) -> None:
-    """
-    Identify the reasons for each symbol in the graph.
-    Takes the Symbol from node.reason and overwrites the values of the Dict node.reason
-    with the SymbolIdentifier of the corresponding symbol.
-
-    :param g: The graph to identify the reasons for.
-    """
-    # get fact node:
-    root_node = get_root_node_from_graph(g)
-
-    # go through entire graph, starting at root_node and traveling down the graph via successors
-    children_next = set()
-    searched_nodes = set()
-    children_current = [root_node]
-    while len(children_current) != 0:
-        for v in children_current:
             #new
             for symbol in v.diff:
                 tmp_reasons = []
                 for reason in symbol.positive_reasons:
-                    print(f"Look for reason {reason}", flush=True)
-                    tmp_reasons.append(EXPERIMENTAL_get_identifiable_reason(
+                    tmp_reasons.append(get_identifiable_reason(
                         g, v, reason))
                 symbol.positive_reasons = tmp_reasons
                 tmp_reasons = []
@@ -179,36 +146,6 @@ def EXPERIMENTAL_identify_reasons(g: nx.DiGraph) -> None:
 
 
 def get_identifiable_reason(g: nx.DiGraph,
-                            v: Node,
-                            r: Symbol,
-                            super_graph=None,
-                            super_node=None) -> Optional[SymbolIdentifier]:
-    """
-    Returns the SymbolIdentifier that is the reason for the given Symbol r.
-    If the reason is not in the node, it returns recursively calls itself with the predecessor.
-
-
-    :param g: The graph that contains the nodes
-    :param v: The node that contains the symbol r
-    :param r: The symbol that is the reason
-    """
-    if (r in v.diff): return next(s for s in v.atoms if s == r)
-    if (g.in_degree(v) != 0):
-        for u in g.predecessors(v):
-            return get_identifiable_reason(g,
-                                           u,
-                                           r,
-                                           super_graph=super_graph,
-                                           super_node=super_node)
-    if (super_graph != None and super_node != None):
-        return get_identifiable_reason(super_graph, super_node, r)
-
-    # stop criterion: v is the root node and there is no super_graph
-    warn(f"An explanation could not be made")
-    return None
-
-
-def EXPERIMENTAL_get_identifiable_reason(g: nx.DiGraph,
                             v: Node,
                             r: str,
                             super_graph=None,
@@ -225,27 +162,8 @@ def EXPERIMENTAL_get_identifiable_reason(g: nx.DiGraph,
     if (r in v.diff): return next(s.uuid.hex for s in v.diff if s == r)
     if (g.in_degree(v) != 0):
         for u in g.predecessors(v):
-            return EXPERIMENTAL_get_identifiable_reason(
+            return get_identifiable_reason(
                 g, u, r, super_graph=super_graph, super_node=super_node)
-    if (super_graph != None and super_node != None):
-        return EXPERIMENTAL_get_identifiable_reason(super_graph, super_node, r)
-
-    # stop criterion: v is the root node and there is no super_graph
-    warn(f"An explanation could not be made")
-    return None
-
-def get_identifiable_reason_of_recursive_subnode(recursive_subgraph: List[Node],
-                                                 v: Node,
-                                                 r: Symbol,
-                                                 super_graph,
-                                                 super_node) -> Optional[SymbolIdentifier]:
-    if (r in v.diff): return next(s for s in v.atoms if s == r)
-    if (recursive_subgraph.index(v) != 0):
-        return get_identifiable_reason_of_recursive_subnode(recursive_subgraph,
-                                                            recursive_subgraph[recursive_subgraph.index(v)-1],
-                                                            r,
-                                                            super_graph,
-                                                            super_node)
     if (super_graph != None and super_node != None):
         return get_identifiable_reason(super_graph, super_node, r)
 

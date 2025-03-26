@@ -178,7 +178,8 @@ def get_subchildren_of_transformation_hash_and_current_Sort():
         if "currentSort" not in request.json:
             return jsonify({'error': 'Missing current_sort in request'}), 400
         current_hash = request.json["currentSort"]
-
+        from time import sleep
+        sleep(3)
         to_be_returned = handle_request_for_subchildren_with_sortHash(
             supernode_uuid, current_hash, session['encoding_id'])
         return jsonify(to_be_returned)

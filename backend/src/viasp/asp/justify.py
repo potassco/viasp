@@ -11,7 +11,7 @@ from clingo.ast import AST, ASTType
 
 from .reify import ProgramAnalyzer, reify_recursion_transformation, LiteralWrapper
 from .recursion import RecursionReasoner
-from .utils import insert_atoms_into_nodes, identify_reasons, calculate_spacing_factor, is_constraint, is_minimize, EXPERIMENTAL_identify_reasons, iterate_negative_reasons, iterate_positive_reasons
+from .utils import insert_atoms_into_nodes, identify_reasons, calculate_spacing_factor, is_constraint, is_minimize, identify_reasons, iterate_negative_reasons, iterate_positive_reasons
 from ..shared.model import Node, RuleContainer, Transformation, SymbolIdentifier, SearchResultSymbolWrapper
 from ..shared.simple_logging import info
 from ..shared.util import pairwise, get_leafs_from_graph
@@ -223,8 +223,7 @@ def build_graph(wrapped_stable_models: List[List[str]],
     if analyzer.pass_through:
         append_noops(result_graph, sorted_program, analyzer.pass_through)
     calculate_spacing_factor(result_graph)
-    # identify_reasons(result_graph)
-    EXPERIMENTAL_identify_reasons(result_graph)
+    identify_reasons(result_graph)
     return result_graph
 
 

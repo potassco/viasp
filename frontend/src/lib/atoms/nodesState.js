@@ -1,6 +1,7 @@
 import {atomFamily, selectorFamily, waitForAll, noWait} from 'recoil';
 import { currentSortState } from './currentGraphState';
 import {backendUrlState, showDiffOnlyState, sessionState} from './settingsState';
+import {bufferedSubnodesBySupernodeStateFamily} from './subnodesState';
 import {clingraphNodesState} from './clingraphState';
 
 import {make_default_nodes} from '../utils/index';
@@ -89,50 +90,23 @@ export const nodeAtomByNodeUuidStateFamily = atomFamily({
                         loading: true,
                     }
                 }
+                if (typeof subnodeIndex !== 'undefined') {
+                    const nodes = get(
+                        bufferedSubnodesBySupernodeStateFamily({supernodeUuid: nodeUuid})
+                    );
+                    return nodes[subnodeIndex];
+                }
                 const nodes = get(
                     bufferedNodesByTransformationStateFamily(transformationHash)
                 );
-                let [node] = nodes.filter((n) => n.node_uuid === nodeUuid);
+                const [node] = nodes.filter((n) => n.node_uuid === nodeUuid);
                 if (!node) {
                     throw new Error(`Node with uuid ${nodeUuid} not found`)
-                }
-                if (typeof subnodeIndex !== 'undefined') {
-                    node = node.recursive[subnodeIndex]
                 }
                 return node;
             }
     })
 })
-
-const getSubnodesFromServer = async (backendUrl, currentSort, supernodeUuid, session) => {
-    return fetch(`${backendUrl}/graph/subchildren`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session}`,
-        },
-        body: JSON.stringify({currentSort, supernodeUuid}),
-    });
-}
-
-export const subnodesAtomByNodeUuidStateFamily = selectorFamily({
-    key: 'subnodesAtomByNodeUuidState',
-    get:
-        ({supernodeUuid}) =>
-        async ({get}) => {
-            if (typeof supernodeUuid === 'undefined') {
-                return [];
-            }
-            const backendUrl = get(backendUrlState);
-            const currentSort = get(currentSortState);
-            const session = get(sessionState);
-            const response = await getSubnodesFromServer(backendUrl, currentSort, supernodeUuid, session);
-            if (!response.ok) {
-                throw new Error(response.statusText);
-            }
-            return response.json();
-        },
-});
 
 export const nodesByTransformationHash = selectorFamily({
     key: 'nodesByTransformationHash',
