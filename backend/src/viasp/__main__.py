@@ -396,7 +396,10 @@ class ViaspRunner():
         try:
             self.run_wild(args)
         except Exception as e:
-            self.signal_handler(None, None)
+            try:
+                self.signal_handler(None, None)
+            except:
+                pass
             error(_("ERROR").format(e))
             error(_("ERROR_INFO"))
             sys.exit(1)
@@ -499,7 +502,7 @@ class ViaspRunner():
     def run_relaxer(self, encoding_files, options, head_name,
                     no_collect_variables, relaxer_opt_mode_str, clingo_options, stdin_is_json):
         info(_("SWITCH_TO_TRANSFORMED_VISUALIZATION"))
-        options['max_models'] = 0
+        # options['max_models'] = 0
         relaxed_program = self.relax_program(encoding_files, options['stdin'],
                                              head_name, no_collect_variables,
                                              options['constants'], stdin_is_json)
