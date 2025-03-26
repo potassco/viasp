@@ -7,7 +7,7 @@
     "SHOW_SUCCESS": "Generate graph.",
     "SHOW_FAILED":"Drawing failed [{}] ({})",
     "RELAX_CONSTRAINTS_SUCCESS": "Successfully transformed program constraints.",
-    "RELAX_CONSTRAINTS_FAILED": "Failed to relax proram [{}] ({})",
+    "RELAX_CONSTRAINTS_FAILED": "Failed to relax program [{}] ({})",
     "CLEAR_PROGRAM_SUCCESS": "",
     "CLEAR_PROGRAM_FAILED": "Clearing program failed [{}] ({})",
     "CLINGRAPH_SUCCESS": "Clingraph visualization in progress.",

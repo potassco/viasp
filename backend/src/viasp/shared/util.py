@@ -164,7 +164,6 @@ def parse_clingo_json(json_str):
     Raises:
         :py:class:`InvalidSyntax`: if the json format is invalid or is not a SAT result.
     """
-    
     ans = {}
     try:
         j = json.loads(json_str.encode())
@@ -183,7 +182,7 @@ def parse_clingo_json(json_str):
         ans.update({"Witnesses": models_prgs})
 
         optimum = []
-        if 'cost' in models_prgs[-1]:
+        if len(models_prgs)> 0 and 'cost' in models_prgs[-1]:
             optimum = models_prgs[-1]['cost']
         ans.update({"optimum": optimum})
         
