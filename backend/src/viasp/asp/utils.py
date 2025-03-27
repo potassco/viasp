@@ -127,7 +127,6 @@ def identify_reasons(g: nx.DiGraph) -> None:
     children_current = [root_node]
     while len(children_current) != 0:
         for v in children_current:
-            #new
             for symbol in v.diff:
                 tmp_reasons = []
                 for reason in symbol.positive_reasons:

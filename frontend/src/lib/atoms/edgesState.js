@@ -7,6 +7,7 @@ import {
 } from './currentGraphState';
 import { backendUrlState, sessionState } from './settingsState';
 import { proxyTransformationStateFamily } from './transformationsState';
+import { bufferedSymbolsByNodeUuidStateFamily } from './symbolsState';
 import {nodeUuidsByTransforamtionStateFamily} from './nodesState';
 
 const getEdgesFromServer = async (
@@ -66,6 +67,15 @@ export const edgesState = selector({
         const nodes = get(waitForAll(
             transformations.map(t => nodeUuidsByTransforamtionStateFamily(t.hash))
         ));
+        // const symbols = get(
+        //     waitForAll(
+        //         nodes.map((n) =>
+        //             n.map((uuid) => bufferedSymbolsByNodeUuidStateFamily({nodeUuid: uuid}))
+        //         )
+        //     )
+        // );
+        // console.log({symbols});
+
 
         return edges
     }

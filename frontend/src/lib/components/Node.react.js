@@ -149,8 +149,8 @@ function NodeContent(props) {
                 }
 
 
-                const markedItems = contentToShow.filter((s) =>
-                    highlightedSymbols.map((h) => h.symbolUuid).includes(s.symbol_uuid)
+                const markedItems = contentToShow.map((s) => s.symbol_uuid).filter((u) =>
+                    highlightedSymbols.map((h) => h.symbolUuid).includes(u)
                 );
                 if (
                     markedItems.length > 0 &&
@@ -501,9 +501,9 @@ export function Node(props) {
         }, Constants.isAnimatingTimeout);
     };
 
-    const setIsCurrentlyLoadingNode = useSetRecoilState(
-        isCurrentlyLoadingNodeStateFamily(nodeUuid)
-    );
+    // const setIsCurrentlyLoadingNode = useSetRecoilState(
+    //     isCurrentlyLoadingNodeStateFamily(nodeUuid)
+    // );
     // if (node.loading) {
     //     setIsCurrentlyLoadingNode(true);
     // }

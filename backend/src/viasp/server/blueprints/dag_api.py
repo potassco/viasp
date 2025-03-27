@@ -242,45 +242,19 @@ def get_src_tgt_mapping_from_graph(encoding_id: str,
     return db_edges
 
 
-def find_reason_by_uuid(symbolid, nodeid, encoding_id):
-    node = find_node_by_uuid(nodeid, encoding_id)
-
-    symbolstr = str(
-        getattr(next(filter(lambda x: x.uuid == symbolid, node.diff)),
-                "symbol", ""))
-    reasonids = list(
-        set(getattr(r, "uuid", "") for r in node.reason.get(symbolstr, [])
-    ))
-    return reasonids
+def find_positive_reason_symbols_by_uuid(symbolid, nodeid, encoding_id):
+    query = select(SymbolDetails.symbol_uuid, SymbolDetails.reason_uuid).where(
+        SymbolDetails.encoding_id == encoding_id).where(
+        SymbolDetails.symbol_uuid == symbolid).where(
+            SymbolDetails.sign_positive == True)
+    return db_session.execute(query).all()
 
 
-def find_reason_rule_by_uuid(symbolid, nodeid, encoding_id) -> Optional[int]:
-    current_graph_hash = get_current_graph_hash(encoding_id)
-    matching_nodes = db_session.query(GraphNodes).filter_by(
-        encoding_id=encoding_id,
-        graph_hash=current_graph_hash,
-        node_uuid=nodeid).all()
-
-    if len(matching_nodes) == 0:
-        for node in db_session.query(GraphNodes).all():
-            n = current_app.json.loads(node.node)
-            if len(n.recursive) > 0:
-                matching_nodes = [
-                    x for x in n.recursive
-                    if x.uuid == nodeid
-                ]
-
-    if len(matching_nodes) != 1:
-        # raise ValueError(f"Couldn't find reason rule of {symbolid}.")
-        return None
-    node = current_app.json.loads(matching_nodes[0].node)
-
-    symbolstr = str(
-        getattr(next(filter(lambda x: x.uuid == symbolid, node.diff)),
-                "symbol", ""))
-    reasonrule = node.reason_rules.get(symbolstr, None)
-
-    return reasonrule
+def find_reason_rule_by_uuid(symbolid, encoding_id) -> Optional[str]:
+    query = select(ReasonRules.rule).where(
+        ReasonRules.encoding_id == encoding_id).where(
+        ReasonRules.symbol_uuid == symbolid)
+    return db_session.execute(query).scalar_one_or_none()
 
 def get_current_sort_by_hash(encoding_id, current_hash):
     db_current_sort = db_session.query(Graphs).filter_by(
@@ -610,16 +584,16 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                     SymbolDetails(encoding_id=encoding_id,
                                 symbol_uuid=symbol.uuid.hex,
                                 reason_uuid=reason,
-                                reason_repr=reason,
+                                reason_repr="stringofPOSreason",
                                 sign_positive=True,
                                 sign_negative=False))
             for reason in symbol.negative_reasons:
                 db_symbol_details.append(
                     SymbolDetails(encoding_id=encoding_id,
-                                symbol_uuid=symbol.uuid.hex,
-                                reason_repr=reason,
-                                sign_positive=False,
-                                sign_negative=True))
+                                  symbol_uuid=symbol.uuid.hex,
+                                  reason_repr="stringofNEGreason",
+                                  sign_positive=False,
+                                  sign_negative=True))
         if len(target.recursive) > 0:
             for i, subnode in enumerate(target.recursive):
                 db_nodes.append(
@@ -941,11 +915,12 @@ def get_reasons_of():
         node_uuid = uuid.UUID(request.json["nodeid"])
         encoding_id = session['encoding_id']
         try:
-            reason_uuids = find_reason_by_uuid(source_uuid, node_uuid,
+            reason_uuids = find_positive_reason_symbols_by_uuid(source_uuid, node_uuid,
                                                encoding_id)
             reason_rule_uuid = find_reason_rule_by_uuid(
-                source_uuid, node_uuid, encoding_id)
+                source_uuid, encoding_id)
         except Exception as e:
+            error("Error while getting reasons: " + str(e))
             return jsonify({
                 "symbols": [{
                     "src": None,
@@ -955,13 +930,20 @@ def get_reasons_of():
             })
         return jsonify({
             "symbols": [{
-                "src": source_uuid,
-                "tgt": reason_uuid
-            } for reason_uuid in reason_uuids],
+                "src": source,
+                "tgt": target
+            } for source, target in reason_uuids],
             "rule":
             reason_rule_uuid
         })
     raise NotImplementedError
+
+
+def find_ground_reasons(encoding_id, source_uuid):
+    query = select(SymbolDetails.reason_repr, SymbolDetails.reason_uuid).where(
+        SymbolDetails.encoding_id == encoding_id).where(
+            SymbolDetails.symbol_uuid == source_uuid)
+    return db_session.execute(query).all()
 
 @bp.route("/graph/ground", methods=["POST"])
 @ensure_encoding_id
@@ -975,11 +957,15 @@ def get_expanded_explanation_of():
         source_uuid = uuid.UUID(request.json["sourceid"])
         node_uuid = uuid.UUID(request.json["nodeid"])
         encoding_id = session['encoding_id']
+
+        ground_reasons = find_ground_reasons(encoding_id, source_uuid)
+        print(ground_reasons, flush=True)
         import time
         time.sleep(3)
-        return jsonify({
-            "result": "received."
-        })
+        return jsonify([{
+            "repr": repr,
+            "uuid": uuid
+        } for repr, uuid in ground_reasons])
     raise NotImplementedError
 
 

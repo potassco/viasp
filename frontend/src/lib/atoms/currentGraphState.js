@@ -186,6 +186,7 @@ export const isCurrentlyAnimatingHeightState = selector({
                 )
             )
         );
+        transformations.splice(0, 0, {hash: "-1"});
         const validTransformations = transformations.filter((t) => t && t.hash);
 
         const nodeUuidsArray = get(

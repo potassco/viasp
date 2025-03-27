@@ -1,3 +1,3 @@
-1{rain;sprinkler}1.
+1{rain;sprinkler}.
 wet :- rain.
 wet :- sprinkler.

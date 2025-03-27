@@ -20,12 +20,13 @@ const ModalDiv = styled.div`
     left: ${(props) => props.$position.left}px;
     width: ${MODALWIDTH}px;
 
-    position: absolute;
+    position: sticky;
     background-color: white;
     border: 1pt solid;
     border-radius: 0.7em;
     padding: 10px;
     z-index: 1000;
+    line-break: anywhere;
 
     background-color: ${({$colorPalette}) => $colorPalette.light};
     color: ${({$colorPalette}) => $colorPalette.dark};
