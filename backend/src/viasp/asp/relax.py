@@ -1,7 +1,7 @@
 from clingo.ast import (AST, Transformer, SymbolicTerm, Function, Literal,
                     SymbolicAtom, parse_string, Sign)
 from clingo import Function as ClingoFunction, ast
-from .utils import is_constraint, VariableConflictResolver
+from .utils import is_constraint, replace_anon_variables
 from typing import List
 
 
@@ -57,7 +57,7 @@ class TermRelaxer(Transformer):
         return TheoryAtom
 
 
-class ProgramRelaxer(TermRelaxer, VariableConflictResolver):
+class ProgramRelaxer(TermRelaxer):
     """
     Transformer class for modifying rules in a program.
     """
@@ -66,7 +66,8 @@ class ProgramRelaxer(TermRelaxer, VariableConflictResolver):
         self.head_name: str = kwargs.get("head_name", "unsat")
         self.collect_variables: bool = kwargs.get("collect_variables", True)
         self.constraint_counter: int = 1
-        super().__init__(*args, **kwargs)
+        self.get_conflict_free_variable_str = kwargs.get("get_conflict_free_variable_str", lambda x: x)
+        super().__init__()
 
     def visit_ShowSignature(self, show: ast.ShowSignature): # type: ignore
         if show.name == "":
@@ -92,7 +93,7 @@ class ProgramRelaxer(TermRelaxer, VariableConflictResolver):
 
             if self.collect_variables:
                 variables: List[AST] = []
-                self.replace_anon_variables(rule.body)
+                replace_anon_variables(rule.body, self.get_conflict_free_variable_str)
                 _ = self.visit_sequence(rule.body, adder=variables.append)
                 variables = [v for i,v in enumerate(variables) if v not in variables[:i]]
                 args.append(Function(location, '', variables, 0))
