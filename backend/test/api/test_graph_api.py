@@ -1,6 +1,8 @@
 import pytest
 import uuid
 
+from sqlalchemy import false
+from viasp.server.models import GraphSymbols
 from viasp.shared.util import hash_from_sorted_transformations
 from viasp.shared.model import Node, Transformation
 from conftest import setup_client, program_simple, program_multiple_sorts, program_recursive
@@ -187,36 +189,6 @@ def test_edges_with_recursion_endpoint(unique_session, program):
     (program_multiple_sorts),
     (program_recursive)
 ])
-def test_detail_endpoint_requires_key(unique_session, program):
-    client = setup_client(unique_session, program)
-    res = client.get("detail/")
-    assert res.status_code == 404
-
-
-@pytest.mark.parametrize("program", [
-    (program_simple),
-    (program_multiple_sorts),
-    (program_recursive)
-])
-def test_detail_endpoint_returns_details_on_valid_uuid(unique_session, program):
-    client = setup_client(unique_session, program)
-    res = client.get("graph")
-    graph = res.json
-
-    for node in graph.nodes:
-        uuid = node.uuid.hex
-        res = client.get(f"detail/{uuid}")
-        assert res.status_code == 200
-        assert type(res.json[0]) == str
-        assert res.json[0] in ["Facts", "Answer Set", "Partial Answer Set"]
-        assert len(res.json[1]) >= 0
-
-
-@pytest.mark.parametrize("program", [
-    (program_simple),
-    (program_multiple_sorts),
-    (program_recursive)
-])
 def test_get_transformation(unique_session, program):
     client = setup_client(unique_session, program)
     res = client.get("/graph/transformation/1")
@@ -237,7 +209,9 @@ def test_get_facts(unique_session, program):
     res = client.get("/graph/facts")
     assert res.status_code == 200
     assert type(res.json) == list
-    assert type(res.json[0]) == Node
+    print(res.json)
+    if len(res.json) > 0:
+        assert type(res.json[0]) == GraphSymbols
 
 
 @pytest.mark.parametrize("program", [

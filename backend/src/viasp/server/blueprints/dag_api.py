@@ -74,14 +74,19 @@ def get_node_positions(nx_graph: nx.DiGraph):
 
 
 def handle_request_for_children(
-        transformation_hash: str,
-        ids_only: bool,
-        encoding_id: str) -> Collection[Union[Node, uuid.UUID]]:
+        transformation_hash: str, ids_only: bool,
+        encoding_id: str) -> Collection[Union[GraphNodes, uuid.UUID]]:
     current_graph_hash = get_current_graph_hash(encoding_id)
-    result = db_session.query(GraphNodes).filter_by(encoding_id=encoding_id, graph_hash=current_graph_hash, transformation_hash=transformation_hash, recursive_supernode_uuid = None).order_by(GraphNodes.branch_position).all()
-    ordered_children = [current_app.json.loads(n.node) for n in result]
+    query = select(GraphNodes).where(
+        GraphNodes.encoding_id == encoding_id).where(
+        GraphNodes.graph_hash == current_graph_hash).where(
+        GraphNodes.transformation_hash == transformation_hash).where(
+        GraphNodes.recursive_supernode_uuid == None).order_by(
+        GraphNodes.branch_position)
+    result = db_session.execute(query).scalars().all()
+    ordered_children = result
     if ids_only:
-        ordered_children = [node.uuid for node in ordered_children]
+        ordered_children = [uuid.UUID(r.node_uuid) for r in ordered_children]
     return ordered_children
 
 
@@ -188,7 +193,7 @@ def get_subchildren_of_transformation_hash_and_current_Sort():
 def handle_request_for_node_symbols(node_uuid: str) -> Sequence[GraphSymbols]:
     query = select(GraphSymbols).where(
         GraphSymbols.node == node_uuid).where(
-    )
+    ).order_by(GraphSymbols.symbol_repr)
     return db_session.execute(query).scalars().all()
 
 @bp.route("/graph/symbols", methods=["POST"])
@@ -408,13 +413,18 @@ def get_facts():
     encoding_id = session['encoding_id']
 
     current_graph_hash = get_current_graph_hash(encoding_id)
-    facts = db_session.query(GraphNodes).filter_by(
+    query_node = select(GraphNodes.node_uuid).filter_by(
         encoding_id=encoding_id,
         graph_hash=current_graph_hash,
-        transformation_hash="-1").order_by(GraphNodes.branch_position).all()
-    facts = [current_app.json.loads(n.node) for n in facts]
+        transformation_hash="-1").order_by(
+            GraphNodes.branch_position)
+    facts_node = db_session.execute(query_node).scalars().one_or_none()
+    query_symbols = select(GraphSymbols).filter_by(
+        encoding_id=encoding_id,
+        node=facts_node).order_by(GraphSymbols.symbol_repr)
+    facts_symbols = db_session.execute(query_symbols).scalars().all()
 
-    return jsonify(facts)
+    return jsonify(facts_symbols)
 
 
 @bp.route("/graph/sorted_program", methods=["GET"])
@@ -579,21 +589,14 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                 ReasonRules(encoding_id=encoding_id,
                             symbol_uuid=symbol.uuid.hex,
                             rule = symbol.reason_rule))
-            for reason in symbol.positive_reasons:
-                db_symbol_details.append(
-                    SymbolDetails(encoding_id=encoding_id,
-                                symbol_uuid=symbol.uuid.hex,
-                                reason_uuid=reason,
-                                reason_repr="stringofPOSreason",
-                                sign_positive=True,
-                                sign_negative=False))
-            for reason in symbol.negative_reasons:
+            for reason in symbol.reasons_symbols:
                 db_symbol_details.append(
                     SymbolDetails(encoding_id=encoding_id,
                                   symbol_uuid=symbol.uuid.hex,
-                                  reason_repr="stringofNEGreason",
-                                  sign_positive=False,
-                                  sign_negative=True))
+                                  reason_uuid=reason.symbol_uuid,
+                                  reason_repr=reason.symbol_repr,
+                                  sign_positive=reason.is_positive,
+                                  sign_negative=reason.is_negative))
         if len(target.recursive) > 0:
             for i, subnode in enumerate(target.recursive):
                 db_nodes.append(
@@ -716,17 +719,6 @@ def get_kind(uuid: str, encoding_id: str) -> str:
         return "Partial Answer Set"
 
 
-@bp.route("/detail/<uuid>", methods=["GET"])
-@ensure_encoding_id
-def model(uuid):
-    if uuid is None:
-        abort(Response("Parameter 'key' required.", 400))
-    encoding_id = session['encoding_id']
-    kind = get_kind(uuid, encoding_id)
-    path = get_atoms_in_path_by_signature(uuid, encoding_id)
-    return jsonify((kind, path))
-
-
 @bp.route("/detail/explain/<uuid>", methods=["GET"])
 @ensure_encoding_id
 def explain(uuid):
@@ -761,34 +753,40 @@ def get_atoms_from_nodes(nodes: List[Node]):
 
 
 def get_all_symbols_in_graph(encoding_id, current_graph_hash):
-    db_graph_node_uuids = db_session.execute(
-        select(GraphNodes.node_uuid).filter_by(
-            encoding_id=encoding_id,
-            graph_hash=current_graph_hash,
-            recursive_supernode_uuid=None)).scalars().all()
-    db_graph_symbols = db_session.execute(
-        select(GraphSymbols, GraphNodes.branch_position).join(
-            GraphNodes, GraphNodes.node_uuid == GraphSymbols.node).filter(
-                GraphSymbols.node.in_(db_graph_node_uuids)).order_by(
-                    GraphNodes.branch_position.desc())
-        ).all()
-    return db_graph_symbols
+    stmt = (
+        select(GraphSymbols.symbol_repr, GraphSymbols.symbol_uuid, GraphNodes.branch_position)
+        .join(GraphNodes, GraphNodes.node_uuid == GraphSymbols.node)
+        .where(GraphNodes.encoding_id == encoding_id)
+        .where(GraphNodes.graph_hash == current_graph_hash)
+        .where(GraphNodes.recursive_supernode_uuid == None)
+        .order_by(GraphNodes.branch_position.asc())
+    )
+    return db_session.execute(stmt).all()
+
+def get_query_match_symbols_in_graph(query, encoding_id, current_graph_hash):
+    stmt = (
+        select(GraphSymbols.symbol_repr, GraphSymbols.symbol_uuid)
+        .join(GraphNodes, GraphNodes.node_uuid == GraphSymbols.node)
+        .where(GraphNodes.encoding_id == encoding_id)
+        .where(GraphNodes.graph_hash == current_graph_hash)
+        .where(GraphNodes.recursive_supernode_uuid == None)
+        .where(GraphSymbols.symbol_repr.contains(query))
+        .order_by(GraphNodes.branch_position.asc())
+    )
+    return db_session.execute(stmt).all()
 
 
-def search_ground_term_in_symbols(query, db_graph_symbols, is_autocomplete=False):
-    all_filtered_symbols = list(
-        filter(lambda x: query in x[0].symbol_repr, db_graph_symbols))
-    all_filtered_symbols.reverse()
+def make_search_result_wrappers(filtered_symbols):
     symbols_results = []
-    for symbol, _ in all_filtered_symbols:
-        if symbol.symbol_repr not in symbols_results:
+    for symbol_repr, symbol_uuid in filtered_symbols:
+        if symbol_repr not in symbols_results:
             symbols_results.append(
-                SearchResultSymbolWrapper(repr=symbol.symbol_repr,
-                                          includes=[symbol.symbol_uuid],
-                                          is_autocomplete=is_autocomplete))
+                SearchResultSymbolWrapper(repr=symbol_repr,
+                                          includes=[symbol_uuid],
+                                          is_autocomplete=True))
         else:
             symbols_results[symbols_results.index(
-                symbol.symbol_repr)].includes.append(symbol.symbol_uuid)
+                symbol_repr)].includes.append(symbol_uuid)
     return symbols_results
 
 
@@ -824,12 +822,11 @@ def search():
         #            transformation.rules.str_) and transformation not in result:
         #         result.append(transformation)
 
-        db_graph_symbols = get_all_symbols_in_graph(encoding_id,
+        db_match_symbols = get_query_match_symbols_in_graph(query, encoding_id,
                                                     current_graph_hash)
-        results = search_ground_term_in_symbols(query,
-                                                db_graph_symbols,
-                                                is_autocomplete=True)
+        results = make_search_result_wrappers(db_match_symbols)
         if len(results) == 0:
+            db_graph_symbols = get_all_symbols_in_graph(encoding_id, current_graph_hash)
             results = search_nonground_term_in_symbols(query, db_graph_symbols)
         results.sort()
         return jsonify(results)

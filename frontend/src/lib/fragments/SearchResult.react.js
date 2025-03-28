@@ -23,7 +23,6 @@ import {
 
 const SuggestionTextSpan = styled.span`
     margin-left: 0.8em;
-    padding-right: 3em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

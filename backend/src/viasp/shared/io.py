@@ -26,8 +26,8 @@ from clingo import Model as clingo_Model, ModelType, Symbol, Application
 from clingo.ast import AST, ASTType
 from flask.json.tag import TaggedJSONSerializer
 from .interfaces import ViaspClient
-from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper
-from ..server.models import GraphEdges, GraphNodes
+from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper, ReasonSymbolIdentifier
+from ..server.models import GraphEdges, GraphNodes, GraphSymbols
 
 class DataclassJSONProvider(JSONProvider):
     def dumps(self, obj, **kwargs):
@@ -104,6 +104,10 @@ def object_hook(obj):
         return GraphEdges(**obj)
     elif t == "GraphNode":
         return GraphNodes(**obj)
+    elif t == "GraphSymbols":
+        return GraphSymbols(**obj)
+    elif t == "ReasonSymbolIdentifier":
+        return ReasonSymbolIdentifier(**obj)
     return obj
 
 
@@ -137,7 +141,23 @@ def dataclass_to_dict(o):
     elif isinstance(o, TransformationError):
         return {"_type": "TransformationError", "ast": o.ast, "reason": o.reason}
     elif isinstance(o, SymbolIdentifier):
-        return {"_type": "SymbolIdentifier", "symbol": o.symbol, "has_reason": o.has_reason, "positive_reasons": o.positive_reasons, "negative_reasons": o.negative_reasons, "reason_rule": o.reason_rule, "uuid": o.uuid}
+        return {
+            "_type": "SymbolIdentifier",
+            "symbol": o.symbol,
+            "has_reason": o.has_reason,
+            "reasons_symbols": o.reasons_symbols,
+            "reason_rule": o.reason_rule,
+            "uuid": o.uuid
+        }
+    elif isinstance(o, ReasonSymbolIdentifier):
+        return {
+            "_type": "ReasonSymbolIdentifier",
+            "symbol_uuid": o.symbol_uuid,
+            "symbol_repr": o.symbol_repr,
+            "symbol": o.symbol,
+            "is_positive": o.is_positive,
+            "is_negative": o.is_negative
+        }
     elif isinstance(o, GraphNodes):
         return {
             "_type": "GraphNode",
@@ -190,6 +210,15 @@ def dataclass_to_dict(o):
                 "style": o.style,
                 "transformation_hash": o.transformation_hash,
                 "recursion_anchor_keyword": o.recursion_anchor_keyword,
+        }
+    elif isinstance(o, GraphSymbols):
+        return {
+            "_type": "GraphSymbols",
+            "encoding_id": o.encoding_id,
+            "node": o.node,
+            "has_reason": o.has_reason,
+            "symbol_uuid": o.symbol_uuid,
+            "symbol_repr": o.symbol_repr
         }
     else:
         return asdict(o)

@@ -201,11 +201,11 @@ def test_graph_nodes_datatypes(encoding_id, unique_session, db_session, program)
         assert isinstance(node.graph_hash, str)
         assert isinstance(node.transformation_hash, str)
         assert isinstance(node.branch_position, float)
-        assert isinstance(node.node, str)
-        assert isinstance(current_app.json.loads(node.node), Node)
         assert isinstance(node.node_uuid, str)
         assert node.recursive_supernode_uuid == None or \
                 type(node.recursive_supernode_uuid) == str
+        assert isinstance(node.recursive, bool)
+        assert isinstance(node.space_multiplier, float)
 
 
 @pytest.mark.parametrize("program", [
@@ -246,8 +246,10 @@ def test_graph_nodes_uniqueness(encoding_id, unique_session, db_session, program
                                 graph_hash=db_node.graph_hash+"1",
                                 transformation_hash=db_node.transformation_hash+"1",
                                 branch_position=db_node.branch_position+1,
-                                node=db_node.node+"1",
-                                node_uuid=db_node.node_uuid))
+                                node_uuid=db_node.node_uuid,
+                                recursive=db_node.recursive,
+                                recursive_supernode_uuid=db_node.recursive_supernode_uuid,
+                                space_multiplier=db_node.space_multiplier))
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
@@ -261,21 +263,19 @@ def test_graph_nodes_uniqueness(encoding_id, unique_session, db_session, program
 def test_graph_symbols_datatypes(encoding_id, unique_session, db_session, program, expected_n_symbols):
     setup_client(unique_session, program)
 
-    db_graph_node_uuids = db_session.execute(
-        select(GraphNodes.node_uuid)
-        .where(GraphNodes.encoding_id == encoding_id)
-    ).scalars().all()
     db_graph_symbols = db_session.execute(
         select(GraphSymbols)
-        .filter(GraphSymbols.node.in_(db_graph_node_uuids))
+        .filter(GraphSymbols.encoding_id == encoding_id)
     ).scalars().all()
 
     assert len(db_graph_symbols) == expected_n_symbols
     for sym in db_graph_symbols:
         assert isinstance(sym.id, int)
+        assert isinstance(sym.encoding_id, str)
         assert isinstance(sym.node, str)
+        assert isinstance(sym.has_reason, bool)
         assert isinstance(sym.symbol_uuid, str)
-        assert isinstance(sym.symbol, str)
+        assert isinstance(sym.symbol_repr, str)
 
 
 @pytest.mark.parametrize("program", [

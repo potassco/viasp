@@ -5,7 +5,7 @@ from clingo.ast import ASTType, AST
 from typing import Iterable, List, Sequence, Collection, Tuple, Dict, Set, FrozenSet, Optional
 
 from ..shared.simple_logging import warn
-from ..shared.model import Node, SymbolIdentifier, Transformation, RuleContainer
+from ..shared.model import Node, ReasonSymbolIdentifier, SymbolIdentifier, Transformation, RuleContainer
 from ..shared.util import pairwise, get_root_node_from_graph, RuleType
 
 def is_constraint(rule: RuleType) -> bool:
@@ -129,14 +129,22 @@ def identify_reasons(g: nx.DiGraph) -> None:
         for v in children_current:
             for symbol in v.diff:
                 tmp_reasons = []
-                for reason in symbol.positive_reasons:
-                    tmp_reasons.append(get_identifiable_reason(
-                        g, v, reason))
-                symbol.positive_reasons = tmp_reasons
-                tmp_reasons = []
-                for reason in symbol.negative_reasons:
-                    tmp_reasons.append(stringify_negative_reason(reason))
-                symbol.negative_reasons = tmp_reasons
+                for reason in symbol.reasons_symbols:
+                    if is_positive_reason(reason.symbol):
+                        reason_repr = str(reason.symbol.arguments[0])
+                        reason_uuid = get_identifiable_reason(
+                            g, v, reason.symbol.arguments[0])
+                        is_positive = True
+                        is_negative = False
+                    else:
+                        reason_repr = "not " + str(reason.symbol.arguments[0])
+                        reason_uuid = None
+                        is_positive = False
+                        is_negative = True
+                    tmp_reasons.append(ReasonSymbolIdentifier(
+                        reason_uuid, reason_repr, None, is_positive, is_negative))
+                symbol.reasons_symbols = tmp_reasons
+
             searched_nodes.add(v)
             for w in g.successors(v):
                 children_next.add(w)
@@ -146,7 +154,7 @@ def identify_reasons(g: nx.DiGraph) -> None:
 
 def get_identifiable_reason(g: nx.DiGraph,
                             v: Node,
-                            r: str,
+                            r: Symbol,
                             super_graph=None,
                             super_node=None) -> Optional[str]:
     """
@@ -158,7 +166,8 @@ def get_identifiable_reason(g: nx.DiGraph,
     :param v: The node that contains the symbol r
     :param r: The symbol that is the reason
     """
-    if (r in v.diff): return next(s.uuid.hex for s in v.diff if s == r)
+    match = next(filter(lambda x: x.symbol == r, v.diff), None)
+    if match != None: return match.uuid.hex
     if (g.in_degree(v) != 0):
         for u in g.predecessors(v):
             return get_identifiable_reason(

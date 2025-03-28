@@ -2,7 +2,7 @@ from copy import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from inspect import Signature as inspect_Signature
-from typing import Any, Sequence, Dict, Union, FrozenSet, Collection, List, Tuple, Type
+from typing import Any, Sequence, Dict, Union, FrozenSet, Collection, List, Tuple, Type, Optional
 from types import MappingProxyType
 from uuid import UUID, uuid4
 
@@ -12,15 +12,23 @@ from .util import (DefaultMappingProxyType, hash_string, hash_transformation_rul
     append_hashtag_to_minimize, RuleType)
 
 @dataclass()
+class ReasonSymbolIdentifier:
+    symbol_uuid: Optional[str] = field(default_factory=lambda: str(uuid4()), hash=True)
+    symbol_repr: str = field(default="", hash=False)
+    symbol: Optional[Symbol] = field(default=None, hash=False)
+    is_positive: bool = field(default=False, hash=False)
+    is_negative: bool = field(default=False, hash=False)
+
+    def __repr__(self):
+        return f"{{symbol: {str(self.symbol)}, symbol_uuid: {self.symbol_uuid}, is_positive: {self.is_positive}, is_negative: {self.is_negative}}}"
+
+
+@dataclass()
 class SymbolIdentifier:
     symbol: Symbol = field(hash=True)
     has_reason: bool = field(default=False, hash=False)
-    positive_reasons: Union[List[str], List[Symbol]] = field(default_factory=list,
-                                                  hash=False)
-    negative_reasons: Union[List[str],
-                            List[Symbol]] = field(default_factory=list,
-                                                  hash=False)
     reason_rule: str = field(default="", hash=False)
+    reasons_symbols: List[ReasonSymbolIdentifier] = field(default_factory=list, hash=False)
     uuid: UUID = field(default_factory=uuid4, hash=False)
 
     def __eq__(self, other):
@@ -36,7 +44,7 @@ class SymbolIdentifier:
         return hash(self.symbol)
 
     def __repr__(self):
-        return f"{{symbol: {str(self.symbol)}, uuid: {self.uuid}, positive_reasons: {self.positive_reasons}, negative_reasons: {self.negative_reasons}, reason_rule: {self.reason_rule}}}"
+        return f"{{symbol: {str(self.symbol)}, uuid: {self.uuid}, reasons_symbols: {self.reasons_symbols}, reason_rule: {self.reason_rule}}}"
 
 
 @dataclass()

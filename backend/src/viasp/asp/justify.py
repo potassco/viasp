@@ -12,7 +12,7 @@ from clingo.ast import AST, ASTType
 from .reify import ProgramAnalyzer, reify_recursion_transformation, LiteralWrapper
 from .recursion import RecursionReasoner
 from .utils import insert_atoms_into_nodes, identify_reasons, calculate_spacing_factor, is_constraint, is_minimize, identify_reasons, iterate_negative_reasons, iterate_positive_reasons
-from ..shared.model import Node, RuleContainer, Transformation, SymbolIdentifier, SearchResultSymbolWrapper
+from ..shared.model import Node, RuleContainer, Transformation, SymbolIdentifier, SearchResultSymbolWrapper, ReasonSymbolIdentifier
 from ..shared.simple_logging import info
 from ..shared.util import pairwise, get_leafs_from_graph
 
@@ -90,8 +90,10 @@ def collect_h_symbols_and_create_nodes(
                 if symbol in supernode_symbols else SymbolIdentifier(
                     symbol=symbol,
                     reason_rule=this_component_reason_rules[str(symbol)],
-                    positive_reasons=list(iterate_positive_reasons(this_component_reason[str(symbol)])),
-                    negative_reasons=list(iterate_negative_reasons(this_component_reason[str(symbol)])),
+                    reasons_symbols=[
+                        ReasonSymbolIdentifier(symbol=s)
+                        for s in this_component_reason[str(symbol)]
+                    ],
                 ), symbols))
     if pad:
         h_nodes: List[Node] = [
@@ -307,14 +309,14 @@ def index_of_symbolstr_in_results(results: List[SearchResultSymbolWrapper], symb
             return i
     return -1
 
-def search_nonground_term_in_symbols(query, db_graph_symbols):
+def search_nonground_term_in_symbols(query, symbols_in_graph):
     model_atoms: List[str] = []
     symbol_uuid_str: str = "SYMBOLUUID"
     branch_position_str: str = "BRANCHPOSITION"
     results: List[SearchResultSymbolWrapper] = []
     unsorted_results: Dict[str,List[Tuple[str, float]]] = dict()
-    for s, branch_position in db_graph_symbols:
-        model_atoms.append(f'model({s.symbol}, "{s.symbol_uuid}", "{branch_position}").')
+    for repr, uuid, branch_position in symbols_in_graph:
+        model_atoms.append(f'model({repr}, "{uuid}", "{branch_position}").')
 
     control = Control()
     query_rule = f'result({query},{symbol_uuid_str}, {branch_position_str}):-model({query},{symbol_uuid_str},{branch_position_str}).'
