@@ -26,8 +26,8 @@ from clingo import Model as clingo_Model, ModelType, Symbol, Application
 from clingo.ast import AST, ASTType
 from flask.json.tag import TaggedJSONSerializer
 from .interfaces import ViaspClient
-from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper, ReasonSymbolIdentifier
-from ..server.models import GraphEdges, GraphNodes, GraphSymbols
+from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper, ReasonSymbolIdentifier, GroundReasonTransport
+from ..server.models import GraphEdges, GraphNodes, GraphSymbols, SymbolDetails
 
 class DataclassJSONProvider(JSONProvider):
     def dumps(self, obj, **kwargs):
@@ -108,6 +108,10 @@ def object_hook(obj):
         return GraphSymbols(**obj)
     elif t == "ReasonSymbolIdentifier":
         return ReasonSymbolIdentifier(**obj)
+    elif t == "GroundReasonTransport":
+        return GroundReasonTransport(**obj)
+    elif t == "SymbolDetails":
+        return SymbolDetails(**obj)
     return obj
 
 
@@ -219,6 +223,21 @@ def dataclass_to_dict(o):
             "has_reason": o.has_reason,
             "symbol_uuid": o.symbol_uuid,
             "symbol_repr": o.symbol_repr
+        }
+    elif isinstance(o, GroundReasonTransport):
+        return {
+            "_type": "GroundReasonTransport",
+            "content": o.content,
+        }
+    elif isinstance(o, SymbolDetails):
+        return {
+            "_type": "SymbolDetails",
+            "encoding_id": o.encoding_id,
+            "symbol_uuid": o.symbol_uuid,
+            "reason_uuid": o.reason_uuid,
+            "reason_repr": o.reason_repr,
+            "sign_positive": o.sign_positive,
+            "sign_negative": o.sign_negative
         }
     else:
         return asdict(o)

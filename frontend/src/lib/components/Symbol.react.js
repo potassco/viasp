@@ -79,22 +79,18 @@ export function Symbol(props) {
     const setModalPosition = useSetRecoilState(modalPositionState);
     
     const handleClickOnSymbol = async (e) => {
-        e.stopPropagation();
-        if (!has_reason) {
-            return;
-        }
         try {
-            const data = await fetchReasonOf(
-                backendUrl,
-                symbolUuid,
-                nodeUuid,
-                currentSort,
-                session
-            );
-            if (data.symbols.some((tgt) => tgt === null)) {
-                return;
-            }
             if (!isShowingExplanation) {
+                const data = await fetchReasonOf(
+                    backendUrl,
+                    symbolUuid,
+                    nodeUuid,
+                    currentSort,
+                    session
+                );
+                if (data.symbols.some((tgt) => tgt === null)) {
+                    return;
+                }
                 setThisSymbolHighlights(transformationHash, symbolUuid, data);
             } else {
                 removeThisSymbolHighlights(transformationHash,symbolUuid);
@@ -105,7 +101,6 @@ export function Symbol(props) {
     };
 
     const handleDoubleClickOnSymbol = async (e) => {
-        e.stopPropagation();
         const rect = symbolElementRef.current.getBoundingClientRect();
         setModalPosition({top: rect.top, left: rect.left + rect.width});
         setModalForSymbol({sourceId: symbolUuid, nodeId: nodeUuid});
@@ -113,13 +108,16 @@ export function Symbol(props) {
 
     const doubleClickTimer = useRef()
     const onClickHandler = (e) => {
-        e.persist();
+        e.stopPropagation();
+        if (!has_reason) {
+            return;
+        }
         clearTimeout(doubleClickTimer.current);
 
         if (e.detail === 1) {
-            doubleClickTimer.current = setTimeout(() => handleClickOnSymbol(e), 200)
+            doubleClickTimer.current = setTimeout(() => handleClickOnSymbol(), 200)
         } else if (e.detail === 2) {
-            handleDoubleClickOnSymbol(e);
+            handleDoubleClickOnSymbol();
         }
     }
 

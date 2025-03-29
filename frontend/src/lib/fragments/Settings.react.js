@@ -14,11 +14,13 @@ import { colorPaletteState } from '../atoms/settingsState';
 import {allHighlightedSymbolsState} from '../atoms/highlightsState';
 import {clearAllHighlightsCallback} from '../hooks/highlights';
 import { searchInputState } from '../atoms/searchState';
+import {modalVisibleState} from '../atoms/modalState';
 
 function ClearMarked() {
     const setSearchUserInput = useSetRecoilState(searchInputState);
     const recoilHighlightedSymbols = useRecoilValue(allHighlightedSymbolsState);
     const clearHighlights = useRecoilCallback(clearAllHighlightsCallback, []);
+    const modalVisible = useRecoilValue(modalVisibleState);
     const colorPalette = useRecoilValue(colorPaletteState);
 
     function onClick() {
@@ -29,7 +31,7 @@ function ClearMarked() {
     return (
         <ClearMarkedDiv className="clear_marked">
             <CSSTransition
-                in={recoilHighlightedSymbols.length > 0}
+                in={recoilHighlightedSymbols.length > 0 || modalVisible}
                 timeout={800}
                 classNames="fade"
                 mountOnEnter

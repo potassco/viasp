@@ -2,6 +2,11 @@ import React from 'react';
 import {styled} from 'styled-components';
 import Draggable from 'react-draggable';
 
+import PulseLoader from 'react-spinners/PulseLoader';
+import {Constants} from '../constants';
+
+import { Symbol } from './Symbol.react';
+
 import {useRecoilValue, useResetRecoilState} from 'recoil';
 import { colorPaletteState } from '../atoms/settingsState';
 import {
@@ -14,13 +19,13 @@ import { CloseButton } from '../fragments/CloseButton.react';
 import { DragHandle } from '../fragments/DragHandle.react';
 
 const MODALWIDTH = 200;
-const MODALDISTANCETOEDGE = 40;
+const MODALDISTANCETOEDGE = 60;
 const ModalDiv = styled.div`
     top: ${(props) => props.$position.top}px;
     left: ${(props) => props.$position.left}px;
     width: ${MODALWIDTH}px;
 
-    position: sticky;
+    position: absolute;
     background-color: white;
     border: 1pt solid;
     border-radius: 0.7em;
@@ -48,12 +53,67 @@ const ModalDiv = styled.div`
     }
 `;
 
+const StyledList = styled.ul`
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+`;
+
+const StyledListItem = styled.li`
+    background-color: ${({$colorPalette}) => $colorPalette.light};
+    color: ${({$colorPalette}) => $colorPalette.dark};
+    border: 1px solid ${({$colorPalette}) => $colorPalette.primary};
+    border-radius: 0.5em;
+    padding: 5px;
+    margin: 5px 0;
+    
+    box-shadow: 0 0 0.14em #333;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+`;
+
+function ModalContent() {
+    const colorPalette = useRecoilValue(colorPaletteState);
+    const modalContent = useRecoilValue(modalContentState);
+
+    if (modalContent?.loading) {
+        return (
+            <PulseLoader
+                color={colorPalette.dark}
+                loading={true}
+                size={'0.25em'}
+                speedMultiplier={Constants.awaitingInputSpinnerSpeed}
+            />
+        );
+    }
+    const contentToShow = modalContent?.content.map((symbol) => (
+        <StyledListItem key={symbol.reason_repr} $colorPalette={colorPalette}>
+            <Symbol
+                symbolUuid={symbol.reason_uuid}
+                isSubnode={false}
+                nodeUuid={"test"}
+                transformationHash={"test"}
+                has_reason={false}
+                symbol_repr={symbol.reason_repr}
+            />
+        </StyledListItem>
+    ));
+
+    return <StyledList>{contentToShow}</StyledList>;
+}
+
+ModalContent.propTypes = {
+};
+
 export function Modal() {
     const colorPalette = useRecoilValue(colorPaletteState);
     const modalVisible = useRecoilValue(modalVisibleState);
     const spawnPosition = useRecoilValue(modalPositionState);
     const resetModal = useResetRecoilState(modalForSymbolState);
-    const modalContent = useRecoilValue(modalContentState);
 
     const adjustedPosition = {
         top: spawnPosition.top,
@@ -68,7 +128,7 @@ export function Modal() {
             <ModalDiv $position={adjustedPosition} $colorPalette={colorPalette}>
                 <DragHandle handleName={'dragIndicator'} />
                 <CloseButton onClose={resetModal} />
-                Modal content will show up here {modalContent}
+                <ModalContent />
             </ModalDiv>
         </Draggable>
     );

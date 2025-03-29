@@ -10,6 +10,7 @@ from clingo import Symbol, ModelType
 from clingo.ast import AST, Transformer
 from .util import (DefaultMappingProxyType, hash_string, hash_transformation_rules, get_rules_from_input_program, get_ast_from_input_string,
     append_hashtag_to_minimize, RuleType)
+from ..server.models import SymbolDetails
 
 @dataclass()
 class ReasonSymbolIdentifier:
@@ -285,3 +286,7 @@ class TransformerTransport:
     @classmethod
     def merge(cls, transformer: Type[Transformer], imports: str, path: str):
         return cls(transformer, imports, path)
+
+@dataclass
+class GroundReasonTransport:
+    content: Sequence[SymbolDetails] = field(default_factory=list)

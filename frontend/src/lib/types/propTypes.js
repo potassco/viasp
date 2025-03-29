@@ -135,3 +135,17 @@ export const RULEBACKGROUNDHIGHLIGHTS_RECOIL = PropTypes.exact({
     color: PropTypes.string,
     shown: PropTypes.bool,
 });
+export const SYMBOLDETAILS = PropTypes.exact({
+    _type: PropTypes.oneOf(["SymbolDetails"]),
+    encoding_id: PropTypes.string,
+    symbol_uuid: PropTypes.string,
+    reason_uuid: PropTypes.string,
+    reason_repr: PropTypes.string,
+    sign_positive: PropTypes.bool,
+    sign_negative: PropTypes.bool,
+})
+export const GROUNDREASONTRANSPORT = PropTypes.exact({
+    _type: PropTypes.oneOf(['GroundReasonTransport']),
+    loading: PropTypes.bool,
+    content: PropTypes.arrayOf(PropTypes.SYMBOLDETAILS),
+});

@@ -1,9 +1,6 @@
-import React from 'react';
-import PulseLoader from 'react-spinners/PulseLoader';
-import {Constants} from '../constants';
 import {atom, noWait, selector} from 'recoil';
 
-import {backendUrlState, sessionState, colorPaletteState} from './settingsState';
+import {backendUrlState, sessionState} from './settingsState';
 
 async function fetchModalContent(backendURL, sourceId, nodeId, token){
     const response = await fetch(`${backendURL}/graph/ground`, {
@@ -65,19 +62,17 @@ export const modalContentState = selector({
             return null;
         }
         const modalLoadable = get(noWait(bufferedModalContentState));
-        const colorPalette = get(colorPaletteState);
         switch (modalLoadable.state) {
             case 'hasValue':
-                return JSON.stringify(modalLoadable.contents);
+                return {
+                    "loading": false,
+                    ...modalLoadable.contents};
             case 'loading':
-                return (
-                    <PulseLoader
-                        color={colorPalette.dark}
-                        loading={true}
-                        size={'0.25em'}
-                        speedMultiplier={Constants.awaitingInputSpinnerSpeed}
-                    />
-                );
+                return {
+                    "_type": "GroundReasonTransport",
+                    "loading": true,
+                    "content": {},
+                };
             case 'hasError':
                 return 'Error loading modal content';
             default:

@@ -15,7 +15,7 @@ from sqlalchemy import select, delete, update
 from ...asp.reify import ProgramAnalyzer, reify_list
 from ...asp.justify import build_graph, search_nonground_term_in_symbols
 from ...shared.defaults import STATIC_PATH
-from ...shared.model import SearchResultSymbolWrapper, Transformation, Node, Signature
+from ...shared.model import GroundReasonTransport, SearchResultSymbolWrapper, Transformation, Node, Signature
 from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations, pairwise
 from ...shared.io import StableModel
 from ...shared.simple_logging import error
@@ -183,8 +183,6 @@ def get_subchildren_of_transformation_hash_and_current_Sort():
         if "currentSort" not in request.json:
             return jsonify({'error': 'Missing current_sort in request'}), 400
         current_hash = request.json["currentSort"]
-        from time import sleep
-        sleep(3)
         to_be_returned = handle_request_for_subchildren_with_sortHash(
             supernode_uuid, current_hash, session['encoding_id'])
         return jsonify(to_be_returned)
@@ -937,10 +935,12 @@ def get_reasons_of():
 
 
 def find_ground_reasons(encoding_id, source_uuid):
-    query = select(SymbolDetails.reason_repr, SymbolDetails.reason_uuid).where(
-        SymbolDetails.encoding_id == encoding_id).where(
-            SymbolDetails.symbol_uuid == source_uuid)
-    return db_session.execute(query).all()
+    stmt = (
+        select(SymbolDetails)
+        .where(SymbolDetails.encoding_id == encoding_id)
+        .where(SymbolDetails.symbol_uuid == source_uuid)
+    )
+    return db_session.execute(stmt).scalars().all()
 
 @bp.route("/graph/ground", methods=["POST"])
 @ensure_encoding_id
@@ -956,13 +956,7 @@ def get_expanded_explanation_of():
         encoding_id = session['encoding_id']
 
         ground_reasons = find_ground_reasons(encoding_id, source_uuid)
-        print(ground_reasons, flush=True)
-        import time
-        time.sleep(3)
-        return jsonify([{
-            "repr": repr,
-            "uuid": uuid
-        } for repr, uuid in ground_reasons])
+        return jsonify(GroundReasonTransport(ground_reasons))
     raise NotImplementedError
 
 

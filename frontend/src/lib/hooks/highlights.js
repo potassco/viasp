@@ -16,6 +16,9 @@ import {
     filteredSuggestionsState,
     selectedSuggestionState,
 } from '../atoms/searchState';
+import {
+    modalForSymbolState,
+} from '../atoms/modalState';
 
 const removeRuleDotHighlightTimeout = {};
 const removeRuleBackgroundHighlightTimeout = {};
@@ -188,7 +191,7 @@ export const removeSymbolHighlightsCallback =
     };
 
 export const clearAllHighlightsCallback =
-    ({snapshot, set}) =>
+    ({snapshot, set, reset}) =>
     async () => {
         // Search
         set(symbolSearchHighlightsState, []);
@@ -215,6 +218,15 @@ export const clearAllHighlightsCallback =
             }, Constants.ruleHighlightFadeDuration);
             set(ruleBackgroundHighlightsStateFamily(transformationHash), []);
         });
+
+        // Modal reset
+        const {sourceId, nodeId} = await snapshot.getPromise(
+            modalForSymbolState
+        );
+        if (sourceId !== null && nodeId !== null) {
+            reset(modalForSymbolState);
+        }
+        
 
         // Hover color
         const colorPalette = await snapshot.getPromise(colorPaletteState);
