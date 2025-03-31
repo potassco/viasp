@@ -197,3 +197,15 @@ def test_showTerm_transformed_correctly_2():
     rule = '#show a(X) : b(X).'
     expected = f'h_showTerm(1, "{hash_string(rule)}", a(X), (pos(b(X)),)) :- showTerm(a(X)), b(X).'
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
+
+
+def test_anon_replaced_correctly():
+    rule = 'a(X) :- b(X,_); X = (Y,_); d(Y).'
+    expected = f'h(1, "{hash_string(rule)}", a(X), (d(Y),b(X,ANON_113_114_))) :- a(X), b(X,ANON_113_114_), X=(Y,ANON_124_125_), d(Y).'
+    assertProgramEqual(transform(rule), parse_program_to_ast(expected))
+
+
+def test_anon_replaced_correctly_2():
+    rule = 'a(X) :- b(X,_); X = (Y,_); d(Y,(_,X)).'
+    expected = f'h(1, "{hash_string(rule)}", a(X), (d(Y,(ANON_133_134_,X)),b(X,ANON_113_114_))) :- a(X), b(X,ANON_113_114_), X=(Y,ANON_124_125_), d(Y,(ANON_133_134_,X)).'
+    assertProgramEqual(transform(rule), parse_program_to_ast(expected))

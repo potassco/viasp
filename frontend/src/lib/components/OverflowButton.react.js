@@ -41,7 +41,7 @@ const BauchbindeDiv = styled.div`
         var(--color1) var(--gradPoint),
         var(--color2) calc(var(--gradPoint) + 100%)
     );
-    height: 1em;
+    height: 1.1em;
     transition: --gradPoint 500ms;
     ${(props) =>
         props.$showButton ? `--gradPoint: 0%;` : `--gradPoint: 100%;`}
@@ -98,6 +98,10 @@ export function OverflowButton(props) {
         Constants.overflowButtonColorLightenFactor,
         colorPalette.dark
     );
+    const arrowColor = lighten(
+        Constants.overflowButtonArrowColorLightenFactor,
+        colorPalette.dark
+    )
 
     const overwriteShowButton = rowHasOverflowButtonLoadable.state === 'hasValue'
         ? rowHasOverflowButtonLoadable.contents
@@ -132,6 +136,8 @@ export function OverflowButton(props) {
                                     ? 'rotate_icon'
                                     : ''
                             }
+                            height={'1.2em'}
+                            color={arrowColor}
                         />
                     </Suspense>
                 </BauchbindeTextDiv>

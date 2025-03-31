@@ -396,7 +396,10 @@ class ViaspRunner():
         try:
             self.run_wild(args)
         except Exception as e:
-            self.signal_handler(None, None)
+            try:
+                self.signal_handler(None, None)
+            except:
+                pass
             error(_("ERROR").format(e))
             error(_("ERROR_INFO"))
             sys.exit(1)
@@ -455,11 +458,8 @@ class ViaspRunner():
                         models_to_mark.append(stable_model)
 
             sys.stdout.write(clingo_stats.Stats().summary_from_json(model_from_json) + "\n")
-            if model_from_json['Result'] == "UNSATISFIABLE":
-                if relax:
-                    self._should_run_relaxation = True
-                else:
-                    self.warn_unsat()
+            if model_from_json['Result'] == "UNSATISFIABLE" and not relax:
+                self.warn_unsat()
         return models_to_mark
 
     def run_with_clingo(self, ctl, relax, max_models,
@@ -495,20 +495,17 @@ class ViaspRunner():
 
         sys.stdout.write(clingo_stats.Stats().summary(ctl.statistics) + "\n")
         sys.stdout.write(clingo_stats.Stats().statistics(ctl.statistics) + "\n")
-        if sat_flag:
-            if relax:
-                self._should_run_relaxation = True
-            else:
-                self.warn_unsat()
+        if sat_flag and not relax:
+            self.warn_unsat()
         return models_to_mark
 
     def run_relaxer(self, encoding_files, options, head_name,
-                    no_collect_variables, relaxer_opt_mode_str, clingo_options):
+                    no_collect_variables, relaxer_opt_mode_str, clingo_options, stdin_is_json):
         info(_("SWITCH_TO_TRANSFORMED_VISUALIZATION"))
-        options['max_models'] = 0
+        # options['max_models'] = 0
         relaxed_program = self.relax_program(encoding_files, options['stdin'],
                                              head_name, no_collect_variables,
-                                             options['constants'])
+                                             options['constants'], stdin_is_json)
 
         ctl_options = [
             '--models',
@@ -536,30 +533,27 @@ class ViaspRunner():
     def print_and_get_stable_models(self, clingo_options, options,
                                     encoding_files, model_from_json, relax,
                                     select_model):
-        ctl_options = [
-            '--models',
-            str(options['max_models']),
-            options['opt_mode_str'],
-        ]
-        for k, v in options['constants'].items():
-            ctl_options.extend(["--const", f"{k}={v}"])
-        ctl_options.extend(clingo_options)
-        enable_python()
-        ctl = clingoControl(ctl_options)
-        for path in encoding_files:
-            if path[1] == "-":
-                ctl.add("base", [], options['stdin'])
-            else:
-                ctl.load(path[1])
-
-
         if model_from_json:
             models = self.filter_models_in_json(model_from_json, relax, select_model)
         else:
+            ctl_options = [
+                '--models',
+                str(options['max_models']),
+                options['opt_mode_str'],
+            ]
+            for k, v in options['constants'].items():
+                ctl_options.extend(["--const", f"{k}={v}"])
+            ctl_options.extend(clingo_options)
+            enable_python()
+            ctl = clingoControl(ctl_options)
+            for path in encoding_files:
+                if path[1] == "-":
+                    ctl.add("base", [], options['stdin'])
+                else:
+                    ctl.load(path[1])
             models = self.run_with_clingo(ctl, relax,
                                 options['max_models'],
                                 options['opt_mode_str'])
-
         return models
 
     def run_viasp(self, encoding_files, models, options):
@@ -586,10 +580,12 @@ class ViaspRunner():
                                     viasp_backend_url=self.backend_url)
 
     def relax_program(self, encoding_files, stdin, head_name,
-                      no_collect_variables, constants):
+                      no_collect_variables, constants, stdin_is_json):
         # get ASP files
         for path in encoding_files:
             if path[1] == "-":
+                if stdin_is_json:
+                    continue
                 viasp.api.add_program_string(
                     "base", [], stdin, viasp_backend_url=self.backend_url)
             else:
@@ -607,13 +603,13 @@ class ViaspRunner():
         return relaxed_program
 
     def relax_program_quietly(self, encoding_files, stdin, head_name,
-                              no_collect_variables, constants):
+                              no_collect_variables, constants, stdin_is_json):
         with open('viasp.log', 'w') as f:
             with redirect_stdout(f):
                 relaxed_program = self.relax_program(encoding_files, stdin,
                                                      head_name,
                                                      no_collect_variables,
-                                                     constants)
+                                                     constants, stdin_is_json)
         return relaxed_program
 
     def deregister_session(self):
@@ -691,7 +687,7 @@ class ViaspRunner():
             app.wait_for_backend_server_running()
             relaxed_program = self.relax_program_quietly(
                 encoding_files, options['stdin'], head_name,
-                no_collect_variables, options['constants'])
+                no_collect_variables, options['constants'], stdin_is_json)
             plain(relaxed_program)
             self.deregister_session()
             sys.exit(0)
@@ -707,19 +703,20 @@ class ViaspRunner():
             warn(_("WARNING_INCLUDED_FILE").format(i))
 
         app = startup.run(host=host, port=port, front_host=frontend_host, front_port=frontend_port)
-        models = self.print_and_get_stable_models(clingo_options, options,
-                                                  encoding_files,
-                                                  model_from_json, relax,
-                                                  select_model)
+        if not relax:
+            models = self.print_and_get_stable_models(clingo_options, options,
+                                                    encoding_files,
+                                                    model_from_json, relax,
+                                                    select_model)
         app.wait_for_backend_server_running()
         viasp.api.set_config(
             show_all_derived = options.get("show_all_derived", False),
             color_theme = options.get("color", DEFAULT_COLOR),
             viasp_backend_url=self.backend_url)
-        if self._should_run_relaxation:
+        if relax:
             self.run_relaxer(encoding_files, options, head_name,
                              no_collect_variables, relax_opt_mode_str,
-                             clingo_options)
+                             clingo_options, stdin_is_json)
         else:
             self.run_viasp(encoding_files, models, options)
 

@@ -1,8 +1,8 @@
 """Mostly graph utility functions."""
 import networkx as nx
 from clingo import Symbol, ast
-from clingo.ast import ASTType, AST
-from typing import Iterable, List, Sequence, Collection, Tuple, Dict, Set, FrozenSet, Optional
+from clingo.ast import ASTType, AST, Transformer, ASTSequence
+from typing import Callable, List, Sequence, Collection, Tuple, Dict, Set, FrozenSet, Optional, Iterable
 
 from ..shared.simple_logging import warn
 from ..shared.model import Node, ReasonSymbolIdentifier, SymbolIdentifier, Transformation, RuleContainer
@@ -272,24 +272,21 @@ def filter_body_aggregates(element: AST):
         return False
     return True
 
+class VariableConflictResolver(Transformer):
 
-class VariableConflictResolver:
     def __init__(self, *args, **kwargs):
-        self.get_conflict_free_variable_str = kwargs.get("get_conflict_free_variable_str", lambda x: x)
+        self.get_conflict_free_variable_str = kwargs.get(
+            "get_conflict_free_variable_str", lambda x: x)
 
-    def replace_anon_variables(self, literals: List[ast.Literal]) -> None:  # type: ignore
-        """
-        Replaces all anonymous variables in the literals with a new variable.
-        """
-        for l in literals:
-            try:
-                if l.ast_type == ASTType.Literal and \
-                    l.sign == ast.Sign.NoSign:
-                    for arg in l.atom.symbol.arguments:
-                        if arg.ast_type == ASTType.Variable and arg.name == "_":
-                            arg.name = self.get_conflict_free_variable_str(
-                                f"ANON_{arg.location.begin.line}{arg.location.begin.column}_{arg.location.end.line}{arg.location.end.column}_"
-                            )
+    def visit_Variable(self, variable: ast.Variable, **kwargs) -> None:  # type: ignore
+        if variable.name == "_":
+            variable.name = self.get_conflict_free_variable_str(
+                f"ANON_{variable.location.begin.line}{variable.location.begin.column}_{variable.location.end.line}{variable.location.end.column}_"
+            )
+        return variable.update(**self.visit_children(variable, **kwargs))
 
-            except AttributeError as e:
-                continue
+def replace_anon_variables(
+        literals: ASTSequence,
+        get_conflict_free_variable_str: Callable[[str], str]) -> None:
+    visitor = VariableConflictResolver(get_conflict_free_variable_str=get_conflict_free_variable_str)
+    visitor.visit_sequence(literals)

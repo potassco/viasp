@@ -350,9 +350,9 @@ def show_selected_models():
 @bp.route("/control/relax", methods=["POST"])
 @ensure_encoding_id
 def transform_relax():
-    if request.json is None:
-        return "Invalid request", 400
-    try:
+    if request.method == "POST":
+        if request.json is None:
+            return "Invalid request", 400
         args = request.json["args"] if "args" in request.json else []
         kwargs = request.json["kwargs"] if "kwargs" in request.json else {}
 
@@ -366,14 +366,13 @@ def transform_relax():
             return "No program found", 400
         analyzer = analyze_program(encoding_id)
         kwargs.update({
-            "get_conflict_free_variable":
+            "get_conflict_free_variable_str":
             analyzer.get_conflict_free_variable
         })
         relaxer = ProgramRelaxer(*args, **kwargs)
         relaxed = relax_constraints(relaxer, program)
         return jsonify(relaxed)
-    except Exception as e:
-        return str(e), 500
+    raise NotImplementedError
 
 
 def generate_clingraph(viz_encoding: str, engine: str, graphviz_type: str, encoding_id: str):

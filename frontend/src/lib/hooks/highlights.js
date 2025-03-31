@@ -274,20 +274,20 @@ export const handleSearchResultSuggestionsCallback =
             if (oldTimeoutId) {
                 clearTimeout(oldTimeoutId);
             }
-            // const newTimeoutId = setTimeout(() => {
-            //     set(symbolSearchHighlightsState, (recentValue) =>
-            //         recentValue.map((h) => ({
-            //             ...h,
-            //             recent: false,
-            //         }))
-            //     );
-            // }, Constants.searchResultHighlightDuration);
-            // set(recentSymbolSearchHighlightTimeoutState, (oldTimeoutId) => {
-            //     if (oldTimeoutId !== null) {
-            //         clearTimeout(oldTimeoutId);
-            //     }
-            //     return newTimeoutId;
-            // });
+            const newTimeoutId = setTimeout(() => {
+                set(symbolSearchHighlightsState, (recentValue) =>
+                    recentValue.map((h) => ({
+                        ...h,
+                        recent: false,
+                    }))
+                );
+            }, Constants.searchResultHighlightDuration);
+            set(recentSymbolSearchHighlightTimeoutState, (oldTimeoutId) => {
+                if (oldTimeoutId !== null) {
+                    clearTimeout(oldTimeoutId);
+                }
+                return newTimeoutId;
+            });
 
             // set hover color
             const nextHoverColor = getNextColor(

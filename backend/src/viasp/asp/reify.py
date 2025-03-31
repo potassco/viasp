@@ -14,7 +14,7 @@ from clingo.ast import (
 )
 from viasp.shared.util import RuleType, hash_transformation_rules, hash_string
 
-from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, move_constraints_only_transformations_to_end, topological_sort, VariableConflictResolver
+from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, move_constraints_only_transformations_to_end, topological_sort, replace_anon_variables
 from ..asp.utils import merge_cycles, remove_loops
 from viasp.asp.ast_types import (
     SUPPORTED_TYPES,
@@ -640,7 +640,7 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         return True
 
 
-class ProgramReifier(DependencyCollector, VariableConflictResolver):
+class ProgramReifier(DependencyCollector):
 
     def __init__(self,
                  component_nr=1,
@@ -768,7 +768,7 @@ class ProgramReifier(DependencyCollector, VariableConflictResolver):
                 rule.body,
                 conditions=conditions,
             )
-            self.replace_anon_variables(conditions)
+            replace_anon_variables(conditions, self.get_conflict_free_variable_str)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions, **kwargs)
 
@@ -799,7 +799,7 @@ class ProgramReifier(DependencyCollector, VariableConflictResolver):
             showTerm.body,
             conditions=conditions,
         )
-        self.replace_anon_variables(conditions)
+        replace_anon_variables(conditions, self.get_conflict_free_variable_str)
         new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
             showTerm.location, showTerm.term, conditions, True, **kwargs)
 
@@ -846,7 +846,7 @@ class LiteralWrapper(Transformer):
         return ast.Literal(literal.location, ast.Sign.NoSign, wrap_atm)
 
 
-class ProgramReifierForRecursions(ProgramReifier, VariableConflictResolver):
+class ProgramReifierForRecursions(ProgramReifier):
 
     def __init__(self, *args, **kwargs):
         self.model_str: str = kwargs.pop("conflict_free_model_str", "model")
@@ -873,7 +873,7 @@ class ProgramReifierForRecursions(ProgramReifier, VariableConflictResolver):
                 conditions=conditions,
             )
 
-            self.replace_anon_variables(conditions)
+            replace_anon_variables(conditions, self.get_conflict_free_variable_str)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions, **kwargs)
 
