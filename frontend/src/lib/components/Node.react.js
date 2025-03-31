@@ -1,6 +1,6 @@
 import React, {Suspense, useEffect, useCallback, useMemo, useRef, useState} from 'react';
 import './node.css';
-import PropTypes from 'prop-types';
+import PropTypes, { symbol } from 'prop-types';
 import {Symbol} from './Symbol.react';
 import {
     NodeDiv,
@@ -99,23 +99,23 @@ function NodeContent(props) {
             }
             const childRect = childElement.getBoundingClientRect();
             const parentRect = parentElement.getBoundingClientRect();
-            const belowLineMargin = 27;
+            const belowLineMargin = 6;
             symbolYPosition.current = {
                 ...symbolYPosition.current,
-                [symbolUuid]: childRect.top - parentRect.top + belowLineMargin,
+                [symbolUuid]: childRect.top + childRect.height - parentRect.top + belowLineMargin,
             };
         },
         [parentRef]
     );
-    const debouncedSymbolVisibilityManager = useCallback(
-        (s) => {
-            const debouncedFunction = debounce(
-                () => symbolVisibilityManager(s),
-                Constants.DEBOUNCETIMEOUT
-            );
-            debouncedFunction();
-        },
-        [symbolVisibilityManager]
+    const debouncedSymbolVisibilityManager = useMemo(() => {
+        return debounce(
+            () => {
+                contentToShow.map((s) => symbolVisibilityManager(s))
+            },
+            Constants.DEBOUNCETIMEOUT          
+        )
+    },
+        [symbolVisibilityManager, contentToShow]
     );
 
     const setHeightFromContent = useCallback(
@@ -191,20 +191,32 @@ function NodeContent(props) {
         },
         [setHeight, setIsExpandableV, setIsCollapsibleV, setIsExpandVAllTheWay]
     );
+
+    useEffect(() => {
+        debouncedSymbolVisibilityManager();
+    }, [debouncedSymbolVisibilityManager]);
+    useResizeObserver(setContainerRef, () => {
+        debouncedSymbolVisibilityManager();
+    });
+    
     const debouncedSetHeightFromContent = useMemo(() => {
         return debounce(setHeightFromContent, Constants.DEBOUNCETIMEOUT);
     }, [setHeightFromContent]);
 
     useEffect(() => {
-        contentToShow.forEach((s) => {
-            debouncedSymbolVisibilityManager(s);
-        });
-    }, [debouncedSymbolVisibilityManager, contentToShow]);
-    useResizeObserver(setContainerRef, () => {
-        contentToShow.forEach((s) => {
-            debouncedSymbolVisibilityManager(s);
-        });
-    });
+        debouncedSymbolVisibilityManager();
+        debouncedSetHeightFromContent(
+            contentToShow,
+            highlightedSymbols,
+            isExpandVAllTheWay
+        );
+        isMounted.current = true;
+        return () => {
+            debouncedSymbolVisibilityManager.cancel();
+            debouncedSetHeightFromContent.cancel();
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         if (isMounted.current) {
@@ -213,13 +225,13 @@ function NodeContent(props) {
                 highlightedSymbols,
                 isExpandVAllTheWay
             );
-        } else {
-            isMounted.current = true;
+            // isMounted.current = true;
         }
         return () => {
             debouncedSetHeightFromContent.cancel();
         };
     }, [
+        debouncedSymbolVisibilityManager,
         debouncedSetHeightFromContent,
         contentToShow,
         highlightedSymbols,
