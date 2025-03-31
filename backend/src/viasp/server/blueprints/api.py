@@ -398,7 +398,7 @@ def generate_clingraph(viz_encoding: str, engine: str, graphviz_type: str, encod
                 filename = uuid4().hex
                 if len(graphs) > 0:
                     render(graphs,
-                           format="png",
+                           format="svg",
                            directory=CLINGRAPH_PATH,
                            name_format=filename,
                            engine=engine)

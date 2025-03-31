@@ -34,7 +34,7 @@ export function Box(props) {
     );
     const colorPalette = useRecoilValue(colorPaletteState);
     const backendUrl = useRecoilValue(backendUrlState);
-    const clingraphUrl = `${backendUrl}/clingraph/${clingraphUuid}`;
+    const clingraphUrl = `${backendUrl}/clingraph/${clingraphUuid}.svg`;
     const [imageSize, setImageSize] = useState({width: 0, height: 0});
     const [showMini, setShowMini] = useRecoilState(
         nodeShowMiniByNodeUuidStateFamily(clingraphUuid)
@@ -80,6 +80,7 @@ export function Box(props) {
         return debounce(manageShowMini, Constants.DEBOUNCETIMEOUT);
     }, [manageShowMini]);
 
+
     useResizeObserver(contentDiv, debouncedManageShowMini);
     /* eslint-disable react-hooks/exhaustive-deps */
     useEffect(debouncedManageShowMini, [imageSize.width]);
@@ -109,6 +110,7 @@ export function Box(props) {
                         <div className={'loading'} style={imageSize}></div>
                     ) : (
                         <img
+                            className="svg"
                             src={clingraphUrl}
                             // width={`30px`}
                             alt="Clingraph"
