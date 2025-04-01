@@ -759,7 +759,7 @@ class ProgramReifier(DependencyCollector):
                 rule.body,
                 conditions=conditions,
             )
-            replace_anon_variables(conditions, self.get_conflict_free_variable_str)
+            replace_anon_variables(conditions, rule)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions, **kwargs)
 
@@ -790,7 +790,7 @@ class ProgramReifier(DependencyCollector):
             showTerm.body,
             conditions=conditions,
         )
-        replace_anon_variables(conditions, self.get_conflict_free_variable_str)
+        replace_anon_variables(cast(ASTSequence, conditions), showTerm)
         new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
             showTerm.location, showTerm.term, conditions, True, **kwargs)
 
@@ -864,7 +864,7 @@ class ProgramReifierForRecursions(ProgramReifier):
                 conditions=conditions,
             )
 
-            replace_anon_variables(conditions, self.get_conflict_free_variable_str)
+            replace_anon_variables(conditions, rule)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions, **kwargs)
 

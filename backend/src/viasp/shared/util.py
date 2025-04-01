@@ -72,6 +72,7 @@ def hash_transformation_rules(rules: Tuple[Any, ...]) -> str:
     return hash_object.hexdigest()
 
 def hash_string(string: str) -> str:
+    print(f"Hashing {string}", flush=True)
     return sha1(string.encode()).hexdigest()
 
 

@@ -93,7 +93,7 @@ class ProgramRelaxer(TermRelaxer):
 
             if self.collect_variables:
                 variables: List[AST] = []
-                replace_anon_variables(rule.body, self.get_conflict_free_variable_str)
+                replace_anon_variables(rule.body, rule)
                 _ = self.visit_sequence(rule.body, adder=variables.append)
                 variables = [v for i,v in enumerate(variables) if v not in variables[:i]]
                 args.append(Function(location, '', variables, 0))

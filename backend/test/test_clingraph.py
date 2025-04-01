@@ -80,9 +80,9 @@ def test_clingraph_children(encoding_id, unique_session, program):
     if "{b(X)}" in program:
         # program_simple and program_multiple_sorts
         assert len(clingraph_nodes) == 4
-        res = unique_session.get(f"/clingraph/{clingraph_nodes[0].uuid}")
+        res = unique_session.get(f"/clingraph/{clingraph_nodes[0].uuid}.svg")
         assert res.status_code == 200
-        assert res.content_type == 'image/png'
+        assert res.content_type == 'image/svg+xml; charset=utf-8'
     else:
         # program_recursive
         assert len(clingraph_nodes) == 0
@@ -116,9 +116,9 @@ def test_clingraph_image(encoding_id, unique_session, program):
     clingraph_nodes = current_app.json.loads(res.data)
 
     if "{b(X)}" in program:
-        res = unique_session.get(f"/clingraph/{clingraph_nodes[0].uuid}")
+        res = unique_session.get(f"/clingraph/{clingraph_nodes[0].uuid}.svg")
         assert res.status_code == 200
-        assert res.content_type == 'image/png'
+        assert res.content_type == 'image/svg+xml; charset=utf-8'
 
 
 @pytest.mark.parametrize("program", [

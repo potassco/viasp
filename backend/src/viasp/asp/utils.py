@@ -3,6 +3,7 @@ import networkx as nx
 from clingo import Symbol, ast
 from clingo.ast import ASTType, AST, Transformer, ASTSequence
 from typing import Callable, List, Sequence, Collection, Tuple, Dict, Set, FrozenSet, Optional
+import re
 
 from ..shared.simple_logging import warn
 from ..shared.model import Node, SymbolIdentifier, Transformation, RuleContainer
@@ -275,18 +276,45 @@ def filter_body_aggregates(element: AST):
 class VariableConflictResolver(Transformer):
 
     def __init__(self, *args, **kwargs):
-        self.get_conflict_free_variable_str = kwargs.get(
-            "get_conflict_free_variable_str", lambda x: x)
+        self.counter = 1
+        self.conflict_free_anon_str = kwargs.get("conflict_free_anon_str",
+                                                 "_A")
 
     def visit_Variable(self, variable: ast.Variable, **kwargs) -> None:  # type: ignore
         if variable.name == "_":
-            variable.name = self.get_conflict_free_variable_str(
-                f"ANON_{variable.location.begin.line}{variable.location.begin.column}_{variable.location.end.line}{variable.location.end.column}_"
-            )
+            variable.name = self.conflict_free_anon_str + str(self.counter)
+            self.counter += 1
         return variable.update(**self.visit_children(variable, **kwargs))
+
+class FindConflictFreeAnonVariableName(Transformer):
+
+    def __init__(self, *args, **kwargs):
+        self.names = set()
+
+    def visit_Variable(self, variable: ast.Variable, **kwargs) -> None:  # type: ignore
+        self.names.add(variable.name)
+        return variable.update(**self.visit_children(variable, **kwargs))
+
+    def get_conflict_free_anon_replacement(self) -> str:
+        """
+        Get a conflict free variable name.
+        """
+        sentinel = -1
+        for i in range(100):
+            name = "_"* i + "_A"
+            search = re.compile(fr"^{name}(\d+)$")
+            if next(filter(search.match, self.names), sentinel) is sentinel:
+                return name
+        raise ValueError("Could not find a conflict free variable name")
+
 
 def replace_anon_variables(
         literals: ASTSequence,
-        get_conflict_free_variable_str: Callable[[str], str]) -> None:
-    visitor = VariableConflictResolver(get_conflict_free_variable_str=get_conflict_free_variable_str)
+        context: AST) -> None:
+    name_finder = FindConflictFreeAnonVariableName()
+    name_finder.visit(context)
+    conflict_free_anon_str = name_finder.get_conflict_free_anon_replacement()
+
+    visitor = VariableConflictResolver(
+        conflict_free_anon_str=conflict_free_anon_str)
     visitor.visit_sequence(literals)
