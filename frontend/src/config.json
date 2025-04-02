@@ -10,6 +10,8 @@
     "opacityMultiplier": 0.8,
     "overflowButtonColorLightenFactor": 0.58,
     "overflowButtonArrowColorLightenFactor": 0.1,
+    "overflowButtonHeightInEm": 1.5,
+    "overflowButtonShowGradient": 1,
     "ruleHighlightDuration": 3000,
     "ruleHighlightFadeDuration": 1000,
     "searchResultHighlightDuration": 4500,
