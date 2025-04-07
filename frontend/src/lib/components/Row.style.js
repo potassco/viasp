@@ -30,8 +30,11 @@ export const RowRowDiv = styled.div`
     background: ${({$background}) => $background};
     overflow: hidden;
 
-
-    width: ${({$onlyOneNode, $scale}) => ($onlyOneNode ? 100 : $scale*100)}%;
-    transform: translateX(${({$onlyOneNode, $translation}) => ($onlyOneNode ? 0 : $translation)}px);
-    padding-bottom: ${({$isConstraintsOnly}) => ($isConstraintsOnly ? '2em' : '0')};
+    width: ${({$onlyOneNode, $scale}) => ($onlyOneNode ? 100 : $scale * 100)}%;
+    transform: translateX(
+        ${({$onlyOneNode, $translation}) => ($onlyOneNode ? 0 : $translation)}px
+    );
+    padding-bottom: ${({$isConstraintsOnly}) =>
+        $isConstraintsOnly ? '2em' : '1em'};
+    padding-top: ${() => Constants.RowRowPaddingTopInEm}em;
 `;

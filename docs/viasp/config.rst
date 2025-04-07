@@ -13,12 +13,15 @@ The configuration of constants used for sizing and animating the viASP graph is 
         // animation constants (in milliseconds)
         // smaller values make the graph more responsive,
         // but will cause performance loss
-        "DEBOUNCETIMEOUT": 150, 
+        "DEBOUNCETIMEOUT": 150,
         "SMALLERDEBOUNCETIMEOUT": 50,
         "isAnimatingTimeout": 500,
-        "rowAnimationIntervalInMs": 30,
-        "rowAnimationPickupThreshold": 0.01, // arbitrary units
+        "rowAnimationPickupThreshold": 0.01,
         "awaitingInputSpinnerSpeed": 0.3,
+        "ruleHighlightDuration": 3000,
+        "ruleHighlightFadeDuration": 1000,
+        "searchResultHighlightDuration": 4500,
+        "arrowsAppearTimeout": 500,
 
         // graph color change constants
         "hoverColorDarkenFactor": 0.08,
@@ -26,10 +29,6 @@ The configuration of constants used for sizing and animating the viASP graph is 
         "opacityMultiplier": 0.8,
         "overflowButtonColorLightenFactor": 0.58,
         "overflowButtonArrowColorLightenFactor": 0.1,
-        "ruleHighlightDuration": 3000,
-        "ruleHighlightFadeDuration": 1000,
-        "searchResultHighlightDuration": 4500,
-        "arrowsAppearTimeout": 500,
 
         // graph sizing constants (in em)
         "minimumNodeHeight": 2.5,
@@ -37,11 +36,13 @@ The configuration of constants used for sizing and animating the viASP graph is 
         "foldNodeThreshold": 0.7,
         "minSearchInputWidthInEm": 15,
         "maxSearchInputWidthInEm": 40,
-        "zoomBtnTranlsaltionDiff": 1,
+        "RowRowPaddingTopInEm": 1,
+        "RowRowPaddingBottomInEm": 1,
         "HOverflowThresholdInEm": 0.3,
         "HOverflowThresholdForRecursiveNodesInEm": 0.6, 
 
         // graph resizing / zooming constants
+        "zoomBtnTranslationDiff": 1,
         "overflowThreshold": 0.1,
         "zoomBtnDiff": 0.1,
 
