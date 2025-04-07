@@ -135,7 +135,6 @@ function NodeContent(props) {
                     isNodeInsignificantlyBiggerThanStandardNodeHeight
                 ) {
                     setIsExpandableV(false);
-                    setIsExpandVAllTheWay(false);
                     setIsCollapsibleV(false)
                     return lowestSymbolHeight;
                 }
@@ -192,7 +191,7 @@ function NodeContent(props) {
             };
             setHeight(getNewHeight());
         },
-        [setHeight, setIsExpandableV, setIsCollapsibleV, setIsExpandVAllTheWay, symbolHeightForAllSymbols
+        [setHeight, setIsExpandableV, setIsCollapsibleV,  symbolHeightForAllSymbols
         ]
     );
 
