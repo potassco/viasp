@@ -103,7 +103,7 @@ export function Symbol(props) {
     const handleDoubleClickOnSymbol = async (e) => {
         const rect = symbolElementRef.current.getBoundingClientRect();
         setModalPosition({top: rect.top, left: rect.left + rect.width});
-        setModalForSymbol({sourceId: symbolUuid, nodeId: nodeUuid});
+        setModalForSymbol({sourceId: symbolUuid, nodeId: nodeUuid, repr: symbol_repr});
     }
 
     const doubleClickTimer = useRef()

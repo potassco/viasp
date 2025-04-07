@@ -27,7 +27,7 @@ const ModalDiv = styled.div`
 
     position: absolute;
     background-color: white;
-    border: 1pt solid;
+    border: 3pt solid;
     border-radius: 0.7em;
     padding: 10px;
     z-index: 1000;
@@ -62,23 +62,23 @@ const StyledList = styled.ul`
 const StyledListItem = styled.li`
     background-color: ${({$colorPalette}) => $colorPalette.light};
     color: ${({$colorPalette}) => $colorPalette.dark};
-    border: 1px solid ${({$colorPalette}) => $colorPalette.primary};
-    border-radius: 0.5em;
     padding: 5px;
     margin: 5px 0;
-    
-    box-shadow: 0 0 0.14em #333;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+`;
 
-    &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
+const ModalHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: .8em;
+    font-weight: bold;
 `;
 
 function ModalContent() {
     const colorPalette = useRecoilValue(colorPaletteState);
     const modalContent = useRecoilValue(modalContentState);
+    const originSymbol = useRecoilValue(modalForSymbolState);
 
     if (modalContent?.loading) {
         return (
@@ -103,7 +103,14 @@ function ModalContent() {
         </StyledListItem>
     ));
 
-    return <StyledList>{contentToShow}</StyledList>;
+    return (
+        <div className="modalContent">
+            <ModalHeader className="modalHeader txt-elem">{originSymbol.repr}</ModalHeader>
+            <StyledList className="modalContent txt-elem">
+                {contentToShow}
+            </StyledList>
+        </div>
+    );
 }
 
 ModalContent.propTypes = {
@@ -124,9 +131,13 @@ export function Modal() {
     };
 
     return !modalVisible ? null : (
-        <Draggable handle=".dragIndicator">
-            <ModalDiv $position={adjustedPosition} $colorPalette={colorPalette}>
-                <DragHandle handleName={'dragIndicator'} />
+        <Draggable handle=".modalDiv" cancel='.modalContent'>
+            <ModalDiv 
+                className='modalDiv'
+                $position={adjustedPosition}
+                $colorPalette={colorPalette} 
+
+            >
                 <CloseButton onClose={resetModal} />
                 <ModalContent />
             </ModalDiv>
