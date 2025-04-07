@@ -27,6 +27,20 @@ const BoxDiv = styled.div`
     }
 `;
 
+const MiniBoxSpan = styled.span`
+    background-color: ${({$colorPalette}) => $colorPalette.primary};
+    color: ${({$colorPalette}) => $colorPalette.primary};
+    border-radius: 1px 1px 1px 1px;
+    border: 2px solid;
+    position: relative;
+
+    &:hover {
+        transition: drop-shadow 0.1s;
+        filter: drop-shadow(0 0 0.14em #333);
+    }
+`;
+
+
 export function Box(props) {
     const {clingraphUuid, branchSpace} = props;
     const clingraphAtom = useRecoilValue(
@@ -92,13 +106,13 @@ export function Box(props) {
             $colorPalette={colorPalette}
         >
             {showMini ? (
-                <div
-                    style={{
-                        backgroundColor: colorPalette.primary,
-                        color: colorPalette.primary,
-                    }}
-                    className="mini"
-                />
+                <a
+                    href={clingraphUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <MiniBoxSpan className="mini box" $colorPalette={colorPalette}/>
+                </a>
             ) : (
                 <div
                     style={{
