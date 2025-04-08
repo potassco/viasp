@@ -79,7 +79,6 @@ function NodeContent(props) {
     const [isExpandVAllTheWay, setIsExpandVAllTheWay] = useRecoilState(
         nodeIsExpandVAllTheWayByNodeUuidStateFamily(nodeUuid)
     );
-    const symbolYPosition = useRef({});
     const setLongestSymbol = useSetRecoilState(
         longestSymbolInNodeByNodeUuidStateFamily(nodeUuid)
     );
@@ -87,43 +86,52 @@ function NodeContent(props) {
 
     const isMounted = useRef(false);
     const setContainerRef = useRef(null);
+    const lastWidthRef = useRef(0);
+    const lastSymbolHeightRef = useRef({});
 
     /*
-     * Y     of symbols in node
+     * Y of symbols in node
      */
-    const symbolVisibilityManager = useCallback(
-        (symbolUuid) => {
-            const childElement = setContainerRef.current?.querySelector(
-                `div[data-uuid="${symbolUuid}"]`
-            );
+    const getSymbolHeight = useCallback((symbolUuid) => {
+        const childElement = setContainerRef.current?.querySelector(
+            `div[data-uuid="${symbolUuid}"]`
+        );
 
-            const parentElement = parentRef.current;
+        const parentElement = parentRef.current;
 
-            if (!childElement || !parentElement) {
-                return;
-            }
-            const childRect = childElement.getBoundingClientRect();
-            const parentRect = parentElement.getBoundingClientRect();
-            const belowLineMargin = 6;
-            symbolYPosition.current = {
-                ...symbolYPosition.current,
-                [symbolUuid]: childRect.top + childRect.height - parentRect.top + belowLineMargin,
-            };
-        },
-        [parentRef]
-    );
-    const debouncedSymbolVisibilityManager = useMemo(() => {
-        return debounce(() => {
-            contentSymbols.map((s) => symbolVisibilityManager(s.symbol_uuid));
-        }, Constants.DEBOUNCETIMEOUT);
-    }, [symbolVisibilityManager, contentSymbols]);
+        if (!childElement || !parentElement) {
+            return 0;
+        }
+        const childRect = childElement.getBoundingClientRect();
+        const parentRect = parentElement.getBoundingClientRect();
+        const belowLineMargin = 6;
+        return childRect.top +
+                childRect.height -
+                parentRect.top +
+                belowLineMargin;
+    }, [parentRef]);
+
+    const symbolHeightForAllSymbols = useCallback((symbols) => {
+        const currentWidth = setContainerRef.current?.offsetWidth;
+        if (currentWidth === lastWidthRef.current) {
+            return lastSymbolHeightRef.current;
+        }
+        lastWidthRef.current = currentWidth;
+        const symbolYPositions = {};
+        symbols.forEach((s) => {
+            symbolYPositions[s] = getSymbolHeight(s);
+        });
+        lastSymbolHeightRef.current = symbolYPositions;
+        return symbolYPositions;
+    }, [getSymbolHeight]);
 
     const setHeightFromContent = useCallback(
         (contentToShow, highlightedSymbols, isExpandVAllTheWay) => {
             const getNewHeight = () => {
+                const symbolYPositions = symbolHeightForAllSymbols(contentToShow);
                 const lowestSymbolHeight = Math.max(
                     emToPixel(Constants.minimumNodeHeight),
-                    ...contentToShow.map((s) => symbolYPosition.current[s.symbol_uuid])
+                    ...contentToShow.map((s) => symbolYPositions[s])
                 );
                 const isNodeInsignificantlyBiggerThanStandardNodeHeight =
                     lowestSymbolHeight * Constants.foldNodeThreshold <
@@ -132,7 +140,6 @@ function NodeContent(props) {
                     isNodeInsignificantlyBiggerThanStandardNodeHeight
                 ) {
                     setIsExpandableV(false);
-                    setIsExpandVAllTheWay(false);
                     setIsCollapsibleV(false)
                     return lowestSymbolHeight;
                 }
@@ -152,7 +159,7 @@ function NodeContent(props) {
                     any(
                         markedItems.map(
                             (item) =>
-                                symbolYPosition.current[item] >
+                                symbolYPositions[item] >
                                 emToPixel(Constants.standardNodeHeight)
                         )
                     )
@@ -160,8 +167,8 @@ function NodeContent(props) {
                     const newHeight = Math.max(
                         emToPixel(Constants.minimumNodeHeight),
                         ...contentToShow
-                            .filter((s) => markedItems.includes(s.symbol_uuid))
-                            .map((s) => symbolYPosition.current[s.symbol_uuid])
+                            .filter((s) => markedItems.includes(s))
+                            .map((s) => symbolYPositions[s])
                     );
                     const isNodeInsignificantlyBiggerThanMaxNodeHeight =
                         newHeight * Constants.foldNodeThreshold >
@@ -178,8 +185,8 @@ function NodeContent(props) {
                     Math.max(
                         emToPixel(Constants.minimumNodeHeight),
                         ...contentToShow.map((s) =>
-                            symbolYPosition.current[s.symbol_uuid]
-                                ? symbolYPosition.current[s.symbol_uuid]
+                            symbolYPositions[s]
+                                ? symbolYPositions[s]
                                 : 0
                         )
                     )
@@ -189,34 +196,13 @@ function NodeContent(props) {
             };
             setHeight(getNewHeight());
         },
-        [setHeight, setIsExpandableV, setIsCollapsibleV, setIsExpandVAllTheWay]
+        [setHeight, setIsExpandableV, setIsCollapsibleV,  symbolHeightForAllSymbols
+        ]
     );
 
-    useEffect(() => {
-        debouncedSymbolVisibilityManager();
-    }, [debouncedSymbolVisibilityManager]);
-    useResizeObserver(setContainerRef, () => {
-        debouncedSymbolVisibilityManager();
-    });
-    
     const debouncedSetHeightFromContent = useMemo(() => {
         return debounce(setHeightFromContent, Constants.DEBOUNCETIMEOUT);
     }, [setHeightFromContent]);
-
-    useEffect(() => {
-        debouncedSymbolVisibilityManager();
-        debouncedSetHeightFromContent(
-            contentSymbols,
-            highlightedSymbols,
-            isExpandVAllTheWay
-        );
-        isMounted.current = true;
-        return () => {
-            debouncedSymbolVisibilityManager.cancel();
-            debouncedSetHeightFromContent.cancel();
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     useEffect(() => {
         if (isMounted.current) {
@@ -225,13 +211,13 @@ function NodeContent(props) {
                 highlightedSymbols,
                 isExpandVAllTheWay
             );
-            // isMounted.current = true;
+        } else {
+            isMounted.current = true;
         }
         return () => {
             debouncedSetHeightFromContent.cancel();
         };
     }, [
-        debouncedSymbolVisibilityManager,
         debouncedSetHeightFromContent,
         contentSymbols,
         highlightedSymbols,

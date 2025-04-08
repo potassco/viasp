@@ -6,6 +6,7 @@ from viasp.server import startup
 
 enable_python()
 
+session_id = ""
 class App(Application):
 
     def main(self, ctl, files):
@@ -26,10 +27,12 @@ class App(Application):
                         engine="dot",
                         graphviz_type="digraph")
         viasp.show()
+        global session_id
+        session_id = viasp.get_session_id()
 
 
 app = startup.run()
 
 if __name__ == "__main__":
     clingo_main(App(), sys.argv[1:])
-    app.run_server()
+    app.run(session_id)

@@ -80,7 +80,8 @@ def server():
     app = startup.run(host=host,
                       port=port,
                       front_host=front_host,
-                      front_port=front_port)
+                      front_port=front_port,
+                      do_wait_for_server_ready=False)
     app.wait_for_backend_server_running()
     viasp.api.load_program_string("a.", viasp_backend_url=backend_url)
     # use ViaspRunner to manage shutdown
@@ -310,10 +311,6 @@ class ViaspArgumentParser:
                                    action='store_true',
                                    default=False,
                                    help=_("RELAXER_COLLECT_VARIABLE_NAME_HELP"))
-        relaxer_group.add_argument('--relaxer-opt-mode',
-                                    metavar='<mode>',
-                                    type=self.__do_opt_mode,
-                                    help=_("RELAXER_OPT_MODE_HELP"))
 
         options, unknown = cmd_parser.parse_known_args(args=args)
         options = vars(options)
@@ -364,10 +361,6 @@ class ViaspArgumentParser:
 
         options['opt_mode_str'] = f"--opt-mode={opt_mode}" + (
             f",{','.join(bounds)}" if len(bounds) > 0 else "")
-        relaxer_opt_mode, relaxer_bounds = options.get("relaxer_opt_mode") or (
-            'opt', [])
-        options['relaxer_opt_mode_str'] = f"--opt-mode={relaxer_opt_mode}" + (
-            f",{','.join(relaxer_bounds)}" if len(relaxer_bounds) > 0 else "")
         if options['max_models'] == None:
             options['max_models'] = 1
 
@@ -384,22 +377,12 @@ class ViaspArgumentParser:
 class ViaspRunner():
 
     def __init__(self):
-        self._should_run_relaxation: bool = False
         self.backend_url: str = ""
-        signal.signal(signal.SIGINT, self.signal_handler)
-
-    def signal_handler(self, sig, frame):
-        self.deregister_session()
-        sys.exit(0)
 
     def run(self, args):
         try:
             self.run_wild(args)
         except Exception as e:
-            try:
-                self.signal_handler(None, None)
-            except:
-                pass
             error(_("ERROR").format(e))
             error(_("ERROR_INFO"))
             sys.exit(1)
@@ -500,16 +483,16 @@ class ViaspRunner():
         return models_to_mark
 
     def run_relaxer(self, encoding_files, options, head_name,
-                    no_collect_variables, relaxer_opt_mode_str, clingo_options, stdin_is_json):
+                    no_collect_variables, clingo_options, stdin_is_json):
         info(_("SWITCH_TO_TRANSFORMED_VISUALIZATION"))
-        # options['max_models'] = 0
         relaxed_program = self.relax_program(encoding_files, options['stdin'],
                                              head_name, no_collect_variables,
                                              options['constants'], stdin_is_json)
 
         ctl_options = [
             '--models',
-            str(options['max_models']), relaxer_opt_mode_str
+            str(options['max_models']),
+            options['opt_mode_str'],
         ]
         for k, v in options['constants'].items():
             ctl_options.extend(["--const", f"{k}={v}"])
@@ -520,7 +503,8 @@ class ViaspRunner():
 
         plain("Solving...")
         models = self.run_with_clingo(ctl, True,
-                                      options['max_models'], relaxer_opt_mode_str)
+                                      options['max_models'],
+                                      options['opt_mode_str'])
         viasp.api.add_program_string(relaxed_program,
                                      viasp_backend_url=self.backend_url)
         if len(models) == 0:
@@ -612,13 +596,6 @@ class ViaspRunner():
                                                      constants, stdin_is_json)
         return relaxed_program
 
-    def deregister_session(self):
-        remaining_sessions = viasp.api.deregister_session(
-            viasp_backend_url=self.backend_url)
-        if remaining_sessions == 0:
-            self.shutdown_server()
-            self.shutdown_frontend_server()
-
     def shutdown_server(self):
         from viasp.server.startup import LOG_FILE
 
@@ -672,7 +649,6 @@ class ViaspRunner():
         head_name = options.get("head_name", "unsat")
         no_collect_variables = options.get("no_collect_variables", False)
         select_model = options.get("select_model", None)
-        relax_opt_mode_str = options.get("relaxer_opt_mode_str", None)
 
         # print clingo help
         if options['clingo_help'] > 0:
@@ -684,17 +660,17 @@ class ViaspRunner():
         if options['print_relax']:
             app = startup.run(host=host, port=port, front_host=frontend_host,
                               front_port=frontend_port)
-            app.wait_for_backend_server_running()
             relaxed_program = self.relax_program_quietly(
                 encoding_files, options['stdin'], head_name,
                 no_collect_variables, options['constants'], stdin_is_json)
             plain(relaxed_program)
-            self.deregister_session()
+            app.deregister_session()
             sys.exit(0)
 
         if options['reset']:
-            self.shutdown_server()
-            self.shutdown_frontend_server()
+            app = startup.ViaspServerLauncher()
+            app.shutdown_server()
+            app.shutdown_frontend_server()
             sys.exit(0)
 
         # prologue
@@ -702,12 +678,18 @@ class ViaspRunner():
         for i in file_warnings:
             warn(_("WARNING_INCLUDED_FILE").format(i))
 
-        app = startup.run(host=host, port=port, front_host=frontend_host, front_port=frontend_port)
+        app = startup.run(host=host, 
+                          port=port, 
+                          front_host=frontend_host, 
+                          front_port=frontend_port, 
+                          do_wait_for_server_ready=False)
         if not relax:
-            models = self.print_and_get_stable_models(clingo_options, options,
-                                                    encoding_files,
-                                                    model_from_json, relax,
-                                                    select_model)
+            models = self.print_and_get_stable_models(clingo_options, 
+                options,
+                encoding_files,
+                model_from_json, 
+                relax,
+                select_model)
         app.wait_for_backend_server_running()
         viasp.api.set_config(
             show_all_derived = options.get("show_all_derived", False),
@@ -715,7 +697,7 @@ class ViaspRunner():
             viasp_backend_url=self.backend_url)
         if relax:
             self.run_relaxer(encoding_files, options, head_name,
-                             no_collect_variables, relax_opt_mode_str,
+                             no_collect_variables,
                              clingo_options, stdin_is_json)
         else:
             self.run_viasp(encoding_files, models, options)

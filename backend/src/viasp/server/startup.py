@@ -15,11 +15,16 @@ import time
 import webbrowser
 from subprocess import Popen, DEVNULL
 from retrying import retry
+import signal
+import shutil
+from contextlib import suppress
+
 
 from dash import Dash, jupyter_dash
 from dash._jupyter import _jupyter_config
 
 from viasp import clingoApiClient
+from viasp.api import deregister_session
 from viasp.shared.simple_logging import error, warn, plain, info
 from viasp.shared.defaults import DEFAULT_BACKEND_URL, _
 from viasp.shared.defaults import (DEFAULT_BACKEND_HOST,
@@ -28,14 +33,19 @@ from viasp.shared.defaults import (DEFAULT_BACKEND_HOST,
                                    DEFAULT_FRONTEND_HOST,
                                    DEFAULT_FRONTEND_PORT,
                                    SERVER_PID_FILE_PATH,
-                                   FRONTEND_PID_FILE_PATH)
+                                   FRONTEND_PID_FILE_PATH,
+                                   CLINGRAPH_PATH,
+                                   GRAPH_PATH,
+                                   PROGRAM_STORAGE_PATH,
+                                   STDIN_TMP_STORAGE_PATH)
 
 LOG_FILE = None
 
 def run(host=DEFAULT_BACKEND_HOST,
         port=DEFAULT_BACKEND_PORT,
         front_host=DEFAULT_FRONTEND_HOST,
-        front_port=DEFAULT_FRONTEND_PORT):
+        front_port=DEFAULT_FRONTEND_PORT,
+        do_wait_for_server_ready=True):
     """ create the dash app, set layout and start the backend on host:port """
     # if running in binder, get proxy information
     # and set the backend URL, which will be used
@@ -58,6 +68,8 @@ def run(host=DEFAULT_BACKEND_HOST,
 
     app = ViaspServerLauncher(backend_url, host, port, front_host, front_port)
     app.start_backend_server()
+    if do_wait_for_server_ready:
+        app.wait_for_backend_server_running()
     app.start_serving_frontend_files()
     return app
 
@@ -78,6 +90,43 @@ class ViaspServerLauncher:
         self.frontend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{front_host}:{front_port}"
         self.backend_server_process = None
         self.frontend_server_process = None
+        self.session_id = None
+        signal.signal(signal.SIGINT, self.signal_handler)
+
+    def signal_handler(self, sig, frame):
+        self.deregister_session()
+        sys.exit(0)
+
+    def deregister_session(self):
+        remaining_sessions = deregister_session(
+            self.session_id, viasp_backend_url=self.backend_url)
+        if remaining_sessions == 0:
+            self.shutdown_server()
+            self.shutdown_frontend_server()
+
+    def shutdown_server(self):
+        if os.path.exists(SERVER_PID_FILE_PATH):
+            with open(SERVER_PID_FILE_PATH, "r") as pid_file:
+                pid = int(pid_file.read().strip())
+                with suppress(ProcessLookupError):
+                    os.kill(pid, signal.SIGTERM)
+            os.remove(SERVER_PID_FILE_PATH)
+        if LOG_FILE is not None and not LOG_FILE.closed:
+            LOG_FILE.close()
+
+        if os.path.exists(CLINGRAPH_PATH):
+            shutil.rmtree(CLINGRAPH_PATH)
+        for file in [GRAPH_PATH, PROGRAM_STORAGE_PATH, STDIN_TMP_STORAGE_PATH]:
+            if os.path.exists(file):
+                os.remove(file)
+
+    def shutdown_frontend_server(self):
+        if os.path.exists(FRONTEND_PID_FILE_PATH):
+            with open(FRONTEND_PID_FILE_PATH, "r") as pid_file:
+                pid = int(pid_file.read().strip())
+                with suppress(ProcessLookupError):
+                    os.kill(pid, signal.SIGTERM)
+            os.remove(FRONTEND_PID_FILE_PATH)
 
     def start_backend_server(self):
         if not clingoApiClient.server_is_running(self.backend_url):
@@ -85,7 +134,8 @@ class ViaspServerLauncher:
             if env == "production":
                 command = [
                     "waitress-serve", "--host", self.backend_host, "--port",
-                    str(self.backend_port), "--call", "viasp.server.factory:create_app"
+                    str(self.backend_port), "--call",
+                    "viasp.server.factory:create_app"
                 ]
             else:
                 command = [
@@ -95,9 +145,9 @@ class ViaspServerLauncher:
             global LOG_FILE
             LOG_FILE = open('viasp.log', 'w', encoding="utf-8")
             self.backend_server_process = Popen(command,
-                                        preexec_fn=os.setsid,
-                                        stdout=LOG_FILE,
-                                        stderr=LOG_FILE)
+                                                preexec_fn=os.setsid,
+                                                stdout=LOG_FILE,
+                                                stderr=LOG_FILE)
             with open(SERVER_PID_FILE_PATH, "w") as pid_file:
                 pid_file.write(str(self.backend_server_process.pid))
 
@@ -117,7 +167,8 @@ class ViaspServerLauncher:
                 os.environ['BACKEND_URL'] = self.backend_url
                 command = [
                     "waitress-serve", "--host", self.frontend_host, "--port",
-                    str(self.frontend_port), "--call", "viasp_dash.react_server:create_app"
+                    str(self.frontend_port), "--call",
+                    "viasp_dash.react_server:create_app"
                 ]
             else:
                 command = [
@@ -133,6 +184,7 @@ class ViaspServerLauncher:
                 pid_file.write(str(self.frontend_server_process.pid))
 
     def run(self, session_id, open_browser=True):
+        self.session_id = session_id
         if session_id == "":
             frontend_url_with_session_id = self.frontend_url
         else:

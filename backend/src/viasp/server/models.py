@@ -164,7 +164,7 @@ class Transformers(Base):
 
     encoding_id: Mapped[str] = mapped_column(ForeignKey("encodings_table.encoding_id"),
                                              primary_key=True)
-    transformer: Mapped[bytes]
+    transformer: Mapped[str]
 
 class Constants(Base):
     __tablename__ = "constants_table"

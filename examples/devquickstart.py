@@ -9,20 +9,18 @@ from subprocess import Popen
 from time import time, sleep
 from viasp import clingoApiClient
 from viasp.shared.defaults import (DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT,
-                                   DEFAULT_BACKEND_PROTOCOL, CLINGRAPH_PATH,
-                                   DEFAULT_FRONTEND_PORT, GRAPH_PATH,
-                                   PROGRAM_STORAGE_PATH,
+                                   DEFAULT_BACKEND_PROTOCOL, CLINGRAPH_PATH, DEFAULT_FRONTEND_PORT,
+                                   GRAPH_PATH, PROGRAM_STORAGE_PATH,
                                    STDIN_TMP_STORAGE_PATH)
 
 enable_python()
 
 session_id = ''
 
-
 def main():
     options = [
         '0',
-    ]
+        ]
 
     ctl = Control(options, viasp_backend_url="http://localhost:5050")
     for path in sys.argv[1:]:

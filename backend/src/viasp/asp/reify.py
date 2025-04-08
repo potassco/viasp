@@ -148,7 +148,7 @@ class DependencyCollector(Transformer):
             **kwargs: Any) -> AST:
         deps = kwargs.get("deps", {})
         in_head = kwargs.get("in_head", False)
-        in_aggregate = kwargs.get("in_aggregate", False)
+        halt_collection = kwargs.get("halt_collection", False)
         in_analyzer = kwargs.get("in_analyzer", False)
         conditions: List[AST] = kwargs.get("conditions", [])
 
@@ -157,10 +157,9 @@ class DependencyCollector(Transformer):
             deps[conditional_literal.literal] = ([], [])
             for condition in conditional_literal.condition:
                 deps[conditional_literal.literal][0].append(condition)
-        if (not in_aggregate and not in_analyzer):
+        if (not halt_collection and not in_analyzer):
             # add simple Cond.Literals from rule body to justifier rule body
             conditions.append(conditional_literal)
-        kwargs.update({"in_aggregate": True})
         return conditional_literal.update(
             **self.visit_children(conditional_literal, **kwargs))
 
@@ -170,31 +169,35 @@ class DependencyCollector(Transformer):
             **kwargs: Any) -> AST:
         conditions: List[AST] = kwargs.get("conditions", [])
         positive_conditions: List[AST] = kwargs.get("positive_conditions", [])
-        in_aggregate = kwargs.get("in_aggregate", False)
+        halt_collection = kwargs.get("halt_collection", False)
 
         if (self.in_analyzer
                 and literal.atom.ast_type not in self.compound_atoms_types):
             # all non-compound Literals in the rule body are conditions of the rule
             conditions.append(literal)
-            if literal.sign == ast.Sign.NoSign and not in_aggregate:
+            if literal.sign == ast.Sign.NoSign and not halt_collection:
                 positive_conditions.append(literal)
-        if (not self.in_analyzer and not in_aggregate):
+        if (not self.in_analyzer and not halt_collection):
             # add all Literals outside of aggregates from rule body to justifier rule body
             conditions.append(literal)
+        if not self.in_analyzer:
+            kwargs.update({"halt_collection": True})
         return literal.update(**self.visit_children(literal, **kwargs))
 
     def visit_Aggregate(
             self,
             aggregate: ast.Aggregate,  # type: ignore
             **kwargs: Any) -> AST:
-        kwargs.update({"in_aggregate": True})
+        if not self.in_analyzer:
+            kwargs.update({"halt_collection": True})
         return aggregate.update(**self.visit_children(aggregate, **kwargs))
 
     def visit_BodyAggregate(
             self,
             body_aggregate: ast.BodyAggregate,  # type: ignore
             **kwargs: Any) -> AST:
-        kwargs.update({"in_aggregate": True})
+        if not self.in_analyzer:
+            kwargs.update({"halt_collection": True})
         return body_aggregate.update(
             **self.visit_children(body_aggregate, **kwargs))
 
@@ -658,7 +661,7 @@ class ProgramReifier(DependencyCollector):
         self.get_conflict_free_variable_str = get_conflict_free_variable_str
         self.clear_temp_names = clear_temp_names
         self.conflict_free_showTerm = conflict_free_showTerm_str
-        super().__init__(in_analyzer=False, get_conflict_free_variable_str=get_conflict_free_variable_str)
+        super().__init__(in_analyzer=False)
 
     def make_component_lit(self, loc: ast.Location) -> ast.Literal:  # type: ignore
         loc_fun = ast.Function(loc, str(self.component_nr), [], False)
@@ -768,7 +771,7 @@ class ProgramReifier(DependencyCollector):
                 rule.body,
                 conditions=conditions,
             )
-            replace_anon_variables(conditions, self.get_conflict_free_variable_str)
+            replace_anon_variables(conditions, rule)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions, **kwargs)
 
@@ -799,7 +802,7 @@ class ProgramReifier(DependencyCollector):
             showTerm.body,
             conditions=conditions,
         )
-        replace_anon_variables(conditions, self.get_conflict_free_variable_str)
+        replace_anon_variables(cast(ASTSequence, conditions), showTerm)
         new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
             showTerm.location, showTerm.term, conditions, True, **kwargs)
 
@@ -873,7 +876,7 @@ class ProgramReifierForRecursions(ProgramReifier):
                 conditions=conditions,
             )
 
-            replace_anon_variables(conditions, self.get_conflict_free_variable_str)
+            replace_anon_variables(conditions, rule)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions, **kwargs)
 

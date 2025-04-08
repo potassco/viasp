@@ -73,7 +73,6 @@
     "RELAXER_GROUP_HELP": "Options for the relaxation of integrity constraints in unsatisfiable programs.",
     "RELAXER_HEAD_NAME_HELP": "\t: The name of the head predicate",
     "RELAXER_COLLECT_VARIABLE_NAME_HELP": "\t: Do not collect variables from body as a tuple in the head literal",
-    "RELAXER_OPT_MODE_HELP": "\t: Clingo optimization mode for the relaxed program",
     "WARN_UNSATISFIABLE_STRING": "The input program is unsatisfiable. To visualize the relaxed program use:\n    Options for the relaxation of integrity constraints in unsatisfiable programs.\n        --print-relax:      Use the relaxer and output the transformed program\n        --relax      : Use the relaxer and visualize the transformed program",
     "READING_FROM_PROLOGUE": "Reading from {}",
     "WARN_NO_STABLE_MODEL": "The relaxed program has no stable models.",

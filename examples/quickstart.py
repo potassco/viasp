@@ -2,6 +2,7 @@ import sys
 from viasp import Control
 from viasp.server import startup
 
+session_id = ""
 
 def main():
     options = ['0']
@@ -22,11 +23,11 @@ def main():
     ctl.viasp.clingraph(viz_encoding="viz_hamiltonian.lp",
                         engine="dot",
                         graphviz_type="graph")
-
-
+    global session_id
+    session_id = ctl.viasp.get_session_id()
 
 app = startup.run()
 
 if __name__ == '__main__':
     main()
-    app.run_server()
+    app.run(session_id)

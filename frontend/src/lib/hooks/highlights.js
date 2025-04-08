@@ -34,10 +34,19 @@ export const setReasonHighlightsCallback =
             allHighlightedSymbolsState
         );
         const colorPalette = await snapshot.getPromise(colorPaletteState);
-        const nextColor = getNextColor(
-            previousHighlights,
-            colorPalette.explanationHighlights
-        );
+
+        const reasonInPreviousHighlights = previousHighlights.filter((h) => {
+            return (
+                h.symbolUuid === symbolUuid &&
+                h.origin === "query"
+            )
+        });
+        const nextColor = reasonInPreviousHighlights.length > 0 
+            ? reasonInPreviousHighlights[0].color
+            : getNextColor(
+                previousHighlights,
+                colorPalette.explanationHighlights
+            );
 
         const oldValue = await snapshot.getPromise(symbolReasonHighlightsState);
         // symbol Highlights
@@ -257,7 +266,16 @@ export const handleSearchResultSuggestionsCallback =
                 selectedBranchState
             );
             const colorPalette = await snapshot.getPromise(colorPaletteState);
-            const nextColor = getNextColor(
+            const searchResultHighlightIsReasonHighlight =
+                SymbolReasonHighlights.filter(
+                    (h) =>
+                        h.symbolUuid === newValue.includes[selectedBranch] &&
+                        h.origin === newValue.includes[selectedBranch]
+                );
+
+            const nextColor = searchResultHighlightIsReasonHighlight.length > 0
+                ? searchResultHighlightIsReasonHighlight[0].color
+                : getNextColor(
                 SymbolReasonHighlights,
                 colorPalette.explanationHighlights
             );

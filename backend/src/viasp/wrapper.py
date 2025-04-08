@@ -123,8 +123,8 @@ class ShowConnector:
     def get_session_id(self):
         return self._database.get_session_id()
 
-    def deregister_session(self):
-        return self._database.deregister_session()
+    def deregister_session(self, session_id):
+        return self._database.deregister_session(session_id)
 
     def show_all_derived(self, show, color_theme):
         self._database.show_all_derived(show, color_theme)

@@ -74,7 +74,8 @@ export const doKeyZoomTranslateCallback = ({snapshot, set}) => async(dir) => {
     const contentDivRef = await snapshot.getPromise(contentDivState);
     const translationBounds = calculateTranslationBounds(mapShift, contentDivRef);
     const newXShiftValue =
-        mapShift.translation.x + emToPixel(Constants.zoomBtnTranlsaltionDiff) * dir;
+        mapShift.translation.x +
+        emToPixel(Constants.zoomBtnTranslationDiff) * dir;
 
     if (newXShiftValue < translationBounds.translation.xMin) {
         return;

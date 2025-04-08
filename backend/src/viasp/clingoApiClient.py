@@ -162,8 +162,13 @@ class ClingoClient(ViaspClient):
             error(_("GET_SESSION_ID_FAILED").format(r.status_code, r.reason))
             return None
 
-    def deregister_session(self):
-        r = self.session.post(f"{self.backend_url}/control/deregister_session")
+    def deregister_session(self, session_id):
+        r = self.session.post(f"{self.backend_url}/control/deregister_session",
+                              data = json.dumps({
+                                  "session_id": session_id
+                              }),
+                              headers={'Content-Type': 'application/json'})
+
         if r.ok:
             info(_("DEREGISTER_SESSION_SUCCESS"))
             return r.json()

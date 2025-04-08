@@ -18,34 +18,14 @@ import {
 import { colorPaletteState } from '../atoms/settingsState';
 
 const BauchbindeDiv = styled.div`
-    @property --gradPoint {
-        syntax: '<percentage>';
-        inherits: false;
-        initial-value: 100%;
-    }
-    @property --color1 {
-        syntax: '<color>';
-        inherits: false;
-        initial-value: ${(props) => props.$gradientColor1};
-    }
-    @property --color2 {
-        syntax: '<color>';
-        inherits: false;
-        initial-value: ${(props) => props.$gradientColor2};
-    }
-
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(
-        var(--color1) var(--gradPoint),
-        var(--color2) calc(var(--gradPoint) + 100%)
-    );
-    height: 1.1em;
-    transition: --gradPoint 500ms;
-    ${(props) =>
-        props.$showButton ? `--gradPoint: 0%;` : `--gradPoint: 100%;`}
-
+    background: ${(props) => Constants.overflowButtonShowGradient ? 
+        `linear-gradient(
+            ${props.$gradientColor1} 0%,
+            ${props.$gradientColor2} 100%
+        )` : `none`};
+    height: ${(props) => props.$showButton ? `${Constants.overflowButtonHeightInEm}em` : '0'};
+    transition: height 500ms ease;
+    transition-delay: 50ms;
 `;
 
 
@@ -136,7 +116,7 @@ export function OverflowButton(props) {
                                     ? 'rotate_icon'
                                     : ''
                             }
-                            height={'1.2em'}
+                            height={`${Constants.overflowButtonHeightInEm}em`}
                             color={arrowColor}
                         />
                     </Suspense>

@@ -201,11 +201,17 @@ def test_showTerm_transformed_correctly_2():
 
 def test_anon_replaced_correctly():
     rule = 'a(X) :- b(X,_); X = (Y,_); d(Y).'
-    expected = f'h(1, "{hash_string(rule)}", a(X), (d(Y),b(X,ANON_113_114_))) :- a(X), b(X,ANON_113_114_), X=(Y,ANON_124_125_), d(Y).'
+    expected = f'h(1, "{hash_string(rule)}", a(X), (d(Y),b(X,_A1))) :- a(X), b(X,_A1), X=(Y,_A2), d(Y).'
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_anon_replaced_correctly_2():
     rule = 'a(X) :- b(X,_); X = (Y,_); d(Y,(_,X)).'
-    expected = f'h(1, "{hash_string(rule)}", a(X), (d(Y,(ANON_133_134_,X)),b(X,ANON_113_114_))) :- a(X), b(X,ANON_113_114_), X=(Y,ANON_124_125_), d(Y,(ANON_133_134_,X)).'
+    expected = f'h(1, "{hash_string(rule)}", a(X), (d(Y,(_A3,X)),b(X,_A1))) :- a(X), b(X,_A1), X=(Y,_A2), d(Y,(_A3,X)).'
+    assertProgramEqual(transform(rule), parse_program_to_ast(expected))
+
+
+def test_showTerm_anon_replaced_correctly():
+    rule = '#show finish(_A1) : hc(_,_A1); start(_A1).'
+    expected = f'h_showTerm(1, "{hash_string(rule)}", finish(_A1), (start(_A1),hc(__A1,_A1))) :- showTerm(finish(_A1)); hc(__A1,_A1); start(_A1).'
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))

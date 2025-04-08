@@ -832,14 +832,14 @@ def search():
     return jsonify([])
 
 
-@bp.route("/clingraph/<uuid>", methods=["GET"])
-def get_image(uuid):
+@bp.route("/clingraph/<filename>", methods=["GET"])
+def get_image(filename):
     # check if file with name uuid exists in static folder
-    filename = os.path.join("clingraph", f"{uuid}.png")
+    filename = os.path.join("clingraph", filename)
     file_path = os.path.join(STATIC_PATH, filename)
     if not os.path.isfile(file_path):
-        return abort(Response(f"No clingraph with uuid {uuid}.", 404))
-    return send_file(file_path, mimetype='image/png')
+        return abort(Response(f"No clingraph with filename {filename}.", 404))
+    return send_file(file_path, mimetype='image/svg+xml')
 
 
 def last_nodes_in_graph(encoding_id, current_hash):
@@ -989,8 +989,9 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
 
     transformer = None
     db_transformer = db_session.query(Transformers).filter_by(encoding_id=encoding_id).one_or_none()
-    if db_transformer is not None:
-        transformer = current_app.json.loads(db_transformer.transformer)
+
+    transformer = current_app.json.loads(
+        db_transformer.transformer) if db_transformer is not None else None
 
     commandline_constants = dict()
     db_constants = db_session.execute(

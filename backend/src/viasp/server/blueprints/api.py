@@ -176,19 +176,13 @@ def models_clear():
 @ensure_encoding_id
 def set_transformer():
     if request.method == "POST":
-        try:
-            transformer = request.json
-            if not isinstance(transformer, TransformerTransport):
-                return "Expected a transformer object", 400
-        except BaseException:
-            return "Invalid transformer object", 400
+        transformer = request.data.decode("utf-8")
+        print(f"Received transformer: {type(transformer)}", flush=True)
+        # if not isinstance(transformer, TransformerTransport):
+        #     return "Expected a transformer object", 400
         db_transformer = Transformers(encoding_id=session['encoding_id'], transformer=transformer)
         db_session.add(db_transformer)
-        try:
-            db_session.commit()
-        except Exception as e:
-            db_session.rollback()
-            return str(e), 500
+        db_session.commit()
     elif request.method == "GET":
         result = db_session.query(Transformers).where(Transformers.encoding_id == session['encoding_id']).first()
         return jsonify(current_app.json.loads(result.transformer)) if result else "ok", 200
@@ -395,7 +389,7 @@ def generate_clingraph(viz_encoding: str, engine: str, graphviz_type: str, encod
                 filename = uuid4().hex
                 if len(graphs) > 0:
                     render(graphs,
-                           format="png",
+                           format="svg",
                            directory=CLINGRAPH_PATH,
                            name_format=filename,
                            engine=engine)
@@ -435,8 +429,10 @@ def clingraph_generate():
 @ensure_encoding_id
 def deregister_session():
     if request.method == "POST":
-        encoding_id = session['encoding_id']
-        clear_encoding_session_data(encoding_id)
+        if request.json is None:
+            return "Invalid request", 400
+        session_id = request.json["session_id"] if "session_id" in request.json else session['encoding_id']
+        clear_encoding_session_data(session_id)
     number_of_active_sessions = db_session.execute(
         select(func.count()).select_from(Encodings)).scalar()
     return jsonify(number_of_active_sessions)

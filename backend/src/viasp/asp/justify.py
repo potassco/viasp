@@ -194,6 +194,7 @@ def build_graph(wrapped_stable_models: List[List[str]],
                 recursion_transformations_hashes: Set[str],
                 commandline_constants: Dict[str, str],
                 show_all_derived: bool = False) -> nx.DiGraph:
+
     paths: List[nx.DiGraph] = []
     facts = analyzer.get_facts(commandline_constants)
     conflict_free_h = analyzer.get_conflict_free_h()
