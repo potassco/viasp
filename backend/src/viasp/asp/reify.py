@@ -661,7 +661,7 @@ class ProgramReifier(DependencyCollector):
         self.get_conflict_free_variable_str = get_conflict_free_variable_str
         self.clear_temp_names = clear_temp_names
         self.conflict_free_showTerm = conflict_free_showTerm_str
-        super().__init__(in_analyzer=False, get_conflict_free_variable_str=get_conflict_free_variable_str)
+        super().__init__(in_analyzer=False)
 
     def make_component_lit(self, loc: ast.Location) -> ast.Literal:  # type: ignore
         loc_fun = ast.Function(loc, str(self.component_nr), [], False)
