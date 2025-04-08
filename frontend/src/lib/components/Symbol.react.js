@@ -5,13 +5,14 @@ import PropTypes from 'prop-types';
 import {useMessages, showError} from '../contexts/UserMessages';
 import {SymbolElementSpan} from './Symbol.style';
 
-import {useRecoilValue, useRecoilCallback, useSetRecoilState} from 'recoil';
+import {useRecoilValue, useRecoilCallback, useSetRecoilState, useResetRecoilState} from 'recoil';
 import {backendUrlState, sessionState} from '../atoms/settingsState';
 import {contentDivState, currentSortState} from '../atoms/currentGraphState';
 import {
     symbolBackgroundHighlightsStateFamily,
     pulsatingHighlightsState,
     isShowingExplanationStateFamily,
+    symbolModalHighlightsState,
 } from '../atoms/highlightsState';
 import {
     setReasonHighlightsCallback,
@@ -77,6 +78,7 @@ export function Symbol(props) {
     );
     const setModalForSymbol = useSetRecoilState(modalForSymbolState);
     const setModalPosition = useSetRecoilState(modalPositionState);
+    const resetSymbolModalHighlights = useResetRecoilState(symbolModalHighlightsState);
     
     const handleClickOnSymbol = async (e) => {
         try {
@@ -104,6 +106,7 @@ export function Symbol(props) {
         const rect = symbolElementRef.current.getBoundingClientRect();
         setModalPosition({top: rect.top, left: rect.left + rect.width});
         setModalForSymbol({sourceId: symbolUuid, nodeId: nodeUuid, repr: symbol_repr});
+        resetSymbolModalHighlights();
     }
 
     const doubleClickTimer = useRef()
@@ -131,7 +134,6 @@ export function Symbol(props) {
 
 
     return (
-    <>
         <SymbolElementSpan
             id={symbolUuid + suffix}
             $pulsate={pulsatingState.isPulsating}
@@ -143,7 +145,6 @@ export function Symbol(props) {
             >
             {symbol_repr}
         </SymbolElementSpan>
-    </>
     );
 }
 

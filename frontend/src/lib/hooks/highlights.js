@@ -8,6 +8,8 @@ import {
     recentSymbolSearchHighlightTimeoutState,
     ruleDotHighlightsStateFamily,
     ruleBackgroundHighlightsStateFamily,
+    symbolModalHighlightsState,
+    recentModalHighlightTimeoutState,
 } from '../atoms/highlightsState';
 import {
     selectedBranchState,
@@ -18,6 +20,7 @@ import {
 } from '../atoms/searchState';
 import {
     modalForSymbolState,
+    modalContentHighlightedState,
 } from '../atoms/modalState';
 
 const removeRuleDotHighlightTimeout = {};
@@ -196,6 +199,9 @@ export const clearAllHighlightsCallback =
         // Search
         set(symbolSearchHighlightsState, []);
 
+        // Modal
+        set(symbolModalHighlightsState, []);
+
         // Reason
         const currentSymbolReasonHighlights = await snapshot.getPromise(
             symbolReasonHighlightsState
@@ -338,6 +344,99 @@ export const handleSearchResultSuggestionsCallback =
                 '--hover-color',
                 nextHoverColor
             );
+            return;
+        }
+    };
+
+export const handleModalHighlightCallback =
+    ({snapshot, set}) =>
+    async (newValue) => {
+        async function setModalHighlights(newValue) {
+            const SymbolReasonHighlights = await snapshot.getPromise(
+                symbolReasonHighlightsState
+            );
+            const SymbolSearchHighlights = await snapshot.getPromise(
+                symbolSearchHighlightsState
+            );
+            const SymbolModalHighlights = await snapshot.getPromise(
+                symbolModalHighlightsState
+            );
+            const colorPalette = await snapshot.getPromise(
+                colorPaletteState
+            );
+            const nextColor = getNextColor(
+                SymbolReasonHighlights.concat(SymbolSearchHighlights).concat(
+                    SymbolModalHighlights
+                ),
+                colorPalette.explanationHighlights
+            );
+            
+            const updatedHighlights = [
+                ...SymbolModalHighlights,
+                {
+                ...newValue,
+                color: nextColor,
+                _type: 'SymbolHighlights_RECOIL',
+                includes: [newValue.symbolUuid],
+                recent: true,
+                selectedIndex: 0,
+                scrollable: false,
+                isAutocomplete: false,
+                transformationHash: '',
+            }];
+            set(symbolModalHighlightsState, updatedHighlights);
+
+            // set recent
+            const oldTimeoutId = await snapshot.getPromise(
+                recentModalHighlightTimeoutState
+            );
+            if (oldTimeoutId) {
+                clearTimeout(oldTimeoutId);
+            }
+            const newTimeoutId = setTimeout(() => {
+                set(symbolModalHighlightsState, (recentValue) =>
+                    recentValue.map((h) => {
+                        console.log("set recent for ", h.repr)
+                        if (h.symbolUuid !== newValue.symbolUuid) {
+                            return h;
+                        }
+                        return {
+                            ...h,
+                            recent: false,
+                        }
+                    })
+                );
+            }, Constants.searchResultHighlightDuration);
+            set(recentModalHighlightTimeoutState, (oldTimeoutId) => {
+                if (oldTimeoutId !== null) {
+                    clearTimeout(oldTimeoutId);
+                }
+                return newTimeoutId;
+            });
+
+            // set hover color
+            const nextHoverColor = getNextColor(
+                SymbolReasonHighlights.concat(updatedHighlights),
+                colorPalette.explanationHighlights
+            );
+            document.documentElement.style.setProperty(
+                '--hover-color',
+                nextHoverColor
+            );
+        }
+
+        const SymbolModalHighlights = await snapshot.getPromise(
+            symbolModalHighlightsState
+        );
+        const isHighlighted = SymbolModalHighlights.some(
+            (highlight) => highlight.symbolUuid === newValue.symbolUuid
+        );
+        if (isHighlighted) {
+            set(symbolModalHighlightsState, (prev) =>
+                prev.filter((highlight) => highlight.symbolUuid !== newValue.symbolUuid)
+            );
+        } else {
+            setModalHighlights(newValue);
             return;
         }
     };

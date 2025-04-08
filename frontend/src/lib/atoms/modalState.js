@@ -80,3 +80,9 @@ export const modalContentState = selector({
         }
     },
 })
+
+const defaultModalContentHighlighted = [];
+export const modalContentHighlightedState = atom({
+    key: 'modalContentHighlightedState',
+    default: defaultModalContentHighlighted,
+});

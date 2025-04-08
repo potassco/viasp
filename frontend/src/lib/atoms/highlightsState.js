@@ -20,6 +20,12 @@ export const symbolSearchHighlightsState = atom({
     default: [],
 });
 
+export const symbolModalHighlightsState = atom({
+    key: 'symbolModalHighlightsState',
+    /** @type {SYMBOLHIGHLIGHTS_RECOIL} */
+    default: [],
+});
+
 
 export const allHighlightedSymbolsState = selector({
     key: 'allHighlightedSymbolsState',
@@ -27,7 +33,8 @@ export const allHighlightedSymbolsState = selector({
     get: ({get}) => {
         const searchResultHighlights = get(symbolSearchHighlightsState);
         const symbolHighlights = get(symbolReasonHighlightsState);
-        return searchResultHighlights.concat(symbolHighlights);
+        const modalHighlights = get(symbolModalHighlightsState);
+        return searchResultHighlights.concat(symbolHighlights).concat(modalHighlights);
     },
 });
 
@@ -76,7 +83,7 @@ export const pulsatingHighlightsState = selectorFamily({
             const recentSearchHighlights = highlights.filter(
                 (highlight) =>
                     highlight.symbolUuid === symbolUuid &&
-                    highlight.origin === 'query' &&
+                    (highlight.origin === 'query' || highlight.origin === 'modal') &&
                     highlight.recent
             );
             if (recentSearchHighlights.length > 0) {
@@ -150,6 +157,11 @@ export const ruleBackgroundHighlightsStateFamily = atomFamily({
 
 export const recentSymbolSearchHighlightTimeoutState = atom({
     key: 'rotateSymbolSearchHighlightTimeoutState',
+    default: null,
+});
+
+export const recentModalHighlightTimeoutState = atom({
+    key: 'rotateModalHighlightTimeoutState',
     default: null,
 });
 
