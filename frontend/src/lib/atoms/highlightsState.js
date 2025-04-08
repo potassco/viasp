@@ -38,6 +38,16 @@ export const allHighlightedSymbolsState = selector({
     },
 });
 
+export const allHighlightedSymbolsExceptSearchState = selector({
+    key: 'allHighlightedSymbolsExceptSearchState',
+    /** @type {SYMBOLHIGHLIGHTS_RECOIL} */
+    get: ({get}) => {
+        const symbolHighlights = get(symbolReasonHighlightsState);
+        const modalHighlights = get(symbolModalHighlightsState);
+        return symbolHighlights.concat(modalHighlights);
+    },
+});
+
 export const symbolHighlightsStateFamily = selectorFamily({
     key: 'symbolHighlightsState',
     get:

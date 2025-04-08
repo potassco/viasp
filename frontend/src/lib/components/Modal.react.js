@@ -41,10 +41,12 @@ function ModalContent() {
     }
     const onClickHandler = (e) => {
         const symbolUuid = e.target.id.split('_')[0];
+        if (symbolUuid === 'noUuid') {
+            return;
+        }
         const symbolRepr = e.target.innerText;
         handleSearchResultSuggestions({
             symbolUuid,
-            origin: 'modal',
             repr: symbolRepr,
         });
     }
@@ -52,7 +54,7 @@ function ModalContent() {
     const contentToShow = modalContent?.content.map((symbol, i) => (
         <StyledListItem key={symbol.reason_repr} $colorPalette={colorPalette}>
             <SymbolElementSpan
-                id={(symbol.reason_uuid !== null ? symbol.reason_uuid : i) + '_modal'}
+                id={(symbol.reason_uuid !== null ? symbol.reason_uuid : 'noUuid_' + i) + '_modal'}
                 $pulsate={false}
                 $pulsatingColor={null}
                 $backgroundColor={backgroundColor}

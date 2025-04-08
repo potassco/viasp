@@ -120,8 +120,16 @@ export function pixelToEm(px) {
 
 export function getNextColor(
     currentHighlightedSymbols,
-    colorArray
+    colorArray,
+    symbolUuid = null
 ) {
+    const searchResultHighlightIsHighlight = currentHighlightedSymbols.filter(
+        (h) => h.symbolUuid === symbolUuid && (h.origin === symbolUuid || h.origin === 'query' || h.origin === 'modal')
+
+    );
+    if (searchResultHighlightIsHighlight.length > 0) {
+        return searchResultHighlightIsHighlight[0].color;
+    }
     const arrayOfAllHighlights = [];
     const colorCounter = {};
     colorArray.forEach((i) => (colorCounter[i] = 0));

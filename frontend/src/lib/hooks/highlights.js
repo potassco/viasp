@@ -9,6 +9,7 @@ import {
     ruleDotHighlightsStateFamily,
     ruleBackgroundHighlightsStateFamily,
     symbolModalHighlightsState,
+    allHighlightedSymbolsExceptSearchState,
     recentModalHighlightTimeoutState,
 } from '../atoms/highlightsState';
 import {
@@ -35,17 +36,10 @@ export const setReasonHighlightsCallback =
         );
         const colorPalette = await snapshot.getPromise(colorPaletteState);
 
-        const reasonInPreviousHighlights = previousHighlights.filter((h) => {
-            return (
-                h.symbolUuid === symbolUuid &&
-                h.origin === "query"
-            )
-        });
-        const nextColor = reasonInPreviousHighlights.length > 0 
-            ? reasonInPreviousHighlights[0].color
-            : getNextColor(
+        const nextColor = getNextColor(
                 previousHighlights,
-                colorPalette.explanationHighlights
+                colorPalette.explanationHighlights,
+                symbolUuid
             );
 
         const oldValue = await snapshot.getPromise(symbolReasonHighlightsState);
@@ -259,25 +253,18 @@ export const handleSearchResultSuggestionsCallback =
     ({snapshot, set}) =>
     async () => {
         async function setSymbolSearchHighlights(newValue) {
-            const SymbolReasonHighlights = await snapshot.getPromise(
-                symbolReasonHighlightsState
+            const symbolHighlights = await snapshot.getPromise(
+                allHighlightedSymbolsExceptSearchState
             );
             const selectedBranch = await snapshot.getPromise(
                 selectedBranchState
             );
             const colorPalette = await snapshot.getPromise(colorPaletteState);
-            const searchResultHighlightIsReasonHighlight =
-                SymbolReasonHighlights.filter(
-                    (h) =>
-                        h.symbolUuid === newValue.includes[selectedBranch] &&
-                        h.origin === newValue.includes[selectedBranch]
-                );
 
-            const nextColor = searchResultHighlightIsReasonHighlight.length > 0
-                ? searchResultHighlightIsReasonHighlight[0].color
-                : getNextColor(
-                SymbolReasonHighlights,
-                colorPalette.explanationHighlights
+            const nextColor = getNextColor(
+                symbolHighlights,
+                colorPalette.explanationHighlights,
+                newValue.includes[selectedBranch]
             );
 
             const updatedHighlights = [newValue].map((h) => ({
@@ -315,7 +302,7 @@ export const handleSearchResultSuggestionsCallback =
 
             // set hover color
             const nextHoverColor = getNextColor(
-                SymbolReasonHighlights.concat(updatedHighlights),
+                symbolHighlights.concat(updatedHighlights),
                 colorPalette.explanationHighlights
             );
             document.documentElement.style.setProperty(
@@ -370,39 +357,36 @@ export const handleModalHighlightCallback =
     ({snapshot, set}) =>
     async (newValue) => {
         async function setModalHighlights(newValue) {
-            const SymbolReasonHighlights = await snapshot.getPromise(
-                symbolReasonHighlightsState
-            );
-            const SymbolSearchHighlights = await snapshot.getPromise(
-                symbolSearchHighlightsState
-            );
-            const SymbolModalHighlights = await snapshot.getPromise(
-                symbolModalHighlightsState
+            const symbolHighlights = await snapshot.getPromise(
+                allHighlightedSymbolsState
             );
             const colorPalette = await snapshot.getPromise(
                 colorPaletteState
             );
+
             const nextColor = getNextColor(
-                SymbolReasonHighlights.concat(SymbolSearchHighlights).concat(
-                    SymbolModalHighlights
-                ),
-                colorPalette.explanationHighlights
-            );
+                          symbolHighlights,
+                          colorPalette.explanationHighlights,
+                          newValue.symbolUuid
+                      );
+
             
-            const updatedHighlights = [
-                ...SymbolModalHighlights,
-                {
+            const updatedNewValue = {
                 ...newValue,
                 color: nextColor,
                 _type: 'SymbolHighlights_RECOIL',
                 includes: [newValue.symbolUuid],
+                origin: 'modal',
                 recent: true,
                 selectedIndex: 0,
                 scrollable: false,
                 isAutocomplete: false,
                 transformationHash: '',
-            }];
-            set(symbolModalHighlightsState, updatedHighlights);
+            };
+            set(symbolModalHighlightsState, (prev) => ([
+                ...prev,
+                updatedNewValue])
+            );
 
             // set recent
             const oldTimeoutId = await snapshot.getPromise(
@@ -434,7 +418,7 @@ export const handleModalHighlightCallback =
 
             // set hover color
             const nextHoverColor = getNextColor(
-                SymbolReasonHighlights.concat(updatedHighlights),
+                symbolHighlights.concat(updatedNewValue),
                 colorPalette.explanationHighlights
             );
             document.documentElement.style.setProperty(
