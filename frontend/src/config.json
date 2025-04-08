@@ -20,6 +20,7 @@
     "foldNodeThreshold": 0.7,
     "minSearchInputWidthInEm": 15,
     "maxSearchInputWidthInEm": 40,
+    "RowHeaderMarginTopInEm": 1.5,
     "RowRowPaddingTopInEm": 1,
     "RowRowPaddingBottomInEm": 1,
     "HOverflowThresholdInEm": 0.3,

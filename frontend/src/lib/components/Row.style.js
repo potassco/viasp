@@ -20,7 +20,7 @@ export const RowContainerDiv = styled.div`
     transition: opacity 0.5s ease-out;
     justify-content: space-around;
     background: transparent;
-    padding-top: 1em;
+    padding-top: ${() => Constants.RowHeaderMarginTopInEm}em;
 `;
 
 export const RowRowDiv = styled.div`
