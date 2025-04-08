@@ -80,7 +80,8 @@ def server():
     app = startup.run(host=host,
                       port=port,
                       front_host=front_host,
-                      front_port=front_port)
+                      front_port=front_port,
+                      do_wait_for_server_ready=False)
     app.wait_for_backend_server_running()
     viasp.api.load_program_string("a.", viasp_backend_url=backend_url)
     # use ViaspRunner to manage shutdown
@@ -377,20 +378,11 @@ class ViaspRunner():
 
     def __init__(self):
         self.backend_url: str = ""
-        signal.signal(signal.SIGINT, self.signal_handler)
-
-    def signal_handler(self, sig, frame):
-        self.deregister_session()
-        sys.exit(0)
 
     def run(self, args):
         try:
             self.run_wild(args)
         except Exception as e:
-            try:
-                self.signal_handler(None, None)
-            except:
-                pass
             error(_("ERROR").format(e))
             error(_("ERROR_INFO"))
             sys.exit(1)
@@ -604,13 +596,6 @@ class ViaspRunner():
                                                      constants, stdin_is_json)
         return relaxed_program
 
-    def deregister_session(self):
-        remaining_sessions = viasp.api.deregister_session(
-            viasp_backend_url=self.backend_url)
-        if remaining_sessions == 0:
-            self.shutdown_server()
-            self.shutdown_frontend_server()
-
     def shutdown_server(self):
         from viasp.server.startup import LOG_FILE
 
@@ -675,17 +660,17 @@ class ViaspRunner():
         if options['print_relax']:
             app = startup.run(host=host, port=port, front_host=frontend_host,
                               front_port=frontend_port)
-            app.wait_for_backend_server_running()
             relaxed_program = self.relax_program_quietly(
                 encoding_files, options['stdin'], head_name,
                 no_collect_variables, options['constants'], stdin_is_json)
             plain(relaxed_program)
-            self.deregister_session()
+            app.deregister_session()
             sys.exit(0)
 
         if options['reset']:
-            self.shutdown_server()
-            self.shutdown_frontend_server()
+            app = startup.ViaspServerLauncher()
+            app.shutdown_server()
+            app.shutdown_frontend_server()
             sys.exit(0)
 
         # prologue
@@ -693,12 +678,18 @@ class ViaspRunner():
         for i in file_warnings:
             warn(_("WARNING_INCLUDED_FILE").format(i))
 
-        app = startup.run(host=host, port=port, front_host=frontend_host, front_port=frontend_port)
+        app = startup.run(host=host, 
+                          port=port, 
+                          front_host=frontend_host, 
+                          front_port=frontend_port, 
+                          do_wait_for_server_ready=False)
         if not relax:
-            models = self.print_and_get_stable_models(clingo_options, options,
-                                                    encoding_files,
-                                                    model_from_json, relax,
-                                                    select_model)
+            models = self.print_and_get_stable_models(clingo_options, 
+                options,
+                encoding_files,
+                model_from_json, 
+                relax,
+                select_model)
         app.wait_for_backend_server_running()
         viasp.api.set_config(
             show_all_derived = options.get("show_all_derived", False),

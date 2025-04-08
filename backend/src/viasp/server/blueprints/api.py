@@ -176,19 +176,13 @@ def models_clear():
 @ensure_encoding_id
 def set_transformer():
     if request.method == "POST":
-        try:
-            transformer = request.json
-            if not isinstance(transformer, TransformerTransport):
-                return "Expected a transformer object", 400
-        except BaseException:
-            return "Invalid transformer object", 400
+        transformer = request.data.decode("utf-8")
+        print(f"Received transformer: {type(transformer)}", flush=True)
+        # if not isinstance(transformer, TransformerTransport):
+        #     return "Expected a transformer object", 400
         db_transformer = Transformers(encoding_id=session['encoding_id'], transformer=transformer)
         db_session.add(db_transformer)
-        try:
-            db_session.commit()
-        except Exception as e:
-            db_session.rollback()
-            return str(e), 500
+        db_session.commit()
     elif request.method == "GET":
         result = db_session.query(Transformers).where(Transformers.encoding_id == session['encoding_id']).first()
         return jsonify(current_app.json.loads(result.transformer)) if result else "ok", 200
@@ -438,33 +432,36 @@ def clingraph_generate():
 @ensure_encoding_id
 def deregister_session():
     if request.method == "POST":
-        encoding_id = session['encoding_id']
+        if request.json is None:
+            return "Invalid request", 400
+        session_id = request.json["session_id"] if "session_id" in request.json else session['encoding_id']
+
         queries = [
-            delete(Encodings).where(Encodings.encoding_id == encoding_id),
-            delete(Models).where(Models.encoding_id == encoding_id),
-            delete(Graphs).where(Graphs.encoding_id == encoding_id),
+            delete(Encodings).where(Encodings.encoding_id == session_id),
+            delete(Models).where(Models.encoding_id == session_id),
+            delete(Graphs).where(Graphs.encoding_id == session_id),
             delete(CurrentGraphs).where(
-                CurrentGraphs.encoding_id == encoding_id),
+                CurrentGraphs.encoding_id == session_id),
             delete(GraphSymbols).where(
                 GraphSymbols.node.in_(
                     db_session.query(GraphNodes.node_uuid).filter(
-                        GraphNodes.encoding_id == encoding_id))),
-            delete(GraphNodes).where(GraphNodes.encoding_id == encoding_id),
-            delete(GraphEdges).where(GraphEdges.encoding_id == encoding_id),
+                        GraphNodes.encoding_id == session_id))),
+            delete(GraphNodes).where(GraphNodes.encoding_id == session_id),
+            delete(GraphEdges).where(GraphEdges.encoding_id == session_id),
             delete(DependencyGraphs).where(
-                DependencyGraphs.encoding_id == encoding_id),
-            delete(Recursions).where(Recursions.encoding_id == encoding_id),
-            delete(Clingraphs).where(Clingraphs.encoding_id == encoding_id),
+                DependencyGraphs.encoding_id == session_id),
+            delete(Recursions).where(Recursions.encoding_id == session_id),
+            delete(Clingraphs).where(Clingraphs.encoding_id == session_id),
             delete(Transformers).where(
-                Transformers.encoding_id == encoding_id),
-            delete(Constants).where(Constants.encoding_id == encoding_id),
-            delete(Warnings).where(Warnings.encoding_id == encoding_id),
+                Transformers.encoding_id == session_id),
+            delete(Constants).where(Constants.encoding_id == session_id),
+            delete(Warnings).where(Warnings.encoding_id == session_id),
             delete(AnalyzerNames).where(
-                AnalyzerNames.encoding_id == encoding_id),
+                AnalyzerNames.encoding_id == session_id),
             delete(AnalyzerFacts).where(
-                AnalyzerFacts.encoding_id == encoding_id),
+                AnalyzerFacts.encoding_id == session_id),
             delete(AnalyzerConstants).where(
-                AnalyzerConstants.encoding_id == encoding_id),
+                AnalyzerConstants.encoding_id == session_id),
         ]
         for q in queries:
             db_session.execute(q)

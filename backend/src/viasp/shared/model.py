@@ -107,7 +107,7 @@ class RuleContainer:
         return isinstance(o, type(self)) and self.ast == o.ast
 
     def __repr__(self):
-        return f"RuleContainer({self.str_})"
+        return f"RuleContainer(ast={list(map(str,self.ast))}, str_={self.str_})"
 
 
 def rule_container_from_ast(

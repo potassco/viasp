@@ -907,8 +907,9 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
 
     transformer = None
     db_transformer = db_session.query(Transformers).filter_by(encoding_id=encoding_id).one_or_none()
-    if db_transformer is not None:
-        transformer = current_app.json.loads(db_transformer.transformer)
+
+    transformer = current_app.json.loads(
+        db_transformer.transformer) if db_transformer is not None else None
 
     commandline_constants = dict()
     db_constants = db_session.execute(
