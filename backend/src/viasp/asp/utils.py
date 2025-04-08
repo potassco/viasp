@@ -105,9 +105,13 @@ def is_positive_reason(reason: Symbol) -> bool:
 def is_negative_reason(reason: Symbol) -> bool:
     return not is_positive_reason(reason)
 
-def stringify_negative_reason(reason: Symbol) -> str:
+def stringify_reason(reason: Symbol) -> str:
     if reason.name == "neg":
         return f"not {reason.arguments[0]}"
+    elif reason.name == "pos":
+        return str(reason.arguments[0])
+    elif reason.name == "double_neg":
+        return f"not not {reason.arguments[0]}"
     return ""
 
 def identify_reasons(g: nx.DiGraph) -> None:
@@ -137,7 +141,7 @@ def identify_reasons(g: nx.DiGraph) -> None:
                         is_positive = True
                         is_negative = False
                     else:
-                        reason_repr = "not " + str(reason.symbol.arguments[0])
+                        reason_repr = stringify_reason(reason.symbol)
                         reason_uuid = None
                         is_positive = False
                         is_negative = True
