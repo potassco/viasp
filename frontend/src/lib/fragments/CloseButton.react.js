@@ -11,8 +11,8 @@ const CloseButtonDiv = styled.button`
     right: 0;
     background: none;
     border: none;
-    font-size: 16px;
     cursor: pointer;
+    margin: 0.2em;
 `;
 
 export function CloseButton(props) {
@@ -23,7 +23,7 @@ export function CloseButton(props) {
         <CloseButtonDiv onClick={onClose} className="close button">
             <IconWrapper
                 icon="close"
-                height="1em"
+                height="1.5em"
                 color={colorPalette.primary}
                 className="close"
             />

@@ -52,13 +52,13 @@ function ModalContent() {
     }
 
     const contentToShow = modalContent?.content.map((symbol, i) => (
-        <StyledListItem key={symbol.reason_repr} $colorPalette={colorPalette}>
+        <StyledListItem key={symbol.reason_repr} $colorPalette={colorPalette} >
             <SymbolElementSpan
                 id={(symbol.reason_uuid !== null ? symbol.reason_uuid : 'noUuid_' + i) + '_modal'}
                 $pulsate={false}
                 $pulsatingColor={null}
                 $backgroundColor={backgroundColor}
-                $hasReason={false}
+                $hasReason={symbol.reason_uuid !== null}
                 onClick={onClickHandler}
             >
                 {symbol.reason_repr}
