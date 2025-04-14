@@ -14,7 +14,7 @@ from clingo.ast import (
 )
 from viasp.shared.util import RuleType, hash_transformation_rules, hash_string
 
-from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, move_constraints_only_transformations_to_end, topological_sort, replace_anon_variables
+from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, move_constraints_only_transformations_to_end, topological_sort, replace_anon_variables, transform_condition_literal_to_reason_literal
 from ..asp.utils import merge_cycles, remove_loops
 from viasp.asp.ast_types import (
     SUPPORTED_TYPES,
@@ -160,6 +160,8 @@ class DependencyCollector(Transformer):
         if (not halt_collection and not in_analyzer):
             # add simple Cond.Literals from rule body to justifier rule body
             conditions.append(conditional_literal)
+        if not self.in_analyzer:
+            kwargs.update({"halt_collection": True})
         return conditional_literal.update(
             **self.visit_children(conditional_literal, **kwargs))
 
@@ -180,8 +182,6 @@ class DependencyCollector(Transformer):
         if (not self.in_analyzer and not halt_collection):
             # add all Literals outside of aggregates from rule body to justifier rule body
             conditions.append(literal)
-        if not self.in_analyzer:
-            kwargs.update({"halt_collection": True})
         return literal.update(**self.visit_children(literal, **kwargs))
 
     def visit_Aggregate(
@@ -675,16 +675,6 @@ class ProgramReifier(DependencyCollector):
         loc_atm = ast.SymbolicAtom(loc_fun)
         return ast.Literal(loc, ast.Sign.NoSign, loc_atm)
 
-    def create_pos_neg_reason_literal(self, literal):
-        if literal.sign == ast.Sign.Negation:
-            wrapper_name = "neg"
-        elif literal.sign == ast.Sign.DoubleNegation:
-            wrapper_name = "double_neg"
-        else:
-            wrapper_name = "pos"
-        return ast.Function(literal.location, wrapper_name,
-            [literal.atom], False)
-
     def _nest_rule_head_in_h_with_explanation_tuple(
         self,
         loc: ast.Location,
@@ -703,11 +693,11 @@ class ProgramReifier(DependencyCollector):
         component_lit = self.make_component_lit(loc)
         rule_lit = self.make_rule_lit(loc, **kwargs)
         for literal in conditions:
-            if (hasattr(literal, "sign") and \
-                hasattr(literal, "atom") and \
-                hasattr(literal.atom, "ast_type") and \
-                literal.atom.ast_type == ASTType.SymbolicAtom):
-                reasons.append(self.create_pos_neg_reason_literal(literal))
+            transform_condition_literal_to_reason_literal(
+                literal, reasons
+            )
+
+
         reasons.reverse()
         reasons = [r for i, r in enumerate(reasons) if r not in reasons[:i]]
         reason_fun = ast.Function(loc, "",
@@ -772,6 +762,10 @@ class ProgramReifier(DependencyCollector):
                 conditions=conditions,
             )
             replace_anon_variables(conditions, rule)
+            print(f"dependant: {dependant}")
+            print(f"conditions: ")
+            print(conditions, flush=True)
+            # print('\n    '.join(map(str, conditions)), flush=True)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions, **kwargs)
 

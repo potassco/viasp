@@ -21,7 +21,7 @@ class ReasonSymbolIdentifier:
     is_negative: bool = field(default=False, hash=False)
 
     def __repr__(self):
-        return f"{{symbol: {str(self.symbol)}, symbol_uuid: {self.symbol_uuid}, is_positive: {self.is_positive}, is_negative: {self.is_negative}}}"
+        return f"{{symbol_repr: {str(self.symbol_repr)}, symbol_uuid: {self.symbol_uuid}, is_positive: {self.is_positive}, is_negative: {self.is_negative}}}"
 
 
 @dataclass()

@@ -114,14 +114,14 @@ def test_head_aggregate_is_transformed_correctly():
 def test_conditional_with_interval_transformed_correctly():
     rule = "{ a(X): b(X), X = (1..3) } :- f(X)."
     expected = f"""#program base.
-    h(1, "{hash_string(rule)}", a(X), (pos(f(X)),pos(b(X)))) :- a(X), b(X), X=1..3, f(X)."""
+    h(1, "{hash_string(rule)}", a(X), (pos(f(X)),comp((("X",X),),"X = (1..3)"),pos(b(X)))) :- a(X), b(X), X=1..3, f(X)."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_head_aggregate_groups_is_transformed_correctly():
     rule = "{ a(X): b(X), c(X); d(X): e(X), X = (1..3) } :- f(X)."
     expected = f"""#program base.
-    h(1, "{hash_string(rule)}", d(X), (pos(f(X)),pos(e(X)))) :- d(X), e(X), X=1..3, f(X).
+    h(1, "{hash_string(rule)}", d(X), (pos(f(X)),comp((("X",X),),"X = (1..3)"),pos(e(X)))) :- d(X), e(X), X=1..3, f(X).
     h(1, "{hash_string(rule)}", a(X), (pos(f(X)),pos(c(X)),pos(b(X)))) :- a(X), b(X), c(X), f(X)."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
@@ -129,7 +129,7 @@ def test_head_aggregate_groups_is_transformed_correctly():
 def test_aggregate_choice_is_transformed_correctly():
     rule = '1 <= { a(X): b(X), c(X); d(X): e(X), X = (1..3) } <= 1 :- f(X).'
     expected = f"""#program base.
-    h(1, "{hash_string(rule)}", d(X), (pos(f(X)),pos(e(X)))) :- d(X), e(X), X=1..3, f(X).
+    h(1, "{hash_string(rule)}", d(X), (pos(f(X)),comp((("X",X),),"X = (1..3)"),pos(e(X)))) :- d(X), e(X), X=1..3, f(X).
     h(1, "{hash_string(rule)}", a(X), (pos(f(X)),pos(c(X)),pos(b(X)))) :- a(X), b(X), c(X), f(X)."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
@@ -170,7 +170,13 @@ def test_conditional_in_body():
 def test_comparison_in_body():
     rule = 'a(X) :- b(X); X < 2.'
     expected = f"""#program base.
-    h(1, "{hash_string(rule)}", a(X), (pos(b(X)),)) :- a(X), b(X), X < 2."""
+    h(1, "{hash_string(rule)}", a(X), (comp((("X",X),), "X < 2"),pos(b(X)))) :- a(X), b(X), X < 2."""
+    assertProgramEqual(transform(rule), parse_program_to_ast(expected))
+
+def test_comparison_in_body_2():
+    rule = 'a(X) :- b(YX); X = (YX+1).'
+    expected = f"""#program base.
+    h(1, "{hash_string(rule)}", a(X), (comp((("X",X),("YX",YX)), "X = (YX+1)"),pos(b(YX)))) :- a(X), b(YX), X = (YX+1)."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 def test_boolean_constant_in_body():
@@ -200,18 +206,107 @@ def test_showTerm_transformed_correctly_2():
 
 
 def test_anon_replaced_correctly():
-    rule = 'a(X) :- b(X,_); X = (Y,_); d(Y).'
-    expected = f'h(1, "{hash_string(rule)}", a(X), (d(Y),b(X,_A1))) :- a(X), b(X,_A1), X=(Y,_A2), d(Y).'
+    rule = 'a(X) :- b(X,_); d(Y,_).'
+    expected = f'h(1, "{hash_string(rule)}", a(X), (pos(d(Y,_A2)),pos(b(X,_A1)))) :- a(X), b(X,_A1), d(Y,_A2).'
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_anon_replaced_correctly_2():
     rule = 'a(X) :- b(X,_); X = (Y,_); d(Y,(_,X)).'
-    expected = f'h(1, "{hash_string(rule)}", a(X), (d(Y,(_A3,X)),b(X,_A1))) :- a(X), b(X,_A1), X=(Y,_A2), d(Y,(_A3,X)).'
+    expected = f'h(1, "{hash_string(rule)}", a(X), (pos(d(Y,(_A3,X))),comp((("X",X),("Y",Y),("_A2",_A2)),"X = (Y,_A2)"),pos(b(X,_A1)))) :- a(X), b(X,_A1), X=(Y,_A2), d(Y,(_A3,X)).'
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_showTerm_anon_replaced_correctly():
     rule = '#show finish(_A1) : hc(_,_A1); start(_A1).'
-    expected = f'h_showTerm(1, "{hash_string(rule)}", finish(_A1), (start(_A1),hc(__A1,_A1))) :- showTerm(finish(_A1)); hc(__A1,_A1); start(_A1).'
+    expected = f'h_showTerm(1, "{hash_string(rule)}", finish(_A1), (pos(start(_A1)),pos(hc(__A1,_A1)))) :- showTerm(finish(_A1)); hc(__A1,_A1); start(_A1).'
+    assertProgramEqual(transform(rule), parse_program_to_ast(expected))
+
+def test_aggregate_transformed():
+    rule = """
+    reached(N) :- node(N), N-1 #sum{ 
+                        M*2, N : reached(M), edge(M,N); 
+                        2, N : special(N) 
+        }.
+    """
+    expected = f"""#program base.
+        h(1, "{hash_string(rule)}", 
+            reached(N), 
+            (
+                pos(node(N)),
+                extra(1, (N,), pos)
+            )
+        ) :- 
+            model(node(N)), 
+		    N-1 #sum{{
+			  M*2, N : model(reached(M)), model(edge(M,N)); 
+			  2, N : model(special(N)) 
+		    }}.
+
+        extra(
+            1, 
+            (N,), 
+            extra(1),
+            sum,
+            lw(comp((("N",N)),"N-1")), 
+            up(none),
+            _X1
+        ) :-
+            h(
+                1, 
+                "{hash_string(rule)}", 
+                reached(N), 
+                (
+                    pos(node(N)),
+                    extra(1, (N,), pos)
+                )
+            ),
+            _X1 = #sum{{ M*2, N : model(reached(M)), model(edge(M,N)); 2, N : model(special(N)) }}.
+        extra(
+            1, 
+            (N,),
+            extra(1),
+            1,
+            (
+                comp((("M",M),("N",N)),"M+2,N"),  
+                (
+                    reached(M), 
+                    edge(M,N)
+                )
+            )
+        ) :-  
+            h(
+                1,
+                "{hash_string(rule)}", 
+                reached(N), 
+                (
+                    pos(node(N)),
+                    extra(1, (N,), pos)
+                )
+            ),
+            model(reached(M)), model(edge(M,N)).
+        extra(
+            1,
+            (N,),
+            extra(1),
+            2,
+            (
+                comp((("N",N),), "2, N"),
+                (
+                    special(N),
+                )
+            )
+        ) :-
+            h(
+                1,
+                "{hash_string(rule)}", 
+                reached(N), 
+                (
+                    pos(node(N)),
+                    extra(1, (N,), pos)
+                )
+            ),
+            model(special(N)).
+    """
+
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
