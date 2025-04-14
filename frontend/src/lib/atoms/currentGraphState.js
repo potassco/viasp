@@ -249,7 +249,13 @@ export const isCurrentlyLoadingNodeState = selector({
                 )
             )
         );
-        const validTransformations = transformations.filter((t) => t && t.hash);
+        const transformationsWithFact = [
+            {hash: '-1'},
+            ...transformations,
+        ];
+        const validTransformations = transformationsWithFact.filter(
+            (t) => t && t.hash
+        );
 
         const nodeUuidsArray = get(
             waitForAll(
@@ -279,6 +285,15 @@ export const transformationMountedStateFamily = atomFamily({
 export const isAnimatingState = selector({
     key: 'isAnimatingState',
     get: ({get}) => {
+        console.log(
+            'is Amimating,',
+            get(isCurrentlyResizedState) ||
+                get(isCurrentlyAnimatingHeightState) ||
+                get(isCurrentlyZoomingState) ||
+                get(isCurrentlyPickedUpState) ||
+                get(isCurrentlyBeingReorderedState) ||
+                get(isCurrentlyLoadingNodeState)
+        );
         return (
             get(isCurrentlyResizedState) ||
             get(isCurrentlyAnimatingHeightState) ||

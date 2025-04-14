@@ -28,5 +28,4 @@ export const SymbolElementSpan = styled.span`
     ${(props) => (props.$pulsate ? pulsate(props.$pulsatingColor) : '')};
     ${(props) => (props.$hasReason ?
         '&:hover {background-color: var(--hover-color);}' : '')};
-    )}
 `;

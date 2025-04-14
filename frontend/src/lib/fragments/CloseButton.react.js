@@ -6,15 +6,17 @@ import IconWrapper from './IconWrapper.react';
 import { styled } from 'styled-components';
 
 const CloseButtonDiv = styled.button`
-    position: absolute;
-    top: 0;
-    right: 0;
+    position: relative;
     background: none;
     border: none;
     cursor: pointer;
-    margin: 0.2em;
+    display: flex;
+    align-items: center;
+    justify-content: center; 
+    padding: 0;
+    height: 1.5em; 
+    width: 1.5em; 
 `;
-
 export function CloseButton(props) {
     const {onClose} = props;
     const colorPalette = useRecoilValue(colorPaletteState);

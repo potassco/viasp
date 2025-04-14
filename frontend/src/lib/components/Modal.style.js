@@ -1,6 +1,6 @@
 import {styled} from 'styled-components';
 
-const MODALWIDTH = 200;
+const MODALWIDTH = 220;
 const MODALDISTANCETOEDGE = 60;
 export function calculateAdjustedPosition(spawnPosition) {
     return {
@@ -35,7 +35,7 @@ export const ModalDiv = styled.div`
         filter: drop-shadow(0 0 0.14em #333);
 
         .button {
-            display: block;
+            display: flex;
         }
     }
 
@@ -53,12 +53,13 @@ export const StyledList = styled.ul`
 export const StyledListItem = styled.li`
     background-color: ${({$colorPalette}) => $colorPalette.light};
     color: ${({$colorPalette}) => $colorPalette.dark};
-    padding: 5px;
-    margin: 5px 0;
+    padding: 5px 0px 5px 15px;
+    margin: 5px 5px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 `;
 
-export const ModalHeader = styled.div`
+export const ModalHeaderDiv = styled.div`
+    color: ${({$colorPalette}) => $colorPalette.primary};
     font-weight: bold;
     margin: 1px 1px;
     display: flex;
@@ -69,3 +70,9 @@ export const ModalHeader = styled.div`
     width: -moz-fit-content;
 `;
 
+export const ModalHeaderSpan = styled.span`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+`;

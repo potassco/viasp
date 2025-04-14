@@ -1,11 +1,12 @@
 import React from 'react';
 import Draggable from 'react-draggable';
+import PropTypes from 'prop-types';
 
 import PulseLoader from 'react-spinners/PulseLoader';
 import {Constants} from '../constants';
 
 import { SymbolElementSpan } from './Symbol.style';
-import { StyledListItem, StyledList, ModalDiv, ModalHeader, calculateAdjustedPosition } from './Modal.style';
+import { StyledListItem, StyledList, ModalDiv, ModalHeaderDiv, ModalHeaderSpan, calculateAdjustedPosition } from './Modal.style';
 
 import {useRecoilValue, useRecoilState, useResetRecoilState, useRecoilCallback, useSetRecoilState} from 'recoil';
 import { colorPaletteState } from '../atoms/settingsState';
@@ -19,11 +20,33 @@ import {handleModalHighlightCallback} from '../hooks/highlights';
 
 import { CloseButton } from '../fragments/CloseButton.react';
 
+
+function ModalHeader(props) {
+    const {originSymbol} = props;
+    const colorPalette = useRecoilValue(colorPaletteState);
+    const resetModal = useResetRecoilState(modalForSymbolState);
+
+    return (
+        <ModalHeaderSpan>
+            <ModalHeaderDiv
+                className="modalHeader txt-elem"
+                $colorPalette={colorPalette}
+            >
+                {originSymbol}
+            </ModalHeaderDiv>
+            <CloseButton onClose={resetModal} />
+        </ModalHeaderSpan>
+    );
+}
+
+ModalHeader.propTypes = {
+    originSymbol: PropTypes.string.isRequired,
+};
+
 function ModalContent() {
     const colorPalette = useRecoilValue(colorPaletteState);
     const modalContent = useRecoilValue(modalContentState);
     const originSymbol = useRecoilValue(modalForSymbolState);
-    const backgroundColor = colorPalette.light;
     const handleSearchResultSuggestions = useRecoilCallback(
         handleModalHighlightCallback,
         []
@@ -57,7 +80,7 @@ function ModalContent() {
                 id={(symbol.reason_uuid !== null ? symbol.reason_uuid : 'noUuid_' + i) + '_modal'}
                 $pulsate={false}
                 $pulsatingColor={null}
-                $backgroundColor={backgroundColor}
+                $backgroundColor={colorPalette.light}
                 $hasReason={symbol.reason_uuid !== null}
                 onClick={onClickHandler}
             >
@@ -68,7 +91,7 @@ function ModalContent() {
 
     return (
         <div className="modalContent">
-            <ModalHeader className="modalHeader txt-elem">{originSymbol.repr}</ModalHeader>
+            <ModalHeader originSymbol={originSymbol.repr} />
             <StyledList className="modalContent txt-elem">
                 {contentToShow}
             </StyledList>
@@ -83,7 +106,6 @@ export function Modal() {
     const colorPalette = useRecoilValue(colorPaletteState);
     const modalVisible = useRecoilValue(modalVisibleState);
     const spawnPosition = useRecoilValue(modalPositionState);
-    const resetModal = useResetRecoilState(modalForSymbolState);
     const adjustedPosition = calculateAdjustedPosition(spawnPosition);
 
 
@@ -94,7 +116,6 @@ export function Modal() {
                 $position={adjustedPosition}
                 $colorPalette={colorPalette} 
             >
-                <CloseButton onClose={resetModal} />
                 <ModalContent />
             </ModalDiv>
         </Draggable>
