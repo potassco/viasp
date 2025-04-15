@@ -1,6 +1,8 @@
 import {styled} from 'styled-components';
+import {emToPixel} from '../utils';
 
 const MODALWIDTH = 220;
+const MODALPADDING = 10;
 const MODALDISTANCETOEDGE = 60;
 export function calculateAdjustedPosition(spawnPosition) {
     return {
@@ -12,23 +14,18 @@ export function calculateAdjustedPosition(spawnPosition) {
     };
 };
 export const ModalDiv = styled.div`
-    top: ${(props) => props.$position.top}px;
-    left: ${(props) => props.$position.left}px;
     width: ${MODALWIDTH}px;
 
     position: absolute;
-    background-color: white;
     border: 3pt solid;
     border-radius: 0.7em;
-    padding: 10px;
+    padding: ${MODALPADDING}px;
     z-index: 1000;
     line-break: anywhere;
 
     background-color: ${({$colorPalette}) => $colorPalette.light};
     color: ${({$colorPalette}) => $colorPalette.dark};
     border-color: ${({$colorPalette}) => $colorPalette.primary};
-
-    margin: 12pt 3% 12pt 3%;
 
     &:hover {
         transition: drop-shadow 0.1s;
@@ -76,3 +73,47 @@ export const ModalHeaderSpan = styled.span`
     align-items: center;
     width: 100%;
 `;
+
+export function calculateModalPosition(modalVisible, nodeId) {
+    if (!modalVisible || !nodeId) {
+        return null;
+    }
+    // Find the node element by its ID
+    const nodeElement = document.getElementById(nodeId);
+
+    if (!nodeElement) {
+        return null;
+    }
+
+    // Get the position and dimensions of the node
+    const rect = nodeElement.getBoundingClientRect();
+    const margin = emToPixel(1);
+
+    const viewportWidth = window.innerWidth;
+    const totalModalWidth = MODALWIDTH + 2 * MODALPADDING + margin;
+    const hasSpaceOnRight = rect.right + totalModalWidth < viewportWidth;
+    const hasSpaceOnLeft = rect.left > totalModalWidth;
+
+    const newPosition = {};
+
+    if (hasSpaceOnRight) {
+        newPosition.x = rect.right + margin;
+        newPosition.y = rect.top + rect.height / 2 - 100;
+    } else if (hasSpaceOnLeft) {
+        newPosition.x = rect.left - totalModalWidth;
+        newPosition.y = rect.top + rect.height / 2 - 100;
+    } else {
+        // Position below the node, horizontally centered
+        newPosition.x = Math.max(
+            margin,
+            rect.left + rect.width / 2 - totalModalWidth / 2
+        );
+        // Make sure it doesn't go off-screen to the right
+        newPosition.x = Math.min(
+            newPosition.x,
+            viewportWidth - totalModalWidth - margin
+        );
+        newPosition.y = rect.bottom + margin;
+    }
+    return newPosition;
+}

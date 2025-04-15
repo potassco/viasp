@@ -104,7 +104,7 @@ export function Symbol(props) {
 
     const handleDoubleClickOnSymbol = async (e) => {
         const rect = symbolElementRef.current.getBoundingClientRect();
-        setModalPosition({top: rect.top, left: rect.left + rect.width});
+        setModalPosition({x: rect.left, y: rect.top});
         setModalForSymbol({sourceId: symbolUuid, nodeId: nodeUuid, repr: symbol_repr});
         resetSymbolModalHighlights();
     }

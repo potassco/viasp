@@ -1,12 +1,22 @@
 import React from 'react';
 import Draggable from 'react-draggable';
-import PropTypes from 'prop-types';
 
 import PulseLoader from 'react-spinners/PulseLoader';
 import {Constants} from '../constants';
+import {emToPixel} from '../utils';
 
 import { SymbolElementSpan } from './Symbol.style';
-import { StyledListItem, StyledList, ModalDiv, ModalHeaderDiv, ModalHeaderSpan, calculateAdjustedPosition } from './Modal.style';
+import {
+    StyledListItem,
+    StyledList,
+    ModalDiv,
+    ModalHeaderDiv,
+    ModalOverlayDiv,
+    ModalHeaderSpan,
+    MODALWIDTH,
+    calculateAdjustedPosition,
+    calculateModalPosition
+} from './Modal.style';
 
 import {useRecoilValue, useRecoilState, useResetRecoilState, useRecoilCallback, useSetRecoilState} from 'recoil';
 import { colorPaletteState } from '../atoms/settingsState';
@@ -19,12 +29,13 @@ import {
 import {handleModalHighlightCallback} from '../hooks/highlights';
 
 import { CloseButton } from '../fragments/CloseButton.react';
+import { isAnimatingState, shownRecursionState } from '../atoms/currentGraphState';
 
 
-function ModalHeader(props) {
-    const {originSymbol} = props;
+function ModalHeader() {
     const colorPalette = useRecoilValue(colorPaletteState);
     const resetModal = useResetRecoilState(modalForSymbolState);
+    const originSymbol = useRecoilValue(modalForSymbolState);
 
     return (
         <ModalHeaderSpan>
@@ -32,7 +43,7 @@ function ModalHeader(props) {
                 className="modalHeader txt-elem"
                 $colorPalette={colorPalette}
             >
-                {originSymbol}
+                {originSymbol.repr}
             </ModalHeaderDiv>
             <CloseButton onClose={resetModal} />
         </ModalHeaderSpan>
@@ -40,13 +51,11 @@ function ModalHeader(props) {
 }
 
 ModalHeader.propTypes = {
-    originSymbol: PropTypes.string.isRequired,
 };
 
 function ModalContent() {
     const colorPalette = useRecoilValue(colorPaletteState);
     const modalContent = useRecoilValue(modalContentState);
-    const originSymbol = useRecoilValue(modalForSymbolState);
     const handleSearchResultSuggestions = useRecoilCallback(
         handleModalHighlightCallback,
         []
@@ -91,7 +100,7 @@ function ModalContent() {
 
     return (
         <div className="modalContent">
-            <ModalHeader originSymbol={originSymbol.repr} />
+            <ModalHeader />
             <StyledList className="modalContent txt-elem">
                 {contentToShow}
             </StyledList>
@@ -105,20 +114,52 @@ ModalContent.propTypes = {
 export function Modal() {
     const colorPalette = useRecoilValue(colorPaletteState);
     const modalVisible = useRecoilValue(modalVisibleState);
-    const spawnPosition = useRecoilValue(modalPositionState);
-    const adjustedPosition = calculateAdjustedPosition(spawnPosition);
+    const [spawnPosition, setSpawnPosition] =
+        React.useState({x: 0, y: 0});
+    const modalForSymbol = useRecoilValue(modalForSymbolState);
+    const recursion = useRecoilValue(shownRecursionState);
+    const isAnimating = useRecoilValue(isAnimatingState)
 
+    React.useEffect(() => {
+        if (isAnimating) {
+            return;
+        }
+        const newPosition = calculateModalPosition(
+            modalVisible,
+            modalForSymbol.nodeId
+        );
+        console.log("recalculated...", newPosition)
+        if (newPosition) {
+            console.log('New spawn position:', newPosition);
+            setSpawnPosition(newPosition);
+        }
+    }, [modalVisible, modalForSymbol, recursion, isAnimating]);
 
-    return !modalVisible ? null : (
-        <Draggable handle=".modalDiv" cancel='.modalContent'>
-            <ModalDiv 
-                className='modalDiv'
-                $position={adjustedPosition}
-                $colorPalette={colorPalette} 
+    // If modal is not visible, don't render anything
+    if (!modalVisible) { 
+        return null 
+    };
+
+    return (
+        <div style={{position: 'relative', width: '100%', height: '0'}}>
+            <Draggable
+                handle=".modalDiv"
+                cancel=".modalContent"
+                defaultPosition={spawnPosition}
+                position={spawnPosition}
+                onStop={(e, data) => {
+                    setSpawnPosition({x: data.x, y: data.y});
+                }}
             >
-                <ModalContent />
-            </ModalDiv>
-        </Draggable>
+                <ModalDiv
+                    className="modalDiv"
+                    $position={spawnPosition}
+                    $colorPalette={colorPalette}
+                >
+                    <ModalContent />
+                </ModalDiv>
+            </Draggable>
+        </div>
     );
 }
 

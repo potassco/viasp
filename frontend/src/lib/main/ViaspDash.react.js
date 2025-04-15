@@ -114,9 +114,11 @@ function GraphContainer(props) {
     }
 
     const graphContainerRef = React.useRef(null);
-    return (
-        currentSort === "ERROR" ? <div>No graph found. Invalid session ID?</div> :
+    return currentSort === 'ERROR' ? (
+        <div>No graph found. Invalid session ID?</div>
+    ) : (
         <div className="graph_container" ref={graphContainerRef}>
+            <Modal />
             <Facts />
             <Settings />
             <DraggableList
@@ -135,12 +137,14 @@ function GraphContainer(props) {
                 autoScrollRegionSize={200}
                 padding={0}
                 unsetZIndex={true}
-                commonProps={{setIsCurrentlyPickedUp, rowShading: colorPalette.rowShading}}
+                commonProps={{
+                    setIsCurrentlyPickedUp,
+                    rowShading: colorPalette.rowShading,
+                }}
             />
             {clingraphUsed ? <Boxrow /> : null}
             <Arrows />
             {transformationsList.length === 0 ? null : <Edges />}
-            <Modal />
         </div>
     );
 }
@@ -296,7 +300,7 @@ function MainWindow(props) {
 
     return (
         <div className="content" id="content" ref={contentDivRef}>
-            <ZoomInteraction/>
+            <ZoomInteraction />
             <Suspense fallback={<div>Loading...</div>}>
                 <GraphContainer
                     notifyDash={notifyDash}
