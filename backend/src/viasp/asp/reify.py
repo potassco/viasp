@@ -182,6 +182,8 @@ class DependencyCollector(Transformer):
         if (not self.in_analyzer and not halt_collection):
             # add all Literals outside of aggregates from rule body to justifier rule body
             conditions.append(literal)
+        if not self.in_analyzer:
+            kwargs.update({"halt_collection": True})
         return literal.update(**self.visit_children(literal, **kwargs))
 
     def visit_Aggregate(
