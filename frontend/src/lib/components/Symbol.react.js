@@ -48,6 +48,7 @@ export function Symbol(props) {
         symbol_repr,
         nodeUuid,
         transformationHash,
+        supernodeUuid,
     } = props;
     const setThisSymbolHighlights = useRecoilCallback(
         setReasonHighlightsCallback, []
@@ -77,7 +78,6 @@ export function Symbol(props) {
         []
     );
     const setModalForSymbol = useSetRecoilState(modalForSymbolState);
-    const setModalPosition = useSetRecoilState(modalPositionState);
     const resetSymbolModalHighlights = useResetRecoilState(symbolModalHighlightsState);
     
     const handleClickOnSymbol = async (e) => {
@@ -103,9 +103,12 @@ export function Symbol(props) {
     };
 
     const handleDoubleClickOnSymbol = async (e) => {
-        const rect = symbolElementRef.current.getBoundingClientRect();
-        setModalPosition({x: rect.left, y: rect.top});
-        setModalForSymbol({sourceId: symbolUuid, nodeId: nodeUuid, repr: symbol_repr});
+        setModalForSymbol({
+            sourceId: symbolUuid,
+            nodeId: nodeUuid,
+            supernodeId: supernodeUuid,
+            repr: symbol_repr,
+        });
         resetSymbolModalHighlights();
     }
 
@@ -173,4 +176,8 @@ Symbol.propTypes = {
      * The representation of the symbol
      */
     symbol_repr: PropTypes.string,
+    /**
+     * The uuid of the supernode that the symbol is in, optional
+     */
+    supernodeUuid: PropTypes.string,
 };

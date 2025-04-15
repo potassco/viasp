@@ -1,6 +1,6 @@
 import React, {Suspense, useEffect, useCallback, useMemo, useRef, useState} from 'react';
 import './node.css';
-import PropTypes, { symbol } from 'prop-types';
+import PropTypes from 'prop-types';
 import {Symbol} from './Symbol.react';
 import {
     NodeDiv,
@@ -61,6 +61,7 @@ function NodeContent(props) {
         transformationId,
         transformationHash,
         subnodeIndex,
+        supernodeUuid
     } = props;
     const colorPalette = useRecoilValue(colorPaletteState);
     const highlightedSymbols = useRecoilValue(allHighlightedSymbolsState);
@@ -76,7 +77,7 @@ function NodeContent(props) {
     const setIsCollapsibleV = useSetRecoilState(
         nodeIsCollapsibleVByNodeUuidStateFamily(nodeUuid)
     );
-    const [isExpandVAllTheWay, setIsExpandVAllTheWay] = useRecoilState(
+    const isExpandVAllTheWay = useRecoilValue(
         nodeIsExpandVAllTheWayByNodeUuidStateFamily(nodeUuid)
     );
     const setLongestSymbol = useSetRecoilState(
@@ -92,81 +93,93 @@ function NodeContent(props) {
     /*
      * Y of symbols in node
      */
-    const getSymbolHeight = useCallback((symbolUuid) => {
-        const childElement = setContainerRef.current?.querySelector(
-            `div[data-uuid="${symbolUuid}"]`
-        );
+    const getSymbolHeight = useCallback(
+        (symbolUuid) => {
+            const childElement = setContainerRef.current?.querySelector(
+                `div[data-uuid="${symbolUuid}"]`
+            );
 
-        const parentElement = parentRef.current;
+            const parentElement = parentRef.current;
 
-        if (!childElement || !parentElement) {
-            return 0;
-        }
-        const childRect = childElement.getBoundingClientRect();
-        const parentRect = parentElement.getBoundingClientRect();
-        const belowLineMargin = 6;
-        return childRect.top +
+            if (!childElement || !parentElement) {
+                return 0;
+            }
+            const childRect = childElement.getBoundingClientRect();
+            const parentRect = parentElement.getBoundingClientRect();
+            const belowLineMargin = 6;
+            return (
+                childRect.top +
                 childRect.height -
                 parentRect.top +
-                belowLineMargin;
-    }, [parentRef]);
+                belowLineMargin
+            );
+        },
+        [parentRef]
+    );
 
-    const symbolHeightForAllSymbols = useCallback((symbols) => {
-        const currentWidth = setContainerRef.current?.offsetWidth;
-        if (currentWidth === lastWidthRef.current) {
-            return lastSymbolHeightRef.current;
-        }
-        lastWidthRef.current = currentWidth;
-        const symbolYPositions = {};
-        symbols.forEach((s) => {
-            symbolYPositions[s] = getSymbolHeight(s);
-        });
-        lastSymbolHeightRef.current = symbolYPositions;
-        return symbolYPositions;
-    }, [getSymbolHeight]);
+    const symbolHeightForAllSymbols = useCallback(
+        (symbols) => {
+            const currentWidth = setContainerRef.current?.offsetWidth;
+            if (currentWidth === lastWidthRef.current) {
+                return lastSymbolHeightRef.current;
+            }
+            lastWidthRef.current = currentWidth;
+            const symbolYPositions = {};
+            symbols.forEach((s) => {
+                symbolYPositions[s] = getSymbolHeight(s);
+            });
+            lastSymbolHeightRef.current = symbolYPositions;
+            return symbolYPositions;
+        },
+        [getSymbolHeight]
+    );
 
     const setHeightFromContent = useCallback(
-        (contentToShow, highlightedSymbols, isExpandVAllTheWay) => {
+        (contentSymbols, highlightedSymbols, isExpandVAllTheWay) => {
             const getNewHeight = () => {
-                const symbolYPositions = symbolHeightForAllSymbols(contentToShow);
+                const contentSymbolsUuids = contentSymbols.map(
+                    (s) => s.symbol_uuid
+                );
+                const symbolYPositions =
+                    symbolHeightForAllSymbols(contentSymbolsUuids);
                 const lowestSymbolHeight = Math.max(
                     emToPixel(Constants.minimumNodeHeight),
-                    ...contentToShow.map((s) => symbolYPositions[s])
+                    ...contentSymbolsUuids.map(
+                        (s) => symbolYPositions[s]
+                    )
                 );
                 const isNodeInsignificantlyBiggerThanStandardNodeHeight =
                     lowestSymbolHeight * Constants.foldNodeThreshold <
                     emToPixel(Constants.standardNodeHeight);
-                if (
-                    isNodeInsignificantlyBiggerThanStandardNodeHeight
-                ) {
+                if (isNodeInsignificantlyBiggerThanStandardNodeHeight) {
                     setIsExpandableV(false);
-                    setIsCollapsibleV(false)
+                    setIsCollapsibleV(false);
                     return lowestSymbolHeight;
                 }
-                if (
-                    isExpandVAllTheWay
-                ) {
+                if (isExpandVAllTheWay) {
                     setIsExpandableV(false);
                     return lowestSymbolHeight;
                 }
 
-
-                const markedItems = contentToShow.map((s) => s.symbol_uuid).filter((u) =>
-                    highlightedSymbols.map((h) => h.symbolUuid).includes(u)
+                const highlightUuids = highlightedSymbols.map(
+                    (h) => h.symbolUuid
+                );
+                const markedItems = contentSymbolsUuids.filter((s) =>
+                    highlightUuids.includes(s)
                 );
                 if (
                     markedItems.length > 0 &&
                     any(
                         markedItems.map(
-                            (item) =>
-                                symbolYPositions[item] >
+                            (s) =>
+                                symbolYPositions[s] >
                                 emToPixel(Constants.standardNodeHeight)
                         )
                     )
                 ) {
                     const newHeight = Math.max(
                         emToPixel(Constants.minimumNodeHeight),
-                        ...contentToShow
+                        ...contentSymbolsUuids
                             .filter((s) => markedItems.includes(s))
                             .map((s) => symbolYPositions[s])
                     );
@@ -184,7 +197,7 @@ function NodeContent(props) {
                     emToPixel(Constants.standardNodeHeight),
                     Math.max(
                         emToPixel(Constants.minimumNodeHeight),
-                        ...contentToShow.map((s) =>
+                        ...contentSymbolsUuids.map((s) =>
                             symbolYPositions[s]
                                 ? symbolYPositions[s]
                                 : 0
@@ -196,7 +209,11 @@ function NodeContent(props) {
             };
             setHeight(getNewHeight());
         },
-        [setHeight, setIsExpandableV, setIsCollapsibleV,  symbolHeightForAllSymbols
+        [
+            setHeight,
+            setIsExpandableV,
+            setIsCollapsibleV,
+            symbolHeightForAllSymbols,
         ]
     );
 
@@ -264,6 +281,7 @@ function NodeContent(props) {
                     nodeUuid={nodeUuid}
                     transformationHash={transformationHash}
                     transformationId={transformationId}
+                    supernodeUuid={supernodeUuid}
                 />
             </div>
         );
@@ -309,6 +327,10 @@ NodeContent.propTypes = {
      * The index of the subnode, optional
      */
     subnodeIndex: PropTypes.number,
+    /**
+     * The uuid of the supernode, optional
+     */
+    supernodeUuid: PropTypes.string,
 };
 
 function MiniNode(props) {
@@ -412,6 +434,7 @@ export function Node(props) {
         branchSpace,
         transformationId,
         subnodeIndex,
+        supernodeUuid,
     } = props;
     const node = useRecoilValue(
         nodeAtomByNodeUuidStateFamily({
@@ -545,6 +568,7 @@ export function Node(props) {
                                 transformationId={transformationId}
                                 transformationHash={transformationHash}
                                 subnodeIndex={subnodeIndex}
+                                supernodeUuid={supernodeUuid}
                             />
                         )}
                         <RecursionButton node={node} />
@@ -580,6 +604,10 @@ Node.propTypes = {
      * The index of the subnode, optional
      */
     subnodeIndex: PropTypes.number,
+    /**
+     * The uuid of the supernode, optional
+     */
+    supernodeUuid: PropTypes.string,
 };
 
 export function RecursiveSuperNode(props) {
@@ -656,6 +684,7 @@ export function RecursiveSuperNode(props) {
                                     branchSpace={branchSpace}
                                     transformationId={transformationId}
                                     subnodeIndex={i}
+                                    supernodeUuid={nodeUuid}
                                 />
                             );
                         })}

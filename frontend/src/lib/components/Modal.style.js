@@ -74,21 +74,23 @@ export const ModalHeaderSpan = styled.span`
     width: 100%;
 `;
 
-export function calculateModalPosition(modalVisible, nodeId) {
-    if (!modalVisible || !nodeId) {
+export function calculateModalPosition(modalVisible, nodeId, supernodeId) {
+    if (!modalVisible) {
         return null;
     }
-    // Find the node element by its ID
+    let rect = {}
+
+    const supernodeElement = document.getElementById(supernodeId);
     const nodeElement = document.getElementById(nodeId);
-
-    if (!nodeElement) {
+    if (nodeElement !== null) {
+        rect = nodeElement.getBoundingClientRect();
+    } else if (supernodeElement !== null) {
+        rect = supernodeElement.getBoundingClientRect();
+    } else {
         return null;
     }
-
-    // Get the position and dimensions of the node
-    const rect = nodeElement.getBoundingClientRect();
+    
     const margin = emToPixel(1);
-
     const viewportWidth = window.innerWidth;
     const totalModalWidth = MODALWIDTH + 2 * MODALPADDING + margin;
     const hasSpaceOnRight = rect.right + totalModalWidth < viewportWidth;

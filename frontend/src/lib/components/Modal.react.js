@@ -1,9 +1,8 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import Draggable from 'react-draggable';
 
 import PulseLoader from 'react-spinners/PulseLoader';
 import {Constants} from '../constants';
-import {emToPixel} from '../utils';
 
 import { SymbolElementSpan } from './Symbol.style';
 import {
@@ -11,10 +10,7 @@ import {
     StyledList,
     ModalDiv,
     ModalHeaderDiv,
-    ModalOverlayDiv,
     ModalHeaderSpan,
-    MODALWIDTH,
-    calculateAdjustedPosition,
     calculateModalPosition
 } from './Modal.style';
 
@@ -115,22 +111,21 @@ export function Modal() {
     const colorPalette = useRecoilValue(colorPaletteState);
     const modalVisible = useRecoilValue(modalVisibleState);
     const [spawnPosition, setSpawnPosition] =
-        React.useState({x: 0, y: 0});
+        useState({x: 0, y: 0});
     const modalForSymbol = useRecoilValue(modalForSymbolState);
     const recursion = useRecoilValue(shownRecursionState);
     const isAnimating = useRecoilValue(isAnimatingState)
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (isAnimating) {
             return;
         }
         const newPosition = calculateModalPosition(
             modalVisible,
-            modalForSymbol.nodeId
+            modalForSymbol.nodeId,
+            modalForSymbol.supernodeId,
         );
-        console.log("recalculated...", newPosition)
         if (newPosition) {
-            console.log('New spawn position:', newPosition);
             setSpawnPosition(newPosition);
         }
     }, [modalVisible, modalForSymbol, recursion, isAnimating]);

@@ -20,7 +20,7 @@ async function fetchModalContent(backendURL, sourceId, nodeId, token){
     return await response.json();
 }
 
-const defaultModalForSymbol = {sourceId: null, nodeId: null, repr: null};
+const defaultModalForSymbol = {sourceId: null, nodeId: null, supernodeId: null, repr: null};
 const defaultModalPosition = {top: 0, left: 0};
 
 export const modalForSymbolState = atom({
