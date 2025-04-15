@@ -25,7 +25,7 @@ import {
 import {handleModalHighlightCallback} from '../hooks/highlights';
 
 import { CloseButton } from '../fragments/CloseButton.react';
-import { isAnimatingState, shownRecursionState } from '../atoms/currentGraphState';
+import { contentDivState, isAnimatingState, shownRecursionState } from '../atoms/currentGraphState';
 
 
 function ModalHeader() {
@@ -114,7 +114,8 @@ export function Modal() {
         useState({x: 0, y: 0});
     const modalForSymbol = useRecoilValue(modalForSymbolState);
     const recursion = useRecoilValue(shownRecursionState);
-    const isAnimating = useRecoilValue(isAnimatingState)
+    const isAnimating = useRecoilValue(isAnimatingState);
+    const contentDiv = useRecoilValue(contentDivState)
 
     useEffect(() => {
         if (isAnimating) {
@@ -124,11 +125,16 @@ export function Modal() {
             modalVisible,
             modalForSymbol.nodeId,
             modalForSymbol.supernodeId,
+            contentDiv,
         );
         if (newPosition) {
             setSpawnPosition(newPosition);
         }
-    }, [modalVisible, modalForSymbol, recursion, isAnimating]);
+    }, [modalVisible, modalForSymbol, recursion, isAnimating, contentDiv]);
+
+    useEffect(() => {
+        console.log(`Modal position: ${spawnPosition.x}, ${spawnPosition.y}`);
+    }, [spawnPosition]);
 
     // If modal is not visible, don't render anything
     if (!modalVisible) { 

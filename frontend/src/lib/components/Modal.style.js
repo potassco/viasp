@@ -74,7 +74,7 @@ export const ModalHeaderSpan = styled.span`
     width: 100%;
 `;
 
-export function calculateModalPosition(modalVisible, nodeId, supernodeId) {
+export function calculateModalPosition(modalVisible, nodeId, supernodeId, contentDiv) {
     if (!modalVisible) {
         return null;
     }
@@ -89,6 +89,8 @@ export function calculateModalPosition(modalVisible, nodeId, supernodeId) {
     } else {
         return null;
     }
+    const scrollY = contentDiv.current.scrollTop;
+
     
     const margin = emToPixel(1);
     const viewportWidth = window.innerWidth;
@@ -97,13 +99,14 @@ export function calculateModalPosition(modalVisible, nodeId, supernodeId) {
     const hasSpaceOnLeft = rect.left > totalModalWidth;
 
     const newPosition = {};
+    console.log({scrollY});
 
     if (hasSpaceOnRight) {
         newPosition.x = rect.right + margin;
-        newPosition.y = rect.top + rect.height / 2 - 100;
+        newPosition.y = rect.top + rect.height / 2 - 100 + scrollY;
     } else if (hasSpaceOnLeft) {
         newPosition.x = rect.left - totalModalWidth;
-        newPosition.y = rect.top + rect.height / 2 - 100;
+        newPosition.y = rect.top + rect.height / 2 - 100 + scrollY;
     } else {
         // Position below the node, horizontally centered
         newPosition.x = Math.max(
@@ -115,7 +118,7 @@ export function calculateModalPosition(modalVisible, nodeId, supernodeId) {
             newPosition.x,
             viewportWidth - totalModalWidth - margin
         );
-        newPosition.y = rect.bottom + margin;
+        newPosition.y = rect.bottom + margin + scrollY;
     }
     return newPosition;
 }
