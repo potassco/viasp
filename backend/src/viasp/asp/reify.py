@@ -12,9 +12,10 @@ from clingo.ast import (
     ASTSequence,
     AST
 )
+from viasp.asp.detail import DetailEncoder
 from viasp.shared.util import RuleType, hash_transformation_rules, hash_string
 
-from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, move_constraints_only_transformations_to_end, topological_sort, replace_anon_variables, transform_condition_literal_to_reason_literal
+from .utils import find_index_mapping_for_adjacent_topological_sorts, is_constraint, merge_constraints, move_constraints_only_transformations_to_end, topological_sort, replace_anon_variables
 from ..asp.utils import merge_cycles, remove_loops
 from viasp.asp.ast_types import (
     SUPPORTED_TYPES,
@@ -484,8 +485,10 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         if is_fact(rule, deps):
             self.facts.add(str(rule.head))
 
-    def visit_ShowTerm(self, showTerm: ast.ShowTerm,
-                       program_str: str):  # type: ignore
+    def visit_ShowTerm(
+            self,
+            showTerm: ast.ShowTerm,  # type: ignore
+            program_str: str):
         deps = defaultdict(tuple)
         _ = self.visit(showTerm.term, deps=deps, in_head=True)
         head_literal = ast.Literal(showTerm.location, ast.Sign.NoSign,
@@ -493,8 +496,10 @@ class ProgramAnalyzer(DependencyCollector, FilteredTransformer):
         self.process_body(head_literal, showTerm.body, deps)
         self.register_dependencies_and_append_rule(showTerm, deps, program_str)
 
-    def visit_Minimize(self, minimize: ast.Minimize,
-                       program_str: str):  # type: ignore
+    def visit_Minimize(
+            self,
+            minimize: ast.Minimize,  # type: ignore
+            program_str: str):
         deps = defaultdict(tuple)
         true_head_literal = ast.Literal(minimize.location, ast.Sign.NoSign,
                                         ast.BooleanConstant(1))
@@ -663,6 +668,7 @@ class ProgramReifier(DependencyCollector):
         self.get_conflict_free_variable_str = get_conflict_free_variable_str
         self.clear_temp_names = clear_temp_names
         self.conflict_free_showTerm = conflict_free_showTerm_str
+        self.detailEncoder = DetailEncoder()
         super().__init__(in_analyzer=False)
 
     def make_component_lit(self, loc: ast.Location) -> ast.Literal:  # type: ignore
@@ -695,10 +701,9 @@ class ProgramReifier(DependencyCollector):
         component_lit = self.make_component_lit(loc)
         rule_lit = self.make_rule_lit(loc, **kwargs)
         for literal in conditions:
-            transform_condition_literal_to_reason_literal(
-                literal, reasons
-            )
-
+            reason_literal = self.detailEncoder.encode_literal(literal)
+            if reason_literal is not None:
+                reasons.append(reason_literal)
 
         reasons.reverse()
         reasons = [r for i, r in enumerate(reasons) if r not in reasons[:i]]
@@ -766,7 +771,8 @@ class ProgramReifier(DependencyCollector):
             replace_anon_variables(conditions, rule)
             print(f"dependant: {dependant}")
             print(f"conditions: ")
-            print(conditions, flush=True)
+            print(conditions)
+            print("\n".join(map(str,conditions)), flush=True)
             # print('\n    '.join(map(str, conditions)), flush=True)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions, **kwargs)
@@ -780,6 +786,10 @@ class ProgramReifier(DependencyCollector):
                 ast.Rule(rule.location, new_head, conditions)
                 for new_head in new_head_s
             ])
+            for aggregate in filter(lambda x: x.atom.ast_type == ASTType.BodyAggregate, conditions):
+                # create auxiliary rules for aggregates
+                self.detailEncoder.create_auxiliary_aggregate_rules(
+                    aggregate)
             self.post_rule_creation()
 
         return new_rules

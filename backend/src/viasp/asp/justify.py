@@ -11,7 +11,8 @@ from clingo.ast import AST, ASTType
 
 from .reify import ProgramAnalyzer, reify_recursion_transformation, LiteralWrapper
 from .recursion import RecursionReasoner
-from .utils import insert_atoms_into_nodes, identify_reasons, calculate_spacing_factor, is_constraint, is_minimize, identify_reasons, iterate_negative_reasons, iterate_positive_reasons
+from .utils import insert_atoms_into_nodes, calculate_spacing_factor, is_constraint, is_minimize
+from .detail import identify_reasons
 from ..shared.model import Node, RuleContainer, Transformation, SymbolIdentifier, SearchResultSymbolWrapper, ReasonSymbolIdentifier
 from ..shared.simple_logging import info
 from ..shared.util import pairwise, get_leafs_from_graph

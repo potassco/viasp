@@ -74,6 +74,28 @@ def hash_transformation_rules(rules: Tuple[Any, ...]) -> str:
 def hash_string(string: str) -> str:
     return sha1(string.encode()).hexdigest()
 
+def hash_normalized_string(string: str) -> str:
+    """
+    Normalize an ASP string by parsing it to AST and back to string representation,
+    then hash the normalized version.
+    
+    This approach handles multiple rules and ensures consistent representation.
+    """
+    normalized_rules = []
+
+    # Parse all rules in the input string
+    parse_string(
+        string, lambda rule: normalized_rules.append(rule)
+        if rule.ast_type != ASTType.Program else None)
+
+    if not normalized_rules:
+        return hash_string(string)
+
+    normalized_rules.sort(key=lambda r: str(r))
+
+    normalized_string = "\n".join(str(rule) for rule in normalized_rules)
+    return hash_string(normalized_string)
+
 
 class RuleType:
     location: Location
@@ -185,10 +207,10 @@ def parse_clingo_json(json_str):
         if len(models_prgs)> 0 and 'cost' in models_prgs[-1]:
             optimum = models_prgs[-1]['cost']
         ans.update({"optimum": optimum})
-        
+
         if 'Threads' in j.keys() and 'Winner' in j.keys():
             ans.update({"Threads": j['Threads'], "Winner": j['Winner']})
-        ans.update({"Result": j['Result'], 
+        ans.update({"Result": j['Result'],
                     "Calls": j['Calls'],
                     "Models": j['Models'],
                     "Time": j['Time']})
