@@ -1,8 +1,8 @@
-from clingo.ast import Transformer, AST, ASTType
-from clingo import Number, ast, Symbol
+from clingo.ast import Transformer, AST, ASTType, ASTSequence
+from clingo import Function, Number, String, ast, Symbol
 import networkx as nx
 
-from typing import List, Any, Set, Iterable, Optional
+from typing import List, Any, Set, Iterable, Optional, Union, Callable
 
 from ..shared.util import get_root_node_from_graph
 from ..shared.simple_logging import warn
@@ -10,13 +10,17 @@ from ..shared.model import Node, ReasonSymbolIdentifier
 
 class DetailEncoder:
 
-    def __init__(self):
+    def __init__(self, component_nr: int,
+                 get_conflicht_free_variable_str: Callable) -> None:
+        self.component_nr = component_nr
+        self.get_conflict_free_variable_str = get_conflicht_free_variable_str
         self.body_aggregate_counter = 0
+        self.auxiliary_rules = []
 
     def increment_body_aggregate_counter(self) -> None:
         self.body_aggregate_counter += 1
 
-    def encode_literal(self, literal: ast.Literal) -> Optional[ast.Literal]:  # type: ignore
+    def encode_literal(self, literal: ast.Literal, h_literal_for_auxiliary_rules: Optional[ast.Literal]) -> Optional[ast.Literal]:  # type: ignore
         if not (hasattr(literal, "sign") and hasattr(literal, "atom")
                 and hasattr(literal.atom, "ast_type")):
             return
@@ -26,6 +30,10 @@ class DetailEncoder:
             return self.create_comparison_literal(literal)
         if literal.atom.ast_type == ASTType.BodyAggregate:
             reason = self.create_aggregate_reason_literal(literal)
+            self.auxiliary_rules.extend(
+                self.create_auxiliary_aggregate_rules(
+                    literal,
+                    h_literal=h_literal_for_auxiliary_rules))
             self.increment_body_aggregate_counter()
             return reason
 
@@ -38,26 +46,49 @@ class DetailEncoder:
             wrapper_name = "double_neg"
         else:
             wrapper_name = "pos"
-        return ast.Function(literal.location, wrapper_name, [literal.atom], False)
+        return ast.Function(literal.location, wrapper_name, [literal.atom], 0)
 
     def create_comparison_literal(
             self,
             literal: ast.Literal) -> ast.Function:  # type: ignore
-        stringified = ast.Function(literal.location, '"' + str(literal.atom) + '"',
-                                [], False)
+        string_repr = str(literal.atom)
+        return self.create_comp_function(
+            literal.location, literal.atom, string_repr)
+
+    def create_comp_function(
+            self,
+            location: ast.Location,  # type: ignore
+            ast_elem: AST,  # type: ignore
+            string_repr: str) -> ast.Function:  # type: ignore
+        stringified = ast.SymbolicTerm(location, String(string_repr))
         list_of_variable_ident_tuples = []
-        for var in collect_variables_in_comparison(literal.atom):
-            variable_string = ast.Function(literal.location,
-                                        '"' + str(var.name) + '"', [], False)
+        for var in collect_variables(ast_elem):
+            variable_string = ast.Function(location, '"' + str(var.name) + '"',
+                                           [], 0)
             variable_value = var
             list_of_variable_ident_tuples.append(
-                ast.Function(literal.location, "",
-                            [variable_string, variable_value], False))
+                ast.Function(location, "", [variable_string, variable_value],
+                             0))
+        variables = ast.Function(location, "", list_of_variable_ident_tuples,
+                                 0)
+        return ast.Function(location, "comp", [variables, stringified], 0)
 
-        variables = ast.Function(literal.location, "",
-                                list_of_variable_ident_tuples, False)
-        return ast.Function(literal.location, "comp", [variables, stringified],
-                            False)
+    def create_guard_literal(
+            self,
+            location: ast.Location,  # type: ignore
+            guard: Optional[ast.Guard]) -> ast.Function:  # type: ignore
+        if guard is None:
+            return ast.Function(location, "_none", [], 0)
+        string_repr = str(guard.term)
+        return self.create_comp_function(location, guard.term, string_repr)
+
+    def create_body_aggregate_term_literal(
+            self,
+            location: ast.Location,  # type: ignore
+            element: ast.BodyAggregateElement) -> ast.Function:  # type: ignore
+        string_repr = ','.join([str(term) for term in element.terms])
+        return self.create_comp_function(
+            location, element.terms, string_repr)
 
     def create_aggregate_reason_literal(
             self,
@@ -68,22 +99,152 @@ class DetailEncoder:
             ast.SymbolicTerm(literal.location, Number(self.body_aggregate_counter)))
         list_of_aggregate_descriptors.append(
             ast.Function(literal.location, "",
-                        collect_variables_in_aggregate(literal.atom), False))
+                        collect_variables_in_aggregate(literal.atom), 0))
 
         if literal.sign == ast.Sign.Negation:
             list_of_aggregate_descriptors.append(
-                ast.Function(literal.location, "neg", [], False))
-        else:
+                ast.Function(literal.location, "neg", [], 0))
+        elif literal.sign == ast.Sign.DoubleNegation:
             list_of_aggregate_descriptors.append(
-                ast.Function(literal.location, "pos", [], False))
+                ast.Function(literal.location, "double_neg", [], 0))
+        elif literal.sign == ast.Sign.NoSign:
+            list_of_aggregate_descriptors.append(
+                ast.Function(literal.location, "pos", [], 0))
 
         return ast.Function(literal.location, wrapper_name,
-                            list_of_aggregate_descriptors, False)
-    
+                            list_of_aggregate_descriptors, 0)
+
     def create_auxiliary_aggregate_rules(
             self,
-            literal: ast.Literal) -> ast.Function:
-        print("Need to create auxiliary rules for aggregate reason literals", flush=True)
+            literal: ast.Literal,  # type: ignore
+            h_literal: ast.Function) -> List[ast.Rule]:  # type: ignore
+        new_rules = []
+        wrapper_name = "body_aggregate"
+        aggregate_number = self.body_aggregate_counter
+        aggregate_value_name = self.get_conflict_free_variable_str("_X1")
+
+        new_rules.append(
+            self.create_aggregate_rule_bounds_and_value_info(
+                literal, self.component_nr, h_literal, wrapper_name,
+                aggregate_number, aggregate_value_name))
+
+        for i, element in enumerate(literal.atom.elements):
+            new_rules.append(
+                self.create_aggregate_element_rule(
+                    literal, element, self.component_nr, h_literal,
+                    wrapper_name, aggregate_number, i)  # type: ignore
+                )
+
+        return new_rules
+
+    def create_aggregate_rule_bounds_and_value_info(
+            self,
+            literal: ast.Literal,  # type: ignore
+            component_nr: int,
+            h_literal: ast.Function,  # type: ignore
+            wrapper_name: str,
+            aggregate_number: int,
+            aggregate_value_name: str) -> ast.Rule:  # type: ignore
+        loc = literal.location
+        component_nr_ast = ast.SymbolicTerm(loc, Number(component_nr))
+        variable_tuple = ast.Function(loc, "",
+                        collect_variables_in_aggregate(literal.atom), 0)
+        aggregate_identifier = ast.Function(loc, wrapper_name,
+                                            [ast.SymbolicTerm(loc, Number(aggregate_number)),],
+                                            0)
+        aggregate_operation = ast.SymbolicTerm(
+            loc, Function(stringify_aggregate_function(literal), [], True))
+        lower_bound = ast.Function(literal.location,
+                                   "lw",
+                                   [self.create_guard_literal(literal.location, literal.atom.left_guard)],
+                                   0)
+        upper_bound = ast.Function(literal.location,
+                                   "up",
+                                    [self.create_guard_literal(literal.location, literal.atom.right_guard)],
+                                    0)
+        aggregate_value = ast.Variable(loc, aggregate_value_name)
+        return ast.Rule(
+            loc,
+            ast.Literal(
+            loc,
+            0,
+            ast.SymbolicAtom(
+                ast.Function(loc, wrapper_name, [
+                    component_nr_ast,
+                    variable_tuple,
+                    aggregate_identifier,
+                    aggregate_operation,
+                    lower_bound,
+                    upper_bound,
+                    aggregate_value
+                ], 0)),
+            ), [
+            h_literal,
+            self.create_aggregate_equal_variable(
+                literal, aggregate_value_name)
+        ])
+
+    def create_aggregate_equal_variable(
+            self,
+            literal: ast.Literal,  # type: ignore
+            aggregate_value: str) -> ast.Function:  # type: ignore
+        return ast.Literal(
+            literal.location,
+            ast.Sign.NoSign,
+            ast.BodyAggregate(
+                literal.location,
+                ast.Guard(5, ast.Variable(literal.location, aggregate_value)),
+                literal.atom.function,
+                literal.atom.elements,
+                None
+            ))
+
+    def create_aggregate_element_rule(
+        self,
+        literal: ast.Literal,  # type: ignore
+        element: ast.BodyAggregateElement,  # type: ignore
+        component_nr: int,
+        h_literal: ast.Function,  # type: ignore
+        wrapper_name: str,
+        aggregate_number: int,
+        aggregate_element_number: int) -> ast.Rule:  # type: ignore
+        loc = literal.location
+        component_nr_ast = ast.SymbolicTerm(loc, Number(component_nr))
+        aggregate_element_number_ast = ast.SymbolicTerm(
+            loc, Number(aggregate_element_number))
+        variable_tuple = ast.Function(loc, "",
+                        collect_variables_in_aggregate(literal.atom), 0)
+        aggregate_identifier = ast.Function(loc, wrapper_name,
+                                            [ast.SymbolicTerm(loc, Number(aggregate_number)),],
+                                            0)
+        term = self.create_body_aggregate_term_literal(loc, element)
+        conditions = []
+        for c in element.condition:
+            conditions.append(self.create_pos_neg_reason_literal(c))
+        conditions_ast = ast.Function(
+            loc, "", conditions, 0)
+
+        return ast.Rule(
+            loc,
+            ast.Literal(
+                loc,
+                0,
+                ast.SymbolicAtom(
+                    ast.Function(
+                        loc, wrapper_name, [
+                            component_nr_ast,
+                            variable_tuple,
+                            aggregate_identifier,
+                            aggregate_element_number_ast,
+                            term,
+                            conditions_ast
+                        ], 0)
+                )
+            ), [
+                h_literal,
+                *[c for c in element.condition]
+            ]
+        )
 
 class DetailDecoder:
 
@@ -243,14 +404,17 @@ class AggregateVariablesCollector(VariablesCollector):
         return conditional_literal
 
 
-def collect_variables_in_comparison(
-        comparison: ast.Comparison) -> List[ast.Variable]:  # type: ignore
+def collect_variables(
+        ast: Union[AST, ASTSequence]) -> List[ast.Variable]:  # type: ignore
     """
     Collects all variables in a literal.
     """
     visitor = VariablesCollector()
     variables = []
-    visitor.visit(comparison, variables=variables)
+    if isinstance(ast, ASTSequence):
+        visitor.visit_sequence(ast, variables=variables)
+    else:
+        visitor.visit(ast, variables=variables)
 
     # remove duplicates while keeping order
     seen: Set[ast.Variable] = set()  # type: ignore
@@ -271,3 +435,34 @@ def collect_variables_in_aggregate(
     seen: Set[ast.Variable] = set()  # type: ignore
     variables = [x for x in variables if not (x in seen or seen.add(x))]
     return variables
+
+def string_tuple_of_variables_in_aggregate(
+        aggregate: ast.BodyAggregate) -> str:  # type: ignore
+    visitor = AggregateVariablesCollector()
+    variables = []
+    visitor.visit(aggregate, variables=variables)
+
+    # remove duplicates while keeping order
+    seen: Set[ast.Variable] = set()  # type: ignore
+    variables = [x for x in variables if not (x in seen or seen.add(x))]
+    stringify = [str(x) for x in variables]
+    if len(stringify) == 1:
+        return "(" + stringify[0] + ",)"
+    else:
+        return "(" + ", ".join(stringify) + ")"
+
+def stringify_aggregate_function(
+        literal: ast.Literal) -> str:  # type: ignore
+    function = literal.atom.function
+    if function == ast.AggregateFunction.Count:
+        return "count"
+    elif function == ast.AggregateFunction.Max:
+        return "max"
+    elif function == ast.AggregateFunction.Min:
+        return "min"
+    elif function == ast.AggregateFunction.Sum:
+        return "sum"
+    elif function == ast.AggregateFunction.SumPlus:
+        return "sum+"
+    else:
+        return "unknown"

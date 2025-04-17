@@ -143,11 +143,6 @@ def test_multiple_conditional_groups_in_head():
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
-def test_multiple_aggregates_in_body():
-    rule = 's(Y) :- r(Y); 2 <= #sum { X: p(X,Y), q(X) } <= 7.'
-    expected = f"""#program base. 
-    h(1, "{hash_normalized_string(rule)}", s(Y), (body_aggregate(0,(),pos),pos(r(Y)),)) :- s(Y), r(Y), 2 #sum{{X : p(X,Y), q(X) }} 7."""
-    assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 def test_aggregates_in_body():
     rule = 'reached(V) :- reached(U); hc(U,V); 1 <= { edge(U,V) }.'
@@ -226,7 +221,7 @@ def test_aggregate_transformed():
     rule = """\
         reached(N) :- node(N); 
                       (N-1) <= #sum { 
-                           (M*2),N: reached(M), edge(M,N); 
+                           M*2,N: reached(M), edge(M,N); 
                            2,N: special(N) 
                         }.
     """
@@ -244,76 +239,108 @@ def test_aggregate_transformed():
 			  M*2, N : reached(M), edge(M,N); 
 			  2, N : special(N) 
 		    }}.
-    """
-    more_later = f"""
         body_aggregate(
             1, 
             (N,), 
             body_aggregate(0),
             sum,
-            lw(comp((("N",N)),"N-1")), 
-            up(none),
+            lw(comp((("N",N),),"(N-1)")), 
+            up(_none),
             _X1
         ) :-
             h(
                 1, 
                 "{hash_normalized_string(rule)}", 
                 reached(N), 
-                (
-                    pos(node(N)),
-                    extra(1, (N,), pos)
-                )
+                _
             ),
-            _X1 = #sum{{ M*2, N : model(reached(M)), model(edge(M,N)); 2, N : model(special(N)) }}.
-        extra(
+            _X1 = #sum{{ M*2, N : reached(M), edge(M,N); 2, N : special(N) }}.
+        body_aggregate(
             1, 
             (N,),
-            extra(1),
-            1,
+            body_aggregate(0),
+            0,
+            comp((("M",M),("N",N)),"(M*2),N"),  
             (
-                comp((("M",M),("N",N)),"M+2,N"),  
-                (
-                    reached(M), 
-                    edge(M,N)
-                )
+                pos(reached(M)), 
+                pos(edge(M,N))
             )
         ) :-  
             h(
                 1,
                 "{hash_normalized_string(rule)}", 
                 reached(N), 
-                (
-                    pos(node(N)),
-                    extra(1, (N,), pos)
-                )
+                _
             ),
-            model(reached(M)), model(edge(M,N)).
-        extra(
+            reached(M), edge(M,N).
+        body_aggregate(
             1,
             (N,),
-            extra(1),
-            2,
+            body_aggregate(0),
+            1,
+            comp((("N",N),), "2,N"),
             (
-                comp((("N",N),), "2, N"),
-                (
-                    special(N),
-                )
+                pos(special(N)),
             )
         ) :-
             h(
                 1,
                 "{hash_normalized_string(rule)}", 
                 reached(N), 
-                (
-                    pos(node(N)),
-                    extra(1, (N,), pos)
-                )
+                _
             ),
-            model(special(N)).
+            special(N).
     """
-    transformed = transform(rule)
-    print(f"asdfadsf")
-    print("\n".join(map(str,transformed)))
-    print("===================================")
+    assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
-    assertProgramEqual(transformed, parse_program_to_ast(expected))
+def test_multiple_aggregates_in_body():
+    rule = """
+        s(Y) :- r(Y),
+                not 2 <= #max { 
+                    X: p(X,Y), q(X) 
+                } <= 7."""
+    expected = f"""#program base. 
+        h(
+            1, 
+            "{hash_normalized_string(rule)}",
+            s(Y),
+            (body_aggregate(0,(),neg),pos(r(Y)),)) 
+        :- s(Y),
+           r(Y), 
+           not 2 #max{{X : p(X,Y), q(X) }} 7.
+        body_aggregate(
+            1, 
+            (), 
+            body_aggregate(0),
+            max,
+            lw(comp((),"2")), 
+            up(comp((),"7")),
+            _X1
+        ) :-
+            h(
+                1, 
+                "{hash_normalized_string(rule)}",
+                s(Y),
+                _
+            ),
+            _X1 = #max{{X : p(X,Y), q(X) }}.
+        body_aggregate(
+            1, 
+            (), 
+            body_aggregate(0),
+            0,
+            comp((("X",X),), "X"), 
+            (
+                pos(p(X,Y)),
+                pos(q(X))
+            )
+        ) :- 
+            h(
+                1, 
+                "{hash_normalized_string(rule)}",
+                s(Y),
+                _
+            ),
+            p(X,Y), q(X).
+    """
+    assertProgramEqual(transform(rule), parse_program_to_ast(expected))

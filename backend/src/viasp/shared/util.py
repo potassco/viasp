@@ -12,7 +12,6 @@ from clingo.ast import ASTType, AST, parse_string, Location
 import jsonschema.exceptions
 import networkx as nx
 from ..exceptions import InvalidSyntax, InvalidSyntaxJSON
-from .simple_logging import warn
 
 
 def get_start_node_from_graph(graph: nx.DiGraph) -> Any:

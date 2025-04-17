@@ -661,14 +661,16 @@ class ProgramReifier(DependencyCollector):
                  clear_temp_names=lambda: None,
                  conflict_free_showTerm_str: str = "showTerm"):
         self.component_nr = component_nr
-        self.rule_nr = 0
         self.h = h_str
         self.h_showTerm = h_showTerm_str
         self.model = model_str
         self.get_conflict_free_variable_str = get_conflict_free_variable_str
         self.clear_temp_names = clear_temp_names
         self.conflict_free_showTerm = conflict_free_showTerm_str
-        self.detailEncoder = DetailEncoder()
+        self.detailEncoder = DetailEncoder(
+            component_nr=component_nr,
+            get_conflicht_free_variable_str=get_conflict_free_variable_str,
+        )
         super().__init__(in_analyzer=False)
 
     def make_component_lit(self, loc: ast.Location) -> ast.Literal:  # type: ignore
@@ -700,8 +702,25 @@ class ProgramReifier(DependencyCollector):
 
         component_lit = self.make_component_lit(loc)
         rule_lit = self.make_rule_lit(loc, **kwargs)
+
+        h_literal_for_body = ast.Literal(
+            loc,
+            0,
+            ast.SymbolicAtom(
+                ast.Function(
+                    loc,
+                    self.h,
+                    [
+                        component_lit,
+                        rule_lit,
+                        dependant,
+                        ast.Variable(loc, '_')
+                    ],
+                    0)))
+
         for literal in conditions:
-            reason_literal = self.detailEncoder.encode_literal(literal)
+            reason_literal = self.detailEncoder.encode_literal(
+                literal, h_literal_for_body)
             if reason_literal is not None:
                 reasons.append(reason_literal)
 
@@ -712,7 +731,6 @@ class ProgramReifier(DependencyCollector):
         reason_lit = ast.Literal(loc, ast.Sign.NoSign, reason_fun)
 
         h_attribute = self.h_showTerm if use_h_showTerm else self.h
-
         return [
             ast.Function(loc, h_attribute, [component_lit, rule_lit, dependant, reason_lit], 0)
         ]
@@ -769,11 +787,6 @@ class ProgramReifier(DependencyCollector):
                 conditions=conditions,
             )
             replace_anon_variables(conditions, rule)
-            print(f"dependant: {dependant}")
-            print(f"conditions: ")
-            print(conditions)
-            print("\n".join(map(str,conditions)), flush=True)
-            # print('\n    '.join(map(str, conditions)), flush=True)
             new_head_s = self._nest_rule_head_in_h_with_explanation_tuple(
                 rule.location, dependant, conditions, **kwargs)
 
@@ -786,12 +799,9 @@ class ProgramReifier(DependencyCollector):
                 ast.Rule(rule.location, new_head, conditions)
                 for new_head in new_head_s
             ])
-            for aggregate in filter(lambda x: x.atom.ast_type == ASTType.BodyAggregate, conditions):
-                # create auxiliary rules for aggregates
-                self.detailEncoder.create_auxiliary_aggregate_rules(
-                    aggregate)
+            new_rules.extend(self.detailEncoder.auxiliary_rules)
             self.post_rule_creation()
-
+        new_rules.reverse()
         return new_rules
 
     def visit_ShowTerm(self, showTerm: ast.ShowTerm, **kwargs):  # type: ignore
