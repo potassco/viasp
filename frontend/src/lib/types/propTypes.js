@@ -135,17 +135,37 @@ export const RULEBACKGROUNDHIGHLIGHTS_RECOIL = PropTypes.exact({
     color: PropTypes.string,
     shown: PropTypes.bool,
 });
-export const SYMBOLDETAILS = PropTypes.exact({
-    _type: PropTypes.oneOf(["SymbolDetails"]),
-    encoding_id: PropTypes.string,
-    symbol_uuid: PropTypes.string,
-    reason_uuid: PropTypes.string,
-    reason_repr: PropTypes.string,
-    sign_positive: PropTypes.bool,
-    sign_negative: PropTypes.bool,
-})
 export const GROUNDREASONTRANSPORT = PropTypes.exact({
     _type: PropTypes.oneOf(['GroundReasonTransport']),
     loading: PropTypes.bool,
     content: PropTypes.arrayOf(PropTypes.SYMBOLDETAILS),
+});
+export const AGGREGATEELEMENTIDENTIFIER = PropTypes.exact({
+    _type: PropTypes.oneOf(['AggregateElementIdentifier']),
+    term: PropTypes.string,
+    conditions: PropTypes.arrayOf(PropTypes.object),
+});
+export const AGGREGATEREASONIDENTIFIER = PropTypes.exact({
+    _type: PropTypes.oneOf(['AggregateReasonIdentifier']),
+    aggregate_repr: PropTypes.string,
+    sign: PropTypes.string,
+    value: PropTypes.number,
+    lower_bound: PropTypes.string,
+    upper_bound: PropTypes.string,
+    function: PropTypes.string,
+    elements: PropTypes.arrayOf(AGGREGATEELEMENTIDENTIFIER),
+});
+export const SYMBOLDETAILS = PropTypes.exact({
+    _type: PropTypes.oneOf(['SymbolDetails']),
+    encoding_id: PropTypes.string,
+    symbol_uuid: PropTypes.string,
+    reason_uuid: PropTypes.string,
+    reason_repr: PropTypes.string,
+    aggregate_repr: PropTypes.oneOfType([
+        PropTypes.oneOf(['null']), 
+        PropTypes.string,
+        AGGREGATEREASONIDENTIFIER,
+    ]),
+    sign_positive: PropTypes.bool,
+    sign_negative: PropTypes.bool,
 });

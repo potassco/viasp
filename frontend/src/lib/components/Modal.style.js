@@ -74,6 +74,11 @@ export const ModalHeaderSpan = styled.span`
     width: 100%;
 `;
 
+export const AggregateValueDiv = styled.span`
+    color: ${({$colorPalette}) => $colorPalette.primary};
+    font-weight: bold;
+`;
+
 export function calculateModalPosition(modalVisible, nodeId, supernodeId, contentDiv) {
     if (!modalVisible) {
         return null;

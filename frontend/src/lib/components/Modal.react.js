@@ -11,14 +11,16 @@ import {
     ModalDiv,
     ModalHeaderDiv,
     ModalHeaderSpan,
+    AggregateValueDiv,
     calculateModalPosition
 } from './Modal.style';
+import {AGGREGATEREASONIDENTIFIER} from '../types/propTypes';
+import {PropTypes} from 'prop-types';
 
-import {useRecoilValue, useRecoilState, useResetRecoilState, useRecoilCallback, useSetRecoilState} from 'recoil';
+import {useRecoilValue, useResetRecoilState, useRecoilCallback} from 'recoil';
 import { colorPaletteState } from '../atoms/settingsState';
 import {
     modalForSymbolState,
-    modalPositionState,
     modalVisibleState,
     modalContentState,
 } from '../atoms/modalState';
@@ -47,6 +49,76 @@ function ModalHeader() {
 }
 
 ModalHeader.propTypes = {
+};
+
+function AggregateGround(props) {
+    const {aggregate, onClickHandler} = props;
+    const colorPalette = useRecoilValue(colorPaletteState);
+    return (
+        <div className="modalContent txt-elem">
+            {aggregate.sign !== '' ? <span>{aggregate.sign} </span> : null}
+            {aggregate.lower_bound !== '' ? (
+                <span>
+                    {aggregate.lower_bound}
+                    {' <= '}
+                </span>
+            ) : null}
+            <AggregateValueDiv $colorPalette={colorPalette}>
+                {aggregate.value}
+            </AggregateValueDiv>
+
+            {aggregate.function !== '' ? (
+                <span>
+                    {' #'}
+                    {aggregate.function}
+                </span>
+            ) : null}
+
+            {' {'}
+            {aggregate.elements.length > 0 ? (
+                <StyledList className="aggregateContent txt-elem">
+                    {aggregate.elements.map((element, i) => (
+                        <StyledListItem key={i} $colorPalette={colorPalette}>
+                            {element.term}
+                            {' : '}
+                            {element.conditions.map((symbol, j) => (
+                                <SymbolElementSpan
+                                    key={j}
+                                    id={
+                                        (symbol.symbol_uuid !== null
+                                            ? symbol.symbol_uuid
+                                            : 'noUuid_' + i) + '_modal'
+                                    }
+                                    $pulsate={false}
+                                    $pulsatingColor={null}
+                                    $backgroundColor={colorPalette.light}
+                                    $hasReason={symbol.symbol_uuid !== null}
+                                    onClick={onClickHandler}
+                                >
+                                    {symbol.symbol_repr}
+                                    {j < element.conditions.length - 1
+                                        ? ', '
+                                        : ';'}
+                                </SymbolElementSpan>
+                            ))}
+                        </StyledListItem>
+                    ))}
+                </StyledList>
+            ) : null}
+            {'} '}
+            {aggregate.upper_bound !== '' ? (
+                <span>
+                    {' <= '}
+                    {aggregate.upper_bound}
+                </span>
+            ) : null}
+        </div>
+    );
+}
+
+AggregateGround.propTypes = {
+    aggregate: AGGREGATEREASONIDENTIFIER,
+    onClickHandler: PropTypes.func,
 };
 
 function ModalContent() {
@@ -80,17 +152,25 @@ function ModalContent() {
     }
 
     const contentToShow = modalContent?.content.map((symbol, i) => (
-        <StyledListItem key={symbol.reason_repr} $colorPalette={colorPalette} >
-            <SymbolElementSpan
-                id={(symbol.reason_uuid !== null ? symbol.reason_uuid : 'noUuid_' + i) + '_modal'}
-                $pulsate={false}
-                $pulsatingColor={null}
-                $backgroundColor={colorPalette.light}
-                $hasReason={symbol.reason_uuid !== null}
-                onClick={onClickHandler}
-            >
-                {symbol.reason_repr}
-            </SymbolElementSpan>
+        <StyledListItem key={symbol.reason_repr} $colorPalette={colorPalette}>
+            {
+                symbol.aggregate_repr === "null" ?
+                    <SymbolElementSpan
+                        id={
+                            (symbol.reason_uuid !== null
+                                ? symbol.reason_uuid
+                                : 'noUuid_' + i) + '_modal'
+                        }
+                        $pulsate={false}
+                        $pulsatingColor={null}
+                        $backgroundColor={colorPalette.light}
+                        $hasReason={symbol.reason_uuid !== null}
+                        onClick={onClickHandler}
+                    >
+                        {symbol.reason_repr}
+                    </SymbolElementSpan> :
+                    <AggregateGround aggregate={JSON.parse(symbol.aggregate_repr)} onClickHandler={onClickHandler}/>
+                    }
         </StyledListItem>
     ));
 

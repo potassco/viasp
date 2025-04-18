@@ -337,7 +337,12 @@ class DetailDecoder:
             stringified += f" <= {upper_bound}"
 
         aggregate_repr = stringified
-        sign = aggregate_sign.name
+        if aggregate_sign.name == "neg":
+            sign = "not"
+        elif aggregate_sign.name == "double_neg":
+            sign = "not not"
+        else:
+            sign = ""
         value = aggregate_value
         lower_bound = lower_bound
         upper_bound = upper_bound

@@ -3,6 +3,7 @@ import json
 from json import JSONDecoder, JSONEncoder
 # Legacy: To be deleted in Version 3.0
 # from enum import IntEnum
+from flask import current_app
 from flask.json.provider import JSONProvider
 from dataclasses import is_dataclass, asdict
 from typing import Union, Collection, Iterable, Sequence, cast, Tuple
