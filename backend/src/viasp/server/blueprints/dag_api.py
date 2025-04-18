@@ -593,6 +593,7 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                                   symbol_uuid=symbol.uuid.hex,
                                   reason_uuid=reason.symbol_uuid,
                                   reason_repr=reason.symbol_repr,
+                                  aggregate_repr=current_app.json.dumps(reason.aggregate_repr),
                                   sign_positive=reason.is_positive,
                                   sign_negative=reason.is_negative))
         if len(target.recursive) > 0:

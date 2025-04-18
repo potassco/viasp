@@ -229,7 +229,7 @@ def test_aggregate_transformed():
         h(1, "{hash_normalized_string(rule)}", 
             reached(N), 
             (
-                body_aggregate(0, (N,), pos),
+                body_aggregate(1, 0, reached(N), pos),
                 pos(node(N))
             )
         ) :- 
@@ -241,8 +241,8 @@ def test_aggregate_transformed():
 		    }}.
         body_aggregate(
             1, 
-            (N,), 
-            body_aggregate(0),
+            0,
+            reached(N),
             sum,
             lw(comp((("N",N),),"(N-1)")), 
             up(_none),
@@ -255,10 +255,10 @@ def test_aggregate_transformed():
                 _
             ),
             _X1 = #sum{{ M*2, N : reached(M), edge(M,N); 2, N : special(N) }}.
-        body_aggregate(
+        auxiliary_symbol(
             1, 
-            (N,),
-            body_aggregate(0),
+            0,
+            reached(N),
             0,
             comp((("M",M),("N",N)),"(M*2),N"),  
             (
@@ -273,10 +273,10 @@ def test_aggregate_transformed():
                 _
             ),
             reached(M), edge(M,N).
-        body_aggregate(
+        auxiliary_symbol(
             1,
-            (N,),
-            body_aggregate(0),
+            0,
+            reached(N),
             1,
             comp((("N",N),), "2,N"),
             (
@@ -304,14 +304,14 @@ def test_multiple_aggregates_in_body():
             1, 
             "{hash_normalized_string(rule)}",
             s(Y),
-            (body_aggregate(0,(),neg),pos(r(Y)),)) 
+            (body_aggregate(1, 0,s(Y),neg),pos(r(Y)),)) 
         :- s(Y),
            r(Y), 
            not 2 #max{{X : p(X,Y), q(X) }} 7.
         body_aggregate(
             1, 
-            (), 
-            body_aggregate(0),
+            0, 
+            s(Y),
             max,
             lw(comp((),"2")), 
             up(comp((),"7")),
@@ -324,10 +324,10 @@ def test_multiple_aggregates_in_body():
                 _
             ),
             _X1 = #max{{X : p(X,Y), q(X) }}.
-        body_aggregate(
+        auxiliary_symbol(
             1, 
-            (), 
-            body_aggregate(0),
+            0,
+            s(Y),
             0,
             comp((("X",X),), "X"), 
             (

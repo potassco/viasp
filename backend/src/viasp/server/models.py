@@ -103,6 +103,7 @@ class SymbolDetails(Base):
     reason_uuid: Mapped[str] = mapped_column(
         ForeignKey("symbols_table.symbol_uuid"), nullable=True)
     reason_repr: Mapped[str] = mapped_column(nullable=True)
+    aggregate_repr: Mapped[str] = mapped_column(nullable=True)
     sign_positive: Mapped[bool] = mapped_column()
     sign_negative: Mapped[bool] = mapped_column()
 

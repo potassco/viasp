@@ -163,7 +163,7 @@ def test_path_creation(app_context):
     transformed = transform(program)
     single_saved_model = get_stable_models_for_program(program).pop()
     facts, constants = [], []
-    h_symbols = get_h_symbols_from_model(single_saved_model, transformed, facts, constants)
+    h_symbols, _ = get_h_symbols_from_model(single_saved_model, transformed, facts, constants)
     rule_mapping = {1: Transformation(1, RuleContainer(str_=("fact(1).",))), 2: Transformation(2, RuleContainer(str_=("result(X) :- fact(X).",)))}
     path = make_reason_path_from_facts_to_stable_model(rule_mapping, Node(frozenset(), 0),
                                                        h_symbols, set())
@@ -179,7 +179,7 @@ def test_atoms_are_propagated_correctly_through_diffs(app_context):
     transformed = transform(program)
     single_saved_model = get_stable_models_for_program(program).pop()
     facts, constants = [], []
-    h_symbols = get_h_symbols_from_model(single_saved_model, transformed, facts, constants)
+    h_symbols, auxiliary_symbols = get_h_symbols_from_model(single_saved_model, transformed, facts, constants)
     rule_mapping = {1: Transformation(1, RuleContainer(str_=("b :- a.",))), 2: Transformation(2, RuleContainer(str_=("c :- b.",))), 3: Transformation(3, RuleContainer(str_=("d :- c.",)))}
     path = make_reason_path_from_facts_to_stable_model(rule_mapping,
                                                        Node(frozenset([SymbolIdentifier(Function(loc,"a",[], False))]), 0, frozenset([Function(loc,"a", [], False)])), # type: ignore

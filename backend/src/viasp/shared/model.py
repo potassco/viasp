@@ -17,12 +17,29 @@ class ReasonSymbolIdentifier:
     symbol_uuid: Optional[str] = field(default_factory=lambda: str(uuid4()), hash=True)
     symbol_repr: str = field(default="", hash=False)
     symbol: Optional[Symbol] = field(default=None, hash=False)
+    aggregate_repr: Optional["AggregateReasonIdentifier"] = field(default=None, hash=False)
     is_positive: bool = field(default=False, hash=False)
     is_negative: bool = field(default=False, hash=False)
 
     def __repr__(self):
-        return f"{{symbol_repr: {str(self.symbol_repr)}, symbol_uuid: {self.symbol_uuid}, is_positive: {self.is_positive}, is_negative: {self.is_negative}}}"
+        return f"{{symbol: {str(self.symbol)}, symbol_repr: {str(self.symbol_repr)}, symbol_uuid: {self.symbol_uuid}, is_positive: {self.is_positive}, is_negative: {self.is_negative}}}"
 
+
+@dataclass()
+class AggregateElementIdentifier:
+    term: str = field(default="", hash=False)
+    conditions: List[ReasonSymbolIdentifier] = field(default_factory=list,
+                                                     hash=False)
+
+@dataclass()
+class AggregateReasonIdentifier:
+    aggregate_repr: str = field(default="", hash=False)
+    sign: str = field(default="", hash=False)
+    value: int = field(default=0, hash=False)
+    lower_bound: str = field(default="", hash=False)
+    upper_bound: str = field(default="", hash=False)
+    function: str = field(default="", hash=False)
+    elements: List[AggregateElementIdentifier] = field(default_factory=list, hash=False)
 
 @dataclass()
 class SymbolIdentifier:

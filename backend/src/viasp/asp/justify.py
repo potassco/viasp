@@ -5,14 +5,14 @@ from typing import List, Collection, Dict, Iterable, Union, Set, Tuple
 
 import networkx as nx
 
-from clingo import Control, Symbol, Model
+from clingo import Control, Symbol, Model, SymbolType
 
 from clingo.ast import AST, ASTType
 
 from .reify import ProgramAnalyzer, reify_recursion_transformation, LiteralWrapper
 from .recursion import RecursionReasoner
 from .utils import insert_atoms_into_nodes, calculate_spacing_factor, is_constraint, is_minimize
-from .detail import identify_reasons
+from .detail import create_reason_symbol_identifier, identify_reasons
 from ..shared.model import Node, RuleContainer, Transformation, SymbolIdentifier, SearchResultSymbolWrapper, ReasonSymbolIdentifier
 from ..shared.simple_logging import info
 from ..shared.util import pairwise, get_leafs_from_graph
@@ -28,7 +28,7 @@ def get_h_symbols_from_model(wrapped_stable_model: Iterable[str],
                              constants: List[str],
                              h="h",
                              h_showTerm="h_showTerm",
-                             show_all_derived: bool = False) -> List[Symbol]:
+                             show_all_derived: bool = False) -> Tuple[List[Symbol], List[Symbol]]:
     rules_that_are_reasons_why = []
     ctl = Control()
     stringified = "\n".join(map(str, transformed_prg))
@@ -42,7 +42,6 @@ def get_h_symbols_from_model(wrapped_stable_model: Iterable[str],
     ctl.add("base", [], stringified)
     ctl.add("base", [], "".join(map(str, wrapped_stable_model)))
     ctl.add("base", [], get_new_atoms_rule)
-    print(f"Justifier Program (part):\n{stringified}", flush=True)
     ctl.ground([("base", [])])
     for x in ctl.symbolic_atoms.by_signature(new_head, 4):
         if x.symbol.arguments[2] in facts:
@@ -50,7 +49,14 @@ def get_h_symbols_from_model(wrapped_stable_model: Iterable[str],
         rules_that_are_reasons_why.append(x.symbol)
     for x in ctl.symbolic_atoms.by_signature(h_showTerm, 4):
         rules_that_are_reasons_why.append(x.symbol)
-    return rules_that_are_reasons_why
+    auxiliary_symbols = []
+    for x in ctl.symbolic_atoms.by_signature("body_aggregate", 7):
+        if x.symbol.type == SymbolType.Function:
+            auxiliary_symbols.append(x.symbol)
+    for x in ctl.symbolic_atoms.by_signature("auxiliary_symbol", 6):
+        if x.symbol.type == SymbolType.Function:
+            auxiliary_symbols.append(x.symbol)
+    return rules_that_are_reasons_why, auxiliary_symbols
 
 
 def get_facts(original_program) -> Collection[Symbol]:
@@ -68,6 +74,7 @@ def get_facts(original_program) -> Collection[Symbol]:
 def collect_h_symbols_and_create_nodes(
     h_symbols: Collection[Symbol],
     rule_mapping: Dict[int, Transformation],
+    auxiliary_symbols: List[Symbol],
     pad: bool,
     supernode_symbols: frozenset = frozenset([])) -> List[Node]:
     tmp_symbol: Dict[int, List[Symbol]] = defaultdict(list)
@@ -92,7 +99,7 @@ def collect_h_symbols_and_create_nodes(
                     symbol=symbol,
                     reason_rule=this_component_reason_rules[str(symbol)],
                     reasons_symbols=[
-                        ReasonSymbolIdentifier(symbol=s)
+                        create_reason_symbol_identifier(s, auxiliary_symbols)
                         for s in this_component_reason[str(symbol)]
                     ],
                 ), symbols))
@@ -125,10 +132,11 @@ def make_reason_path_from_facts_to_stable_model(rule_mapping: Dict[int, Transfor
                                             recursive_transformations_hashes: Set[str],
                                             h="h",
                                             analyzer: ProgramAnalyzer = ProgramAnalyzer(),
+                                            auxiliary_symbols: List[Symbol] = [],
                                             pad=True) \
                                             -> nx.DiGraph:
     h_nodes: List[Node] = collect_h_symbols_and_create_nodes(
-        h_symbols, rule_mapping, pad)
+        h_symbols, rule_mapping, auxiliary_symbols, pad)
     h_nodes.sort(key=lambda node: node.rule_nr)
     h_nodes.insert(0, fact_node)
 
@@ -212,14 +220,14 @@ def build_graph(wrapped_stable_models: List[List[str]],
         single_node_graph.add_node(fact_node)
         return single_node_graph
     for model in wrapped_stable_models:
-        h_symbols = get_h_symbols_from_model(model, transformed_prg, facts,
+        h_symbols, auxiliary_symbols = get_h_symbols_from_model(model, transformed_prg, facts,
                                              analyzer.get_constants(),
                                              conflict_free_h,
                                              conflict_free_h_showTerm,
                                              show_all_derived)
         new_path = make_reason_path_from_facts_to_stable_model(
             mapping, fact_node, h_symbols, recursion_transformations_hashes,
-            conflict_free_h, analyzer)
+            conflict_free_h, analyzer, auxiliary_symbols)
         paths.append(new_path)
 
     result_graph = nx.DiGraph()
@@ -296,6 +304,7 @@ def get_recursion_subgraph(
     h_syms = collect_h_symbols_and_create_nodes(
         h_syms,
         rule_mapping={-1: transformation},
+        auxiliary_symbols=[],
         pad=False,
         supernode_symbols=supernode_symbols)
     if len(h_syms) == 1:

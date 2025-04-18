@@ -26,7 +26,7 @@ from clingo import Model as clingo_Model, ModelType, Symbol, Application
 from clingo.ast import AST, ASTType
 from flask.json.tag import TaggedJSONSerializer
 from .interfaces import ViaspClient
-from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper, ReasonSymbolIdentifier, GroundReasonTransport
+from .model import AggregateElementIdentifier, AggregateReasonIdentifier, Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper, ReasonSymbolIdentifier, GroundReasonTransport
 from ..server.models import GraphEdges, GraphNodes, GraphSymbols, SymbolDetails
 
 class DataclassJSONProvider(JSONProvider):
@@ -108,6 +108,10 @@ def object_hook(obj):
         return GraphSymbols(**obj)
     elif t == "ReasonSymbolIdentifier":
         return ReasonSymbolIdentifier(**obj)
+    elif t == "AggregateElementIdentifier":
+        return AggregateElementIdentifier(**obj)
+    elif t == "AggregateReasonIdentifier":
+        return AggregateReasonIdentifier(**obj)
     elif t == "GroundReasonTransport":
         return GroundReasonTransport(**obj)
     elif t == "SymbolDetails":
@@ -161,6 +165,23 @@ def dataclass_to_dict(o):
             "symbol": o.symbol,
             "is_positive": o.is_positive,
             "is_negative": o.is_negative
+        }
+    elif isinstance(o, AggregateElementIdentifier):
+        return {
+            "_type": "AggregateElementIdentifier",
+            "term": o.term,
+            "conditions": o.conditions,
+        }
+    elif isinstance(o, AggregateReasonIdentifier):
+        return {
+            "_type": "AggregateReasonIdentifier",
+            "aggregate_repr": o.aggregate_repr,
+            "sign": o.sign,
+            "value": o.value,
+            "lower_bound": o.lower_bound,
+            "upper_bound": o.upper_bound,
+            "function": o.function,
+            "elements": o.elements,
         }
     elif isinstance(o, GraphNodes):
         return {
@@ -236,6 +257,7 @@ def dataclass_to_dict(o):
             "symbol_uuid": o.symbol_uuid,
             "reason_uuid": o.reason_uuid,
             "reason_repr": o.reason_repr,
+            "aggregate_repr": o.aggregate_repr,
             "sign_positive": o.sign_positive,
             "sign_negative": o.sign_negative
         }
