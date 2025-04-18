@@ -398,7 +398,6 @@ export const handleModalHighlightCallback =
             const newTimeoutId = setTimeout(() => {
                 set(symbolModalHighlightsState, (recentValue) =>
                     recentValue.map((h) => {
-                        console.log("set recent for ", h.repr)
                         if (h.symbolUuid !== newValue.symbolUuid) {
                             return h;
                         }

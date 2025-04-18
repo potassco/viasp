@@ -212,10 +212,6 @@ export function Modal() {
         }
     }, [modalVisible, modalForSymbol, recursion, isAnimating, contentDiv]);
 
-    useEffect(() => {
-        console.log(`Modal position: ${spawnPosition.x}, ${spawnPosition.y}`);
-    }, [spawnPosition]);
-
     // If modal is not visible, don't render anything
     if (!modalVisible) { 
         return null 

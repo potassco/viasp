@@ -104,7 +104,6 @@ export function calculateModalPosition(modalVisible, nodeId, supernodeId, conten
     const hasSpaceOnLeft = rect.left > totalModalWidth;
 
     const newPosition = {};
-    console.log({scrollY});
 
     if (hasSpaceOnRight) {
         newPosition.x = rect.right + margin;
