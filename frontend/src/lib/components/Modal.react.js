@@ -12,7 +12,12 @@ import {
     ModalHeaderDiv,
     ModalHeaderSpan,
     AggregateValueDiv,
-    calculateModalPosition
+    calculateModalPosition,
+    DEFAULTMODALHEIGHT,
+    DEFAULTMODALWIDTH,
+    ResizeHandle,
+    MAXMODALSIZEMULTIPLIER,
+    ModalContentWrapper,
 } from './Modal.style';
 import {AGGREGATEREASONIDENTIFIER} from '../types/propTypes';
 import {PropTypes} from 'prop-types';
@@ -55,7 +60,7 @@ function AggregateGround(props) {
     const {aggregate, onClickHandler} = props;
     const colorPalette = useRecoilValue(colorPaletteState);
     return (
-        <div className="modalContent txt-elem">
+        <div className="txt-elem" style={{padding: '1pt 2pt'}}>
             {aggregate.sign !== '' ? <span>{aggregate.sign} </span> : null}
             {aggregate.lower_bound !== '' ? (
                 <span>
@@ -175,12 +180,16 @@ function ModalContent() {
     ));
 
     return (
-        <div className="modalContent">
+        <ModalContentWrapper className="modalContentWrapper">
             <ModalHeader />
-            <StyledList className="modalContent txt-elem">
+            <StyledList
+                className="modalContent txt-elem"
+                $isModalContent={true}
+                style={{flex: 1}}
+            >
                 {contentToShow}
             </StyledList>
-        </div>
+        </ModalContentWrapper>
     );
 }
 
@@ -190,12 +199,43 @@ ModalContent.propTypes = {
 export function Modal() {
     const colorPalette = useRecoilValue(colorPaletteState);
     const modalVisible = useRecoilValue(modalVisibleState);
-    const [spawnPosition, setSpawnPosition] =
-        useState({x: 0, y: 0});
+    const [spawnPosition, setSpawnPosition] = useState({x: 0, y: 0});
     const modalForSymbol = useRecoilValue(modalForSymbolState);
     const recursion = useRecoilValue(shownRecursionState);
     const isAnimating = useRecoilValue(isAnimatingState);
-    const contentDiv = useRecoilValue(contentDivState)
+    const contentDiv = useRecoilValue(contentDivState);
+    const modalContent = useRecoilValue(modalContentState);
+    // Reference to the modal content element to measure actual content size
+    const contentRef = React.useRef(null);
+
+    // Initialize with default size but make it stateful
+    const [size, setSize] = useState({
+        width: DEFAULTMODALWIDTH,
+        height: DEFAULTMODALHEIGHT,
+    });
+
+    // Calculate content dimensions to set max resize limits
+    const [contentDimensions, setContentDimensions] = useState({
+        width: 0,
+        height: 0,
+    });
+
+    // Update content dimensions when modal content changes
+    useEffect(() => {
+        if (contentRef.current) {
+            // Give the browser time to render the content
+            setTimeout(() => {
+                // Get the actual content size including what's currently hidden by overflow
+                const contentWidth = contentRef.current.scrollWidth;
+                const contentHeight = contentRef.current.scrollHeight;
+
+                setContentDimensions({
+                    width: contentWidth,
+                    height: contentHeight,
+                });
+            }, 100);
+        }
+    }, [modalContent, modalVisible]);
 
     useEffect(() => {
         if (isAnimating) {
@@ -205,23 +245,67 @@ export function Modal() {
             modalVisible,
             modalForSymbol.nodeId,
             modalForSymbol.supernodeId,
-            contentDiv,
+            contentDiv
         );
         if (newPosition) {
             setSpawnPosition(newPosition);
         }
     }, [modalVisible, modalForSymbol, recursion, isAnimating, contentDiv]);
 
-    // If modal is not visible, don't render anything
-    if (!modalVisible) { 
-        return null 
+    // Handle resize functionality
+    const handleResize = (mouseDownEvent) => {
+        mouseDownEvent.preventDefault();
+        const startSize = {...size};
+        const startPosition = {
+            x: mouseDownEvent.clientX,
+            y: mouseDownEvent.clientY,
+        };
+
+        function onMouseMove(mouseMoveEvent) {
+            const maxWidth = contentDimensions.width * MAXMODALSIZEMULTIPLIER;
+            const maxHeight = contentDimensions.height * MAXMODALSIZEMULTIPLIER;
+
+            const newWidth = Math.max(
+                DEFAULTMODALWIDTH,
+                Math.min(
+                    maxWidth,
+                    startSize.width + (mouseMoveEvent.clientX - startPosition.x)
+                )
+            );
+
+            const newHeight = Math.max(
+                DEFAULTMODALHEIGHT,
+                Math.min(
+                    maxHeight, 
+                    startSize.height +
+                        (mouseMoveEvent.clientY - startPosition.y)
+                )
+            );
+
+            setSize({
+                width: newWidth,
+                height: newHeight,
+            });
+        }
+
+        function onMouseUp() {
+            document.removeEventListener('mousemove', onMouseMove);
+        }
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp, {once: true});
     };
+
+    // If modal is not visible, don't render anything
+    if (!modalVisible) {
+        return null;
+    }
 
     return (
         <div style={{position: 'relative', width: '100%', height: '0'}}>
             <Draggable
                 handle=".modalDiv"
-                cancel=".modalContent"
+                cancel=".modalContent, .resizeHandle"
                 defaultPosition={spawnPosition}
                 position={spawnPosition}
                 onStop={(e, data) => {
@@ -232,8 +316,19 @@ export function Modal() {
                     className="modalDiv"
                     $position={spawnPosition}
                     $colorPalette={colorPalette}
+                    $size={size}
                 >
-                    <ModalContent />
+                    <div
+                        ref={contentRef}
+                        style={{height: '100%', width: '100%'}}
+                    >
+                        <ModalContent />
+                    </div>
+                    <ResizeHandle
+                        className="resizeHandle"
+                        $colorPalette={colorPalette}
+                        onMouseDown={handleResize}
+                    />
                 </ModalDiv>
             </Draggable>
         </div>

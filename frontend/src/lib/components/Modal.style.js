@@ -1,7 +1,9 @@
 import {styled} from 'styled-components';
 import {emToPixel} from '../utils';
 
-const MODALWIDTH = 220;
+export const DEFAULTMODALWIDTH = 220;
+export const DEFAULTMODALHEIGHT = 220;
+export const MAXMODALSIZEMULTIPLIER = 1.2;
 const MODALPADDING = 10;
 const MODALDISTANCETOEDGE = 60;
 export function calculateAdjustedPosition(spawnPosition) {
@@ -9,12 +11,13 @@ export function calculateAdjustedPosition(spawnPosition) {
         top: spawnPosition.top,
         left: Math.min(
         spawnPosition.left,
-        window.innerWidth - MODALWIDTH - MODALDISTANCETOEDGE
+        window.innerWidth - DEFAULTMODALWIDTH - MODALDISTANCETOEDGE
         ),
     };
 };
 export const ModalDiv = styled.div`
-    width: ${MODALWIDTH}px;
+    width: ${({$size}) => $size.width}px;
+    height: ${({$size}) => $size.height}px;
 
     position: absolute;
     border: 3pt solid;
@@ -26,6 +29,9 @@ export const ModalDiv = styled.div`
     background-color: ${({$colorPalette}) => $colorPalette.light};
     color: ${({$colorPalette}) => $colorPalette.dark};
     border-color: ${({$colorPalette}) => $colorPalette.primary};
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 
     &:hover {
         transition: drop-shadow 0.1s;
@@ -41,10 +47,17 @@ export const ModalDiv = styled.div`
     }
 `;
 
+export const ModalContentWrapper = styled.div`
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+`;
+
 export const StyledList = styled.ul`
     list-style-type: none;
     padding: 0;
     margin: 0;
+    overflow-y: auto;
 `;
 
 export const StyledListItem = styled.li`
@@ -79,6 +92,28 @@ export const AggregateValueDiv = styled.span`
     font-weight: bold;
 `;
 
+export const ResizeHandle = styled.div`
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    bottom: 0;
+    right: 0;
+    cursor: nwse-resize;
+    z-index: 10;
+    &:before {
+        content: '';
+        position: absolute;
+        right: 3px;
+        bottom: 3px;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 0 0 10px 10px;
+        border-color: transparent transparent
+            ${(props) => props.$colorPalette.dark} transparent;
+    }
+`;
+
 export function calculateModalPosition(modalVisible, nodeId, supernodeId, contentDiv) {
     if (!modalVisible) {
         return null;
@@ -99,7 +134,7 @@ export function calculateModalPosition(modalVisible, nodeId, supernodeId, conten
     
     const margin = emToPixel(1);
     const viewportWidth = window.innerWidth;
-    const totalModalWidth = MODALWIDTH + 2 * MODALPADDING + margin;
+    const totalModalWidth = DEFAULTMODALWIDTH + 2 * MODALPADDING + margin;
     const hasSpaceOnRight = rect.right + totalModalWidth < viewportWidth;
     const hasSpaceOnLeft = rect.left > totalModalWidth;
 
