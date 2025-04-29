@@ -587,7 +587,7 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                 ReasonRules(encoding_id=encoding_id,
                             symbol_uuid=symbol.uuid.hex,
                             rule = symbol.reason_rule))
-            for reason in symbol.reasons_symbols:
+            for order, reason in enumerate(symbol.reasons_symbols):
                 db_symbol_details.append(
                     SymbolDetails(encoding_id=encoding_id,
                                   symbol_uuid=symbol.uuid.hex,
@@ -595,7 +595,8 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
                                   reason_repr=reason.symbol_repr,
                                   aggregate_repr=current_app.json.dumps(reason.aggregate_repr),
                                   sign_positive=reason.is_positive,
-                                  sign_negative=reason.is_negative))
+                                  sign_negative=reason.is_negative,
+                                  order=order))
         if len(target.recursive) > 0:
             for i, subnode in enumerate(target.recursive):
                 db_nodes.append(
@@ -940,6 +941,7 @@ def find_ground_reasons(encoding_id, source_uuid):
         select(SymbolDetails)
         .where(SymbolDetails.encoding_id == encoding_id)
         .where(SymbolDetails.symbol_uuid == source_uuid)
+        .order_by(SymbolDetails.order)
     )
     return db_session.execute(stmt).scalars().all()
 

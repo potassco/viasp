@@ -41,7 +41,7 @@ def test_normal_rule_without_negation_is_transformed_correctly():
 
 def test_multiple_nested_variable_gets_transformed_correctly():
     program = ["x(1).", "y(1).", "l(x(X),y(Y)) :- x(X); y(Y)."]
-    expected = f'x(1). y(1). h(1, "{hash_normalized_string(program[2])}", l(x(X),y(Y)), (pos(y(Y)),pos(x(X)))) :- l(x(X),y(Y)), x(X), y(Y).'
+    expected = f'x(1). y(1). h(1, "{hash_normalized_string(program[2])}", l(x(X),y(Y)), (pos(x(X)),pos(y(Y)))) :- l(x(X),y(Y)), x(X), y(Y).'
     assertProgramEqual(transform("".join(program)), parse_program_to_ast(expected))
 
 
@@ -60,14 +60,14 @@ def test_conflict_variables_are_resolved():
 
 def test_normal_rule_with_negation_is_transformed_correctly():
     rule = 'b(X) :- c(X); not a(X).'
-    expected = f'h(1, "{hash_normalized_string(rule)}", b(X), (neg(a(X)),pos(c(X)))) :- b(X), c(X); not a(X).'
+    expected = f'h(1, "{hash_normalized_string(rule)}", b(X), (pos(c(X)),neg(a(X)))) :- b(X), c(X); not a(X).'
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_multiple_rules_with_same_head_do_not_lead_to_duplicate_h_with_wildcard():
     rules = ['b(X) :- c(X); not a(X).', 'b(X) :- a(X); not c(X).']
     program = "".join(rules)
-    expected = f'h(1, "{hash_normalized_string(rules[0])}", b(X),(neg(a(X)),pos(c(X)))) :- b(X), c(X), not a(X).h(1, "{hash_normalized_string(rules[1])}", b(X), (neg(c(X)),pos(a(X)))) :- b(X), a(X), not c(X).'
+    expected = f'h(1, "{hash_normalized_string(rules[0])}", b(X),(pos(c(X)),neg(a(X)))) :- b(X), c(X), not a(X).h(1, "{hash_normalized_string(rules[1])}", b(X), (pos(a(X)),neg(c(X)))) :- b(X), a(X), not c(X).'
     assertProgramEqual(transform(program), parse_program_to_ast(expected))
 
 
@@ -86,7 +86,7 @@ def extract_rule_nrs_from_parsed_program(prg):
 def test_programs_with_facts_result_in_matching_program_mappings():
     rules = ['b(X) :- c(X); not a(X).', 'b(X) :- a(X); not c(X).']
     program = "".join(rules)
-    expected = f'h(1, "{hash_normalized_string(rules[0])}", b(X), (neg(a(X)),pos(c(X)))) :- b(X), c(X), not a(X).h(1, "{hash_normalized_string(rules[1])}", b(X),(neg(c(X)),pos(a(X)))) :- b(X), a(X), not c(X).'
+    expected = f'h(1, "{hash_normalized_string(rules[0])}", b(X), (pos(c(X)),neg(a(X)))) :- b(X), c(X), not a(X).h(1, "{hash_normalized_string(rules[1])}", b(X),(pos(a(X)),neg(c(X)))) :- b(X), a(X), not c(X).'
     parsed = parse_program_to_ast(expected)
     transformed = transform(program)
     assertProgramEqual(transformed, parsed)
@@ -114,31 +114,31 @@ def test_head_aggregate_is_transformed_correctly():
 def test_conditional_with_interval_transformed_correctly():
     rule = "{ a(X): b(X), X = (1..3) } :- f(X)."
     expected = f"""#program base.
-    h(1, "{hash_normalized_string(rule)}", a(X), (pos(f(X)),comp((("X",X),),"X = (1..3)"),pos(b(X)))) :- a(X), b(X), X=1..3, f(X)."""
+    h(1, "{hash_normalized_string(rule)}", a(X), (pos(b(X)),comp((("X",X),),"X = (1..3)"),pos(f(X)))) :- a(X), b(X), X=1..3, f(X)."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_head_aggregate_groups_is_transformed_correctly():
     rule = "{ a(X): b(X), c(X); d(X): e(X), X = (1..3) } :- f(X)."
     expected = f"""#program base.
-    h(1, "{hash_normalized_string(rule)}", d(X), (pos(f(X)),comp((("X",X),),"X = (1..3)"),pos(e(X)))) :- d(X), e(X), X=1..3, f(X).
-    h(1, "{hash_normalized_string(rule)}", a(X), (pos(f(X)),pos(c(X)),pos(b(X)))) :- a(X), b(X), c(X), f(X)."""
+    h(1, "{hash_normalized_string(rule)}", d(X), (pos(e(X)),comp((("X",X),),"X = (1..3)"),pos(f(X)))) :- d(X), e(X), X=1..3, f(X).
+    h(1, "{hash_normalized_string(rule)}", a(X), (pos(b(X)),pos(c(X)),pos(f(X)))) :- a(X), b(X), c(X), f(X)."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_aggregate_choice_is_transformed_correctly():
     rule = '1 <= { a(X): b(X), c(X); d(X): e(X), X = (1..3) } <= 1 :- f(X).'
     expected = f"""#program base.
-    h(1, "{hash_normalized_string(rule)}", d(X), (pos(f(X)),comp((("X",X),),"X = (1..3)"),pos(e(X)))) :- d(X), e(X), X=1..3, f(X).
-    h(1, "{hash_normalized_string(rule)}", a(X), (pos(f(X)),pos(c(X)),pos(b(X)))) :- a(X), b(X), c(X), f(X)."""
+    h(1, "{hash_normalized_string(rule)}", d(X), (pos(e(X)),comp((("X",X),),"X = (1..3)"),pos(f(X)))) :- d(X), e(X), X=1..3, f(X).
+    h(1, "{hash_normalized_string(rule)}", a(X), (pos(b(X)),pos(c(X)),pos(f(X)))) :- a(X), b(X), c(X), f(X)."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_multiple_conditional_groups_in_head():
     rule = '1 <= #sum { X,Y: a(X,Y): b(Y), c(X); X,Z: b(X,Z): e(Z) } :- c(X).'
     expected = f"""#program base.
-    h(1, "{hash_normalized_string(rule)}", a(X,Y), (pos(c(X)),pos(b(Y)))) :- a(X,Y), b(Y), c(X). 
-    h(1, "{hash_normalized_string(rule)}", b(X,Z), (pos(c(X)), pos(e(Z)))) :- b(X,Z), e(Z), c(X). 
+    h(1, "{hash_normalized_string(rule)}", a(X,Y), (pos(b(Y)),pos(c(X)))) :- a(X,Y), b(Y), c(X). 
+    h(1, "{hash_normalized_string(rule)}", b(X,Z), (pos(e(Z)), pos(c(X)))) :- b(X,Z), e(Z), c(X). 
     """
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
@@ -147,37 +147,37 @@ def test_multiple_conditional_groups_in_head():
 def test_aggregates_in_body():
     rule = 'reached(V) :- reached(U); hc(U,V); 1 <= { edge(U,V) }.'
     expected = f"""#program base. 
-    h(1, "{hash_normalized_string(rule)}", reached(V),(pos(hc(U,V)),pos(reached(U)))) :- reached(V); reached(U); hc(U,V); 1 <= {{ edge(U,V) }}."""
+    h(1, "{hash_normalized_string(rule)}", reached(V),(pos(reached(U)),pos(hc(U,V)))) :- reached(V); reached(U); hc(U,V); 1 <= {{ edge(U,V) }}."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 def test_aggregate_in_body_2():
     rule = 'a(X) :- b(X); c(X); 1 = { d(X): e(X), X = (1..3) }.'
     expected = f"""#program base.
-    h(1, "{hash_normalized_string(rule)}", a(X), (pos(c(X)),pos(b(X)))) :- a(X), b(X), c(X), 1 = {{d(X) : e(X), X=1..3 }}."""
+    h(1, "{hash_normalized_string(rule)}", a(X), (pos(b(X)),pos(c(X)))) :- a(X), b(X), c(X), 1 = {{d(X) : e(X), X=1..3 }}."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 def test_conditional_in_body():
     rule = 'a(X) :- b(X); c(X); d(X): e(X), X = (1..3).'
     expected = f"""#program base.
-    h(1, "{hash_normalized_string(rule)}", a(X), (pos(c(X)),pos(b(X)))) :- a(X), b(X), c(X), d(X) : e(X), X=1..3."""
+    h(1, "{hash_normalized_string(rule)}", a(X), (pos(b(X)),pos(c(X)))) :- a(X), b(X), c(X), d(X) : e(X), X=1..3."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 def test_comparison_in_body():
     rule = 'a(X) :- b(X); X < 2.'
     expected = f"""#program base.
-    h(1, "{hash_normalized_string(rule)}", a(X), (comp((("X",X),), "X < 2"),pos(b(X)))) :- a(X), b(X), X < 2."""
+    h(1, "{hash_normalized_string(rule)}", a(X), (pos(b(X)),comp((("X",X),), "X < 2"))) :- a(X), b(X), X < 2."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 def test_comparison_in_body_2():
     rule = 'a(X) :- b(YX); X = (YX+1).'
     expected = f"""#program base.
-    h(1, "{hash_normalized_string(rule)}", a(X), (comp((("X",X),("YX",YX)), "X = (YX+1)"),pos(b(YX)))) :- a(X), b(YX), X = (YX+1)."""
+    h(1, "{hash_normalized_string(rule)}", a(X), (pos(b(YX)),comp((("X",X),("YX",YX)), "X = (YX+1)"))) :- a(X), b(YX), X = (YX+1)."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 def test_boolean_constant_in_body():
     rule = 'a(X) :- b(X); c(X); #true.'
     expected = f"""#program base.
-    h(1, "{hash_normalized_string(rule)}", a(X), (pos(c(X)),pos(b(X)))) :- a(X), b(X), c(X), #true."""
+    h(1, "{hash_normalized_string(rule)}", a(X), (pos(b(X)),pos(c(X)))) :- a(X), b(X), c(X), #true."""
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
@@ -202,19 +202,19 @@ def test_showTerm_transformed_correctly_2():
 
 def test_anon_replaced_correctly():
     rule = 'a(X) :- b(X,_); d(Y,_).'
-    expected = f'h(1, "{hash_normalized_string(rule)}", a(X), (pos(d(Y,_A2)),pos(b(X,_A1)))) :- a(X), b(X,_A1), d(Y,_A2).'
+    expected = f'h(1, "{hash_normalized_string(rule)}", a(X), (pos(b(X,_A1)),pos(d(Y,_A2)))) :- a(X), b(X,_A1), d(Y,_A2).'
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_anon_replaced_correctly_2():
     rule = 'a(X) :- b(X,_); X = (Y,_); d(Y,(_,X)).'
-    expected = f'h(1, "{hash_normalized_string(rule)}", a(X), (pos(d(Y,(_A3,X))),comp((("X",X),("Y",Y),("_A2",_A2)),"X = (Y,_A2)"),pos(b(X,_A1)))) :- a(X), b(X,_A1), X=(Y,_A2), d(Y,(_A3,X)).'
+    expected = f'h(1, "{hash_normalized_string(rule)}", a(X), (pos(b(X,_A1)),comp((("X",X),("Y",Y),("_A2",_A2)),"X = (Y,_A2)"),pos(d(Y,(_A3,X))))) :- a(X), b(X,_A1), X=(Y,_A2), d(Y,(_A3,X)).'
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 
 def test_showTerm_anon_replaced_correctly():
     rule = '#show finish(_A1) : hc(_,_A1), start(_A1).'
-    expected = f'h_showTerm(1, "{hash_normalized_string(rule)}", finish(_A1), (pos(start(_A1)),pos(hc(__A1,_A1)))) :- showTerm(finish(_A1)); hc(__A1,_A1); start(_A1).'
+    expected = f'h_showTerm(1, "{hash_normalized_string(rule)}", finish(_A1), (pos(hc(__A1,_A1)),pos(start(_A1)))) :- showTerm(finish(_A1)); hc(__A1,_A1); start(_A1).'
     assertProgramEqual(transform(rule), parse_program_to_ast(expected))
 
 def test_aggregate_transformed():
@@ -229,8 +229,8 @@ def test_aggregate_transformed():
         h(1, "{hash_normalized_string(rule)}", 
             reached(N), 
             (
-                body_aggregate(1, 0, reached(N), pos),
-                pos(node(N))
+                pos(node(N)),
+                body_aggregate(1, 0, reached(N), pos)
             )
         ) :- 
             reached(N),
@@ -304,7 +304,7 @@ def test_multiple_aggregates_in_body():
             1, 
             "{hash_normalized_string(rule)}",
             s(Y),
-            (body_aggregate(1, 0,s(Y),neg),pos(r(Y)),)) 
+            (pos(r(Y)),body_aggregate(1, 0,s(Y),neg),)) 
         :- s(Y),
            r(Y), 
            not 2 #max{{X : p(X,Y), q(X) }} 7.

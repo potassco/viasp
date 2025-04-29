@@ -106,6 +106,7 @@ class SymbolDetails(Base):
     aggregate_repr: Mapped[str] = mapped_column(nullable=True)
     sign_positive: Mapped[bool] = mapped_column()
     sign_negative: Mapped[bool] = mapped_column()
+    order: Mapped[int] = mapped_column()
 
     __table_args__ = (UniqueConstraint('encoding_id',
                                        'symbol_uuid',

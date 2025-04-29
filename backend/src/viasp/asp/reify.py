@@ -724,7 +724,6 @@ class ProgramReifier(DependencyCollector):
             if reason_literal is not None:
                 reasons.append(reason_literal)
 
-        reasons.reverse()
         reasons = [r for i, r in enumerate(reasons) if r not in reasons[:i]]
         reason_fun = ast.Function(loc, "",
                                   [r for r in reasons if r is not None], 0)

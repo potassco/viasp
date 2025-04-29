@@ -1,13 +1,6 @@
-import ast
-from re import L
-from typing import List, cast
-
-import clingo
-from clingo.ast import AST, ASTType, parse_string
 from clingo import Symbol, Control
 
-from viasp.shared.util import hash_string, get_ast_from_input_string
-from viasp.asp.utils import transform_reason_symbol_to_identifier
+from viasp.asp.detail import create_reason_symbol_identifier
 
 def string_to_clingo_symbol(s: str) -> Symbol:
     """
@@ -24,7 +17,7 @@ def transform(s: str) -> str:
     Transform a string to its reason detail representation.
     """
     clingo_symbol = string_to_clingo_symbol(s)
-    reason_identifier = transform_reason_symbol_to_identifier(clingo_symbol)
+    reason_identifier = create_reason_symbol_identifier(clingo_symbol, [])
     return reason_identifier.symbol_repr
 
 def test_simple_positive():
