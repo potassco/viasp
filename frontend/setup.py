@@ -18,7 +18,8 @@ setup(
     long_description_content_type='text/markdown',
     install_requires=[],
     classifiers=[
-        'Framework :: React',
+        'Framework :: Flask', 'Programming Language :: JavaScript',
+        'Programming Language :: Python'
     ],
     entry_points={
         'console_scripts': [
