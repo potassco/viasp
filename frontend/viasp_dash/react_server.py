@@ -4,7 +4,7 @@ import importlib.metadata
 import argparse
 from flask import Flask, send_from_directory, render_template
 
-from viasp.shared.defaults import _, DEFAULT_FRONTEND_PORT, DEFAULT_BACKEND_PROTOCOL, DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_COLOR, DEFAULT_BACKEND_URL, DEFAULT_FRONTEND_HOST
+from ...backend.src.viasp.shared.defaults import _, DEFAULT_FRONTEND_PORT, DEFAULT_BACKEND_PROTOCOL, DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_COLOR, DEFAULT_BACKEND_URL, DEFAULT_FRONTEND_HOST
 
 try:
     VERSION = importlib.metadata.version("viasp_dash")
