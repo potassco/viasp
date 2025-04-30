@@ -160,6 +160,8 @@ class DependencyCollector(Transformer):
         if (not halt_collection and not in_analyzer):
             # add simple Cond.Literals from rule body to justifier rule body
             conditions.append(conditional_literal)
+        if not self.in_analyzer:
+            kwargs.update({"halt_collection": True})
         return conditional_literal.update(
             **self.visit_children(conditional_literal, **kwargs))
 
