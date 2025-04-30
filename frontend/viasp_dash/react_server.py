@@ -4,8 +4,6 @@ import importlib.metadata
 import argparse
 from flask import Flask, send_from_directory, render_template
 
-from ...backend.src.viasp.shared.defaults import _, DEFAULT_FRONTEND_PORT, DEFAULT_BACKEND_PROTOCOL, DEFAULT_BACKEND_HOST, DEFAULT_BACKEND_PORT, DEFAULT_COLOR, DEFAULT_BACKEND_URL, DEFAULT_FRONTEND_HOST
-
 try:
     VERSION = importlib.metadata.version("viasp_dash")
 except importlib.metadata.PackageNotFoundError:
@@ -13,6 +11,9 @@ except importlib.metadata.PackageNotFoundError:
 
 COLOR_PALETTE_PATH = '../src/colorPalette.json'
 CONFIG_PATH = '../src/config.json'
+DEFAULT_BACKEND_URL = 'http://127.0.0.1:5050'
+DEFAULT_FRONTEND_HOST = '127.0.0.1'
+DEFAULT_FRONTEND_PORT = 8050
 
 def create_app():
     app = Flask(__name__,
@@ -21,7 +22,7 @@ def create_app():
                 template_folder='./')
 
     backend_url = os.getenv('BACKEND_URL',
-                            f'{DEFAULT_BACKEND_PROTOCOL}://{DEFAULT_BACKEND_HOST}:{DEFAULT_BACKEND_PORT}')
+                            DEFAULT_BACKEND_URL)
     with open(os.path.join(os.path.dirname(__file__),
                            COLOR_PALETTE_PATH)) as f:
         color_theme = json.load(f).pop("colorThemes")
@@ -50,25 +51,26 @@ def create_app():
     return app
 
 def run():
-    parser = argparse.ArgumentParser(description=_("VIASP_FRONTEND_TITLE_HELP"))
+    parser = argparse.ArgumentParser(
+        description="\t: Show all derived symbols at each step")
     parser.add_argument('--host',
                         metavar='<host>',
                         type=str,
-                        help=_("VIASP_FRONTEND_HOST_HELP"),
+                        help="\t: The host for the frontend",
                         default=DEFAULT_FRONTEND_HOST)
     parser.add_argument('--port',
                         metavar='<port>',
                         type=int,
-                        help=_("VIASP_PORT_FRONTEND_HELP"),
+                        help="\t: The port for the frontend",
                         default=DEFAULT_FRONTEND_PORT)
     parser.add_argument('--backend-url',
                         metavar='<backend_url>',
                         type=str,
-                        help=_("VIASP_BACKEND_URL_HELP"),
+                        help="\t: The URL for the backend",
                         default=DEFAULT_BACKEND_URL)
     parser.add_argument('--show-all-derived',
                         action='store_true',
-                        help=_("VIASP_SHOW_ALL_DERIVED_HELP"))
+                        help="\t: Show all derived symbols at each step")
 
 
     use_reloader = False
