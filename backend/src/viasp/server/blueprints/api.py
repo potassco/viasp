@@ -17,7 +17,7 @@ from ..models import *
 from ...asp.reify import ProgramAnalyzer
 from ...asp.relax import ProgramRelaxer, relax_constraints
 from ...shared.model import ClingoMethodCall, StableModel, TransformerTransport
-from ...shared.util import hash_from_sorted_transformations
+from ...shared.util import hash_from_sorted_transformations, get_compatible_node_link_data
 from ...shared.defaults import CLINGRAPH_PATH
 
 bp = Blueprint("api", __name__, template_folder='../templates/')
@@ -273,9 +273,11 @@ def save_recursions(analyzer: ProgramAnalyzer, encoding_id: str):
 
 
 def save_analyzer_values(analyzer: ProgramAnalyzer, encoding_id: str):
-    db_dependency_graph = DependencyGraphs(encoding_id=encoding_id,
-                        data=current_app.json.dumps(
-                            nx.node_link_data(analyzer.dependency_graph))) if analyzer.dependency_graph != None else None
+    db_dependency_graph = DependencyGraphs(
+        encoding_id=encoding_id,
+        data=current_app.json.dumps(
+            get_compatible_node_link_data(analyzer.dependency_graph)
+        )) if analyzer.dependency_graph != None else None
     db_session.add(db_dependency_graph)
 
     db_names = db_session.query(AnalyzerNames).filter_by(

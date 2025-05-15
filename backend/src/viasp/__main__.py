@@ -81,9 +81,7 @@ def server():
                       port=port,
                       front_host=front_host,
                       front_port=front_port,
-                      do_wait_for_server_ready=False)
-    app.wait_for_backend_server_running()
-    viasp.api.load_program_string("a.", viasp_backend_url=backend_url)
+                      do_wait_for_server_ready=True)
     # use ViaspRunner to manage shutdown
     runner = ViaspRunner()
     runner.backend_url = backend_url

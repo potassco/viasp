@@ -15,7 +15,7 @@ from ...asp.reify import ProgramAnalyzer, reify_list
 from ...asp.justify import build_graph, search_nonground_term_in_symbols
 from ...shared.defaults import STATIC_PATH
 from ...shared.model import SearchResultSymbolWrapper, Transformation, Node, Signature
-from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations, pairwise
+from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations, pairwise, get_compatible_node_link_data
 from ...shared.io import StableModel
 from ...shared.simple_logging import error
 from ..database import ensure_encoding_id, db_session
@@ -499,12 +499,13 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
     db_graph = db_session.query(Graphs).filter_by(
         encoding_id=encoding_id, hash=graph_hash).one_or_none()
     if db_graph is not None:
-        db_graph.data = current_app.json.dumps(nx.node_link_data(graph))
+        db_graph.data = current_app.json.dumps(
+            get_compatible_node_link_data(graph))
     else:
         db_graph = Graphs(encoding_id=encoding_id,
                           hash=graph_hash,
                           data=current_app.json.dumps(
-                              nx.node_link_data(graph)),
+                              get_compatible_node_link_data(graph)),
                           sort=current_app.json.dumps(sorted_program))
         db_session.add(db_graph)
 

@@ -17,7 +17,7 @@ from viasp.server.blueprints.api import bp as api_bp
 from viasp.server.blueprints.app import bp as app_bp
 from viasp.server.blueprints.dag_api import bp as dag_bp
 from viasp.shared.io import DataclassJSONProvider
-from viasp.shared.util import hash_from_sorted_transformations
+from viasp.shared.util import hash_from_sorted_transformations, get_compatible_node_link_data
 from viasp.shared.model import ClingoMethodCall, Node, SymbolIdentifier, Transformation
 from viasp.server.database import db_session as Session, get_or_create_encoding_id, Base, engine
 from viasp.server.models import Encodings, Recursions, DependencyGraphs, Models
@@ -159,7 +159,7 @@ def get_sort_program_and_get_graph(get_sort_program, app_context, db_session) ->
         db_dependency_graph = DependencyGraphs(
             encoding_id=encoding_id,
             data=current_app.json.dumps(
-                nx.node_link_data(analyzer.dependency_graph)
+                get_compatible_node_link_data(analyzer.dependency_graph)
             )) if analyzer.dependency_graph else None
 
         db_session.add_all(db_recursions)
