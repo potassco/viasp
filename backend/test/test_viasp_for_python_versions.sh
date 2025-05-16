@@ -35,7 +35,7 @@ for pv in "${PYTHON_VERSIONS[@]}"; do
   echo "Running viasp..." >> "$LOGFILE"
   which viasp >> "$LOGFILE"
   echo >> "$LOGFILE"
-  viasp hamiltonian.lp 0 >> "$LOGFILE" 2>&1 &
+  echo "a. {b}:-a." | viasp - 0 >> "$LOGFILE" 2>&1 &
   VIASP_PID=$!
   echo "Started viasp with PID $VIASP_PID"  >> "$LOGFILE"
   echo "Using viasp at $(which viasp)"  >> "$LOGFILE"
