@@ -24,7 +24,7 @@ for pv in "${PYTHON_VERSIONS[@]}"; do
   
   conda install pip --yes >> "$LOGFILE" 2>&1
 
-	if ! pip install -q -e ../. -e ../backend -e ../frontend >> "$LOGFILE" 2>&1; then
+	if ! pip install -q viasp >> "$LOGFILE" 2>&1; then
     echo "Python $pv: ❌ Package installation failed"
     ((FAILURES++))
     continue

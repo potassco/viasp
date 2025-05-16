@@ -6,6 +6,8 @@ include viasp_dash/*-shared.js
 include viasp_dash/*-shared.js.map
 include viasp_dash/metadata.json
 include viasp_dash/package-info.json
+include src/colorPalette.json
+include src/config.json
 include README.md
 include LICENSE
 include package.json
