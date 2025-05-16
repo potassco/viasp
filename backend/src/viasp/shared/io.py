@@ -3,7 +3,6 @@ import json
 from json import JSONDecoder, JSONEncoder
 # Legacy: To be deleted in Version 3.0
 # from enum import IntEnum
-from flask import current_app
 from flask.json.provider import JSONProvider
 from dataclasses import is_dataclass, asdict
 from typing import Union, Collection, Iterable, Sequence, cast, Tuple
@@ -30,7 +29,6 @@ from .interfaces import ViaspClient
 from .model import AggregateElementIdentifier, AggregateReasonIdentifier, Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper, ReasonSymbolIdentifier, GroundReasonTransport
 from ..server.models import GraphEdges, GraphNodes, GraphSymbols, SymbolDetails
 from ..shared.util import get_compatible_node_link_data
->>>>>>> main
 
 class DataclassJSONProvider(JSONProvider):
     def dumps(self, obj, **kwargs):

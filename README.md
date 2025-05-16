@@ -1,3 +1,29 @@
+======================================================================
+
+This branch contains the development of the detail Modal, which opens up when double clicking a symbol in the graph. It shows a box with the list of reasons the symbol.
+For positive reasons, clicking on it will lead to the symbol in the graph. Negated
+and double-negated symbols are represented with the negation prefixes and not clickable. 
+Aggregates in the body of the rules are grounded, so that the ground
+instances can be given as reasons. This means the details of the aggregate can be inspected.
+
+This is a work in progress,
+but it should be functional. Minor bugs may occur, so further testing is
+needed before merging this branch into the main branch.
+
+The list of reasons is gathered from the body of the rule.
+The modal uses the `h`-symbols in the justification program (called reified program in the code)
+to get the list of ground reasons for each symbol. The `h`-symbols are then
+used to "decode" the reasons. Decoding means converting the reason into the correct string
+representation and identifying the uuid of the correspoding symbol in the preceeding parts of the graph.
+
+For body aggregates, auxiliary justifier rules are created to get the 
+aggregate value and the ground instances of every aggregate element. The
+design of the justifier program is detailed by the test cases in
+`test/test_reification.py` and `test/test_ground_detail_decoder.py`. 
+
+======================================================================
+
+
 # viASP
 
 [![Build and Test](https://github.com/potassco/viasp/actions/workflows/build_and_test.yml/badge.svg?branch=main)](https://github.com/potassco/viasp/actions/workflows/build_and_test.yml) [![Documentation Status](https://readthedocs.org/projects/viasp/badge/?version=latest)](https://viasp.readthedocs.io/en/latest/?badge=latest)

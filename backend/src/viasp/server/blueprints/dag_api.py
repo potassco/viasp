@@ -16,7 +16,7 @@ from ...asp.reify import ProgramAnalyzer, reify_list
 from ...asp.justify import build_graph, search_nonground_term_in_symbols
 from ...shared.defaults import STATIC_PATH
 from ...shared.model import GroundReasonTransport, SearchResultSymbolWrapper, Transformation, Node, Signature
-from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations, pairwise
+from ...shared.util import get_start_node_from_graph, hash_from_sorted_transformations, pairwise, get_compatible_node_link_data
 from ...shared.io import StableModel
 from ...shared.simple_logging import error
 from ..database import ensure_encoding_id, db_session
@@ -1034,6 +1034,7 @@ def generate_graph(encoding_id: str, analyzer: Optional[ProgramAnalyzer] = None)
         conflict_free_showTerm_str=analyzer.get_conflict_free_showTerm(),
         get_conflict_free_variable_str=analyzer.get_conflict_free_variable,
         clear_temp_names=analyzer.clear_temp_names)
+    print(f"Reified: {list(map(str,reified))}",flush=True)
     g = build_graph(marked_models, reified, sorted_program, analyzer,
                     recursion_rules, commandline_constants, show_all_derived)
 

@@ -322,7 +322,7 @@ class SolveHandle:
     def get(self):
         return self.Unsat(self.data['Result'])
 
-def get_compatible_node_link_data(graph: nx.DiGraph) -> Dict[str, Any]:
+def get_compatible_node_link_data(graph: nx.Graph) -> Dict[str, Any]:
     """Returns node_link_data in a version-compatible way"""
     if graph is None:
         return None
