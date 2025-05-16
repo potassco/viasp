@@ -1,3 +1,17 @@
+======================================================================
+
+This branch contains the files for the clingo-dl examples. Clingo-dl 
+representation in viasp needs the registration of a custom transformer
+for the viasp program analyzer.
+
+The transformer registration is broken due to a bug when gathering
+the string representation of the input program rules.
+
+Once this bug is fixed, the files for the clingo-dl examples and references
+to it can be added to the main viasp distribution.
+
+======================================================================
+
 # viASP
 
 [![Build and Test](https://github.com/potassco/viasp/actions/workflows/build_and_test.yml/badge.svg?branch=main)](https://github.com/potassco/viasp/actions/workflows/build_and_test.yml) [![Documentation Status](https://readthedocs.org/projects/viasp/badge/?version=latest)](https://viasp.readthedocs.io/en/latest/?badge=latest)
