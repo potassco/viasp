@@ -92,14 +92,6 @@ jobs:
       - name: Building dash component
         working-directory: ./frontend
         run: python -m build --sdist --wheel --outdir dist/;
-      - name: Test usage.py
-        working-directory: ./frontend
-        run: |
-          python usage.py &
-          PID=$!
-          echo $PID
-          sleep 5s
-          kill -9 $PID
 
       - name: Upload frontend to GitHub
         uses: actions/upload-artifact@v4

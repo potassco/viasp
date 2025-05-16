@@ -2,8 +2,8 @@ const path = require('path');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const commonConfig = require('./webpack.config.js');
-const colorPalette = require('./src/colorPalette.json');
-const frontend_config = require('./src/config.json');
+const colorPalette = require('./viasp_dash/colorPalette.json');
+const frontend_config = require('./viasp_dash/config.json');
 
 module.exports = (env, argv) => {
     const config = commonConfig(env, argv);

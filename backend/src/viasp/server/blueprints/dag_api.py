@@ -541,12 +541,13 @@ def save_graph(graph: nx.DiGraph, encoding_id: str,
     db_graph = db_session.query(Graphs).filter_by(
         encoding_id=encoding_id, hash=graph_hash).one_or_none()
     if db_graph is not None:
-        db_graph.data = current_app.json.dumps(nx.node_link_data(graph))
+        db_graph.data = current_app.json.dumps(
+            get_compatible_node_link_data(graph))
     else:
         db_graph = Graphs(encoding_id=encoding_id,
                           hash=graph_hash,
                           data=current_app.json.dumps(
-                              nx.node_link_data(graph)),
+                              get_compatible_node_link_data(graph)),
                           sort=current_app.json.dumps(sorted_program))
         db_session.add(db_graph)
 

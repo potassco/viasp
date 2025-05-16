@@ -1,10 +1,11 @@
 import networkx as nx
-from networkx import node_link_data, node_link_graph
+from networkx import node_link_graph
 from flask import current_app
 
 import clingo.ast
 from clingo import Control, ModelType
 
+from viasp.shared.util import get_compatible_node_link_data
 from viasp.shared.io import clingo_model_to_stable_model
 from viasp.shared.model import RuleContainer, StableModel, ClingoMethodCall, Signature, Transformation, TransformationError, \
     FailedReason
@@ -18,7 +19,7 @@ def test_networkx_graph_with_dataclasses_is_isomorphic_after_dumping_and_loading
 
     assert len(graph.nodes()) > 0, "The graph to check serialization should contain nodes."
     assert len(graph.edges()) > 0, "The graph to check serialization should contain edges."
-    serializable_graph = node_link_data(graph)
+    serializable_graph = get_compatible_node_link_data(graph)
     serialized_graph = current_app.json.dumps(serializable_graph)
     loaded = current_app.json.loads(serialized_graph)
     loaded_graph = node_link_graph(loaded)
@@ -100,6 +101,3 @@ def test_minimize_rule_representation(app_context, db_session):
         assert False
     serialized = current_app.json.loads(db_sort.sort)
     assert serialized == sort
-
-
-

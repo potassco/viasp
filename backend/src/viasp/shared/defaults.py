@@ -1,7 +1,6 @@
 import pathlib
 import os
 import json
-from unittest.mock import DEFAULT
 
 DEFAULT_BACKEND_PROTOCOL = "http"
 DEFAULT_BACKEND_HOST = "127.0.0.1"

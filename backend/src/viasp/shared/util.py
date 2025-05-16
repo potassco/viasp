@@ -7,6 +7,7 @@ from flask import current_app
 import json
 import jsonschema
 from jsonschema import validate
+import inspect
 
 from clingo.ast import ASTType, AST, parse_string, Location
 import jsonschema.exceptions
@@ -320,3 +321,14 @@ class SolveHandle:
 
     def get(self):
         return self.Unsat(self.data['Result'])
+
+def get_compatible_node_link_data(graph: nx.DiGraph) -> Dict[str, Any]:
+    """Returns node_link_data in a version-compatible way"""
+    if graph is None:
+        return None
+
+    signature = inspect.signature(nx.node_link_data)
+    if 'edges' in signature.parameters:
+        return nx.node_link_data(graph, edges="links")  # type: ignore[no-untyped-call]
+    else:
+        return nx.node_link_data(graph)  # type: ignore[no-untyped-call]

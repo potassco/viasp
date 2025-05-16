@@ -29,6 +29,8 @@ from flask.json.tag import TaggedJSONSerializer
 from .interfaces import ViaspClient
 from .model import AggregateElementIdentifier, AggregateReasonIdentifier, Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper, ReasonSymbolIdentifier, GroundReasonTransport
 from ..server.models import GraphEdges, GraphNodes, GraphSymbols, SymbolDetails
+from ..shared.util import get_compatible_node_link_data
+>>>>>>> main
 
 class DataclassJSONProvider(JSONProvider):
     def dumps(self, obj, **kwargs):
@@ -295,7 +297,10 @@ def encode_object(o):
         result = dataclass_to_dict(o)
         return result
     elif isinstance(o, nx.Graph):
-        return {"_type": "Graph", "_graph": nx.node_link_data(o)}
+        return {
+            "_type": "Graph",
+            "_graph": get_compatible_node_link_data(o)
+        }
     elif isinstance(o, UUID):
         return o.hex
     elif isinstance(o, frozenset):

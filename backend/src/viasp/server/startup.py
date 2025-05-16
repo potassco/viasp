@@ -20,9 +20,6 @@ import shutil
 from contextlib import suppress
 
 
-from dash import Dash, jupyter_dash
-from dash._jupyter import _jupyter_config
-
 from viasp import clingoApiClient
 from viasp.api import deregister_session
 from viasp.shared.simple_logging import error, warn, plain, info
@@ -47,24 +44,7 @@ def run(host=DEFAULT_BACKEND_HOST,
         front_port=DEFAULT_FRONTEND_PORT,
         do_wait_for_server_ready=True):
     """ create the dash app, set layout and start the backend on host:port """
-    # if running in binder, get proxy information
-    # and set the backend URL, which will be used
-    # by the frontend
-    if 'BINDER_SERVICE_HOST' in os.environ:
-        jupyter_dash.infer_jupyter_proxy_config()
-    if ('server_url' in _jupyter_config and 'base_subpath' in _jupyter_config):
-        _default_server_url = _jupyter_config['server_url']
-
-        _default_requests_pathname_prefix = (
-            _jupyter_config['base_subpath'].rstrip('/') + '/proxy/' +
-            str(port))
-
-        backend_url = _default_server_url + _default_requests_pathname_prefix
-    elif 'google.colab' in sys.modules:
-        from google.colab.output import eval_js  # type: ignore
-        backend_url = eval_js(f"google.colab.kernel.proxyPort({port})")
-    else:
-        backend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
+    backend_url = f"{DEFAULT_BACKEND_PROTOCOL}://{host}:{port}"
 
     app = ViaspServerLauncher(backend_url, host, port, front_host, front_port)
     app.start_backend_server()
