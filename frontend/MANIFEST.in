@@ -7,6 +7,9 @@ include viasp_dash/*-shared.js.map
 include viasp_dash/metadata.json
 include viasp_dash/package-info.json
 include viasp_dash/*.json
+include viasp_dash/*.png
+include viasp_dash/*.ico
+include viasp_dash/*.html
 include README.md
 include LICENSE
 include package.json
