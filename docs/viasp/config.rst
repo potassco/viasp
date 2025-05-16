@@ -5,7 +5,7 @@ Configuration
 Graph Interaction
 -----------------
 
-The configuration of constants used for sizing and animating the viASP graph is defined in the file `/frontend/src/config.json`.
+The configuration of constants used for sizing and animating the viASP graph is defined in the file `/frontend/viasp_dash/config.json`.
 
 .. code-block:: JSON
 
@@ -67,7 +67,7 @@ To permanently change viASP's the output, edit the file at the site packages dir
 Color Palette
 -------------
 
-The color Palette of viASP's frontend is defined by the file `/frontend/src/colorPalette.json`.
+The color Palette of viASP's frontend is defined by the file `/frontend/viasp_dash/colorPalette.json`.
 
 The default file contains the following JSON object, which defines the colors for all color themes:
 

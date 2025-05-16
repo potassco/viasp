@@ -9,8 +9,8 @@ try:
 except importlib.metadata.PackageNotFoundError:
     VERSION = '0.0.0'
 
-COLOR_PALETTE_PATH = '../src/colorPalette.json'
-CONFIG_PATH = '../src/config.json'
+COLOR_PALETTE_PATH = './colorPalette.json'
+CONFIG_PATH = './config.json'
 DEFAULT_BACKEND_URL = 'http://127.0.0.1:5050'
 DEFAULT_FRONTEND_HOST = '127.0.0.1'
 DEFAULT_FRONTEND_PORT = 8050

@@ -1,7 +1,7 @@
 /* eslint no-magic-numbers: 0 */
 import React, {StrictMode} from 'react';
-import colorPaletteData from '../colorPalette.json';
-import config from '../config.json';
+import colorPaletteData from '../../viasp_dash/colorPalette.json';
+import config from '../../viasp_dash/config.json';
 import ViaspDash from '../lib/main/ViaspDash.react';
 
 
