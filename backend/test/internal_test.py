@@ -3,7 +3,7 @@ from flask import json
 import pytest
 import requests
 
-from viasp.shared.util import get_compatible_node_link_data
+import networkx as nx
 from viasp.asp.justify import build_graph
 from viasp.asp.reify import ProgramAnalyzer, reify_list
 from helper import get_stable_models_for_program
@@ -27,7 +27,7 @@ def test_writing_to_server():
 
     backend_url = "http://127.0.0.1:5000/"
 
-    serializable_graph = get_compatible_node_link_data(g)
+    serializable_graph = nx.node_link_data(g)
     serialized = json.dumps(serializable_graph)
 
     r = requests.post(f"{backend_url}graph",

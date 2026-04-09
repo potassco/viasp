@@ -28,7 +28,6 @@ from flask.json.tag import TaggedJSONSerializer
 from .interfaces import ViaspClient
 from .model import Node, ClingraphNode, Transformation, Signature, StableModel, ClingoMethodCall, TransformationError, FailedReason, SymbolIdentifier, TransformerTransport, RuleContainer, SearchResultSymbolWrapper
 from ..server.models import GraphEdges
-from ..shared.util import get_compatible_node_link_data
 
 class DataclassJSONProvider(JSONProvider):
     def dumps(self, obj, **kwargs):
@@ -217,7 +216,7 @@ def encode_object(o):
     elif isinstance(o, nx.Graph):
         return {
             "_type": "Graph",
-            "_graph": get_compatible_node_link_data(o)
+            "_graph": nx.node_link_data(o) if o is not None else None
         }
     elif isinstance(o, UUID):
         return o.hex
