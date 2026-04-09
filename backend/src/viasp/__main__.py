@@ -183,10 +183,6 @@ class ViaspArgumentParser:
         self.__cmd_parser.add_argument('files',
                                        help=_("VIASP_FILES_HELP_STRING"),
                                        nargs='*')
-        self.__cmd_parser.add_argument('stdin',
-                                       help=_("VIASP_STDIN_HELP_STRING"),
-                                       nargs='?',
-                                       default=sys.stdin)
         # Basic Options
         basic = cmd_parser.add_argument_group(_("VIASP_BASIC_OPTION"))
         basic.add_argument('--help',
