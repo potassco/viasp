@@ -34,7 +34,7 @@ import {
     isCurrentlyPickedUpState,
     isCurrentlyBeingReorderedState,
 } from '../atoms/currentGraphState';
-import { zoomButtonPressedState } from '../atoms/zoomState';
+import { zoomButtonPressedState, searchIsFocusedState } from '../atoms/zoomState';
 import {
     backendUrlState,
     colorPaletteState,
@@ -159,6 +159,7 @@ function ZoomInteraction() {
     const [zoomBtnPressed, setZoomBtnPressed] = useRecoilState(
         zoomButtonPressedState
     );
+    const searchIsFocused = useRecoilValue(searchIsFocusedState);
     const mapShift = useRecoilValue(mapShiftState);
     const doKeyZoomScale = useRecoilCallback(doKeyZoomScaleCallback, []);
     const doKeyZoomTranslate = useRecoilCallback(doKeyZoomTranslateCallback, []);
@@ -166,7 +167,7 @@ function ZoomInteraction() {
     const setIsCurrentlyZooming = useSetRecoilState(
         isCurrentlyZoomingState
     );
-    
+
     const timerRef = useRef(null);
     useEffect(() => {
         setIsCurrentlyZooming(true);
@@ -180,6 +181,9 @@ function ZoomInteraction() {
 
 
     useEffect(() => {
+        if (searchIsFocused) {
+            return undefined;
+        }
         const handleKeyDown = (event) => {
             if (event.keyCode === Constants.zoomToggleBtn) {
                 setZoomBtnPressed(true);
@@ -215,7 +219,7 @@ function ZoomInteraction() {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [doKeyZoomTranslate, doKeyZoomScale, setZoomBtnPressed, zoomBtnPressed]);
+    }, [doKeyZoomTranslate, doKeyZoomScale, setZoomBtnPressed, zoomBtnPressed, searchIsFocused]);
 
 
     return (
@@ -232,7 +236,7 @@ function ZoomInteraction() {
                 minScale={1}
                 value={mapShift}
                 onChange={({translation, scale}) =>
-                    handleMapChange(zoomBtnPressed, {translation, scale})
+                    handleMapChange(zoomBtnPressed && !searchIsFocused, {translation, scale})
                 }
             >
                 {() => {

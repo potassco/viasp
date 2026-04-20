@@ -8,3 +8,8 @@ export const zoomButtonPressedState = atom({
     default: defaultZoomButtonPressedState
 });
 
+export const searchIsFocusedState = atom({
+    key: "searchIsFocusedState",
+    default: false,
+});
+
