@@ -13,6 +13,7 @@ import sys
 import os
 import time
 import webbrowser
+import subprocess
 from subprocess import Popen, DEVNULL
 from retrying import retry
 import signal
@@ -37,6 +38,15 @@ from viasp.shared.defaults import (DEFAULT_BACKEND_HOST,
                                    STDIN_TMP_STORAGE_PATH)
 
 LOG_FILE = None
+
+
+def _new_process_group_kwargs():
+    # Put the spawned server in its own process group so that Ctrl-C
+    # delivered to the parent viasp CLI is not forwarded to it
+    if sys.platform == "win32":
+        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
+
 
 def run(host=DEFAULT_BACKEND_HOST,
         port=DEFAULT_BACKEND_PORT,
@@ -125,9 +135,9 @@ class ViaspServerLauncher:
             global LOG_FILE
             LOG_FILE = open('viasp.log', 'w', encoding="utf-8")
             self.backend_server_process = Popen(command,
-                                                preexec_fn=os.setsid,
                                                 stdout=LOG_FILE,
-                                                stderr=LOG_FILE)
+                                                stderr=LOG_FILE,
+                                                **_new_process_group_kwargs())
             with open(SERVER_PID_FILE_PATH, "w") as pid_file:
                 pid_file.write(str(self.backend_server_process.pid))
 
@@ -157,9 +167,9 @@ class ViaspServerLauncher:
                 ]
 
             self.frontend_server_process = Popen(command,
-                                                 preexec_fn=os.setsid,
                                                  stdout=DEVNULL,
-                                                 stderr=DEVNULL)
+                                                 stderr=DEVNULL,
+                                                 **_new_process_group_kwargs())
             with open(FRONTEND_PID_FILE_PATH, "w") as pid_file:
                 pid_file.write(str(self.frontend_server_process.pid))
 
